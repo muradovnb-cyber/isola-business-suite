@@ -1346,14 +1346,24 @@ function saveTxNew(){
     cpid=mNum('tn-cp')||null;
     iid=mNum('tn-i')||null;
     oid=mNum('tn-o')||null;
-    // Спец. случай: обнал — запросить % и добавить потери
+    // Спец. случай: обнал — запросить %, перекинуть в кассу, снять потери + % банка
     if(iid===33){
       var obnalPct=+(prompt('Процент за обнал (например 2.5):')||0);
       if(obnalPct>0){
         var obnalFee=Math.round(uzs*obnalPct/100);
-        DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:acc,iid:33,cpid:cpid,oid:oid,amt:amt,cur:cur,rate:rate,uzs:uzs,note:note||'Обнал',by:USER.id,debt:false});
-        DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:acc,iid:14,cpid:null,oid:oid,amt:obnalFee,cur:'UZS',rate:1,uzs:obnalFee,note:'Потери обнал '+obnalPct+'%',by:USER.id,debt:false});
-        saveDB();toast('Обнал зафиксирован. Потери: '+fmt(obnalFee)+' сум ('+obnalPct+'%)','success');closeModal();rp();return;
+        var cashAmt=uzs-obnalFee;
+        var bankFee=Math.round(uzs*0.002);
+        // 1. Расход с банка (весь обнал)
+        DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:'bank',iid:33,cpid:null,oid:oid,amt:uzs,cur:'UZS',rate:1,uzs:uzs,note:'Обнал '+(note?'— '+note:''),by:USER.id,debt:false});
+        // 2. Потери обнала (расход с банка)
+        DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:'bank',iid:14,cpid:null,oid:oid,amt:obnalFee,cur:'UZS',rate:1,uzs:obnalFee,note:'Потери обнал '+obnalPct+'%',by:USER.id,debt:false});
+        // 3. % банка 0.2% за операцию
+        if(bankFee>0) DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:'bank',iid:13,cpid:null,oid:oid,amt:bankFee,cur:'UZS',rate:1,uzs:bankFee,note:'% банка 0.2% от обнала',by:USER.id,debt:false});
+        // 4. Приход в кассу (сумма за вычетом потерь)
+        DB.txs.push({id:nid(DB.txs),date:date,type:'income',acc:'cash',iid:null,cpid:null,oid:null,amt:cashAmt,cur:'UZS',rate:1,uzs:cashAmt,note:'Обнал → Касса (за вычетом '+obnalPct+'%)',by:USER.id,debt:false});
+        saveDB();
+        toast('Обнал: −'+fmt(uzs)+' Банк → +'+fmt(cashAmt)+' Касса | Потери: '+fmt(obnalFee)+' сум','success');
+        closeModal();rp();return;
       }
     }
     DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:acc,iid:iid,cpid:cpid,oid:oid,amt:amt,cur:cur,rate:rate,uzs:uzs,note:note,by:USER.id,debt:acc==='debt'});
