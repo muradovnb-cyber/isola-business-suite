@@ -697,11 +697,11 @@ function getNavs(){
     n.push({s:'Справочники'},{id:'cps',i:'🏢',l:'Контрагенты'});
   } else if(mgr){
     n.push({s:'Продажи'},{id:'crm',i:'🎯',l:'CRM — Сделки'},{id:'orders',i:'📦',l:'Мои заказы'});
-    n.push({s:'Личное'},{id:'profile',i:'👤',l:'Профиль'},{id:'sal',i:'💰',l:'Зарплата'},{id:'dir',i:'📖',l:'Справочник'},{id:'rights',i:'📋',l:'Регламент'});
+    n.push({s:'Личное'},{id:'profile',i:'👤',l:'Профиль'},{id:'sal',i:'💰',l:'Зарплата'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'dir',i:'📖',l:'Справочник'},{id:'rights',i:'📋',l:'Регламент'});
   } else {
     n.push({s:'Работа'},{id:'orders',i:'📦',l:'Заказы'},{id:'petty',i:'💵',l:'Подотчёт'});
     if(r==='constructor'||r==='production') n.push({id:'sreqs',i:'🔧',l:'Заявки на услуги'});
-    n.push({s:'Личное'},{id:'profile',i:'👤',l:'Профиль'},{id:'sal',i:'💰',l:'Зарплата'},{id:'dir',i:'📖',l:'Справочник'},{id:'rights',i:'📋',l:'Регламент'},{id:'about',i:'🏢',l:'О компании'});
+    n.push({s:'Личное'},{id:'profile',i:'👤',l:'Профиль'},{id:'sal',i:'💰',l:'Зарплата'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'dir',i:'📖',l:'Справочник'},{id:'rights',i:'📋',l:'Регламент'},{id:'about',i:'🏢',l:'О компании'});
   }
   return n;
 }
@@ -1712,23 +1712,21 @@ function saveUserNew(){
 
 // ══════════════════════════════════════════════════════
 // PAGE: PETTY CASH (Подотчёт)
+// Цепочка: Выдать → Ожидает отчёта → Сотрудник отчитался → Закрыть
 // ══════════════════════════════════════════════════════
 function pgPetty(){
   var isAdmin=USER.role==='director'||USER.role==='accountant';
-  var emps=isAdmin?DB.users.filter(function(u){return u.role==='supply';}):DB.users.filter(function(u){return u.id===USER.id;});
-
-  // Petty cash records: {id, empId, date, type:'issued'|'expense'|'returned', amt, note, status:'open'|'closed', by}
   if(!DB.petty) DB.petty=[];
 
-  var canIssue=isAdmin;
-  var empOpts=isAdmin?optList(emps,function(u){return u.id;},function(u){return u.n;}):
-              '<option value="'+USER.id+'">'+USER.n+'</option>';
+  // Sub-tabs
+  var tab=SUBTAB||0;
 
-  // Summary per employee
-  var summaryHtml='';
-  for(var i=0;i<emps.length;i++){
-    var u=emps[i];
-    var issued=0,spent=0,returned=0;
+  // Summary cards per employee
+  var empCards='';
+  var empList=isAdmin?DB.users.filter(function(u){return u.role!=='director';}):DB.users.filter(function(u){return u.id===USER.id;});
+  for(var i=0;i<empList.length;i++){
+    var u=empList[i],ri=ROLES[u.role]||{l:'',c:'#64748b'};
+    var issued=0,spent=0,returned=0,open=0;
     for(var j=0;j<DB.petty.length;j++){
       var p=DB.petty[j];
       if(p.empId!==u.id) continue;
@@ -1736,85 +1734,200 @@ function pgPetty(){
       else if(p.type==='expense') spent+=p.amt;
       else if(p.type==='returned') returned+=p.amt;
     }
-    var balance=issued-spent-returned;
-    summaryHtml+='<div class="kc '+(balance>0?'or':balance<0?'rd':'gn')+'">'
-      +'<div class="kl">'+u.n.split(' ')[0]+'</div>'
-      +'<div class="kv">'+fmt(balance)+'</div>'
-      +'<div class="ks">Выдано '+fmt(issued)+' · Потрачено '+fmt(spent)+'</div>'
+    open=issued-spent-returned;
+    empCards+='<div class="kc '+(open>0?'or':open<0?'rd':'gn')+'">'
+      +'<div class="kl">'+u.n.split(' ')[0]+'<br><span style="font-size:.58rem;color:var(--mu)">'+ri.l+'</span></div>'
+      +'<div class="kv">'+fmt(open)+'</div>'
+      +'<div class="ks">Выдано '+fmt(issued)+' · Потрачено '+fmt(spent)+(returned>0?' · Возврат '+fmt(returned):'')+'</div>'
       +'</div>';
   }
 
-  // Records table
+  // Records for this user (or all for admin)
   var records=[].concat(DB.petty).sort(function(a,b){return b.id-a.id;});
   if(!isAdmin) records=records.filter(function(p){return p.empId===USER.id;});
-  var tRows='';
-  for(var i=0;i<records.length;i++){
-    var p=records[i],u2=userGet(p.empId);
-    var typeBdg=p.type==='issued'?bdg('bg-g','💵 Выдано'):p.type==='expense'?bdg('bg-r','💸 Расход'):bdg('bg-b','↩ Возврат');
-    var delBtn=isAdmin?'<button class="btn bd bic bsm" onclick="delPetty('+p.id+')">✕</button>':'';
-    tRows+='<tr><td>'+p.date+'</td><td>'+(u2?u2.n.split(' ')[0]:'—')+'</td>'
-      +'<td>'+typeBdg+'</td>'
-      +'<td class="'+(p.type==='issued'?'ap':'an')+'" style="font-weight:600">'+(p.type==='issued'?'+':'−')+fmt(p.amt)+'</td>'
-      +'<td style="font-size:.78rem;color:var(--mu)">'+(p.note||'—')+'</td>'
-      +'<td>'+delBtn+'</td></tr>';
+
+  // Open (waiting for report)
+  var openRecs=records.filter(function(p){return p.status==='open'&&p.type==='issued';});
+  // Reported (waiting for admin to close)
+  var reportedRecs=records.filter(function(p){return p.status==='reported';});
+  // All history
+  var allRecs=records;
+
+  var openRows='',reportedRows='',allRows='';
+
+  for(var i=0;i<openRecs.length;i++){
+    var p=openRecs[i],u2=userGet(p.empId);
+    var spent2=0;
+    for(var j=0;j<DB.petty.length;j++) if(DB.petty[j].issueId===p.id&&DB.petty[j].type==='expense') spent2+=DB.petty[j].amt;
+    var remain=p.amt-spent2;
+    openRows+='<tr>'
+      +'<td>'+p.date+'</td>'
+      +'<td><b>'+(u2?u2.n:'—')+'</b></td>'
+      +'<td class="ap">'+fmt(p.amt)+'</td>'
+      +'<td class="'+(spent2>0?'an':'')+'">'+fmt(spent2)+'</td>'
+      +'<td class="'+(remain>0?'or':'ap')+'"><b>'+fmt(remain)+'</b></td>'
+      +'<td style="color:var(--mu);font-size:.75rem">'+(p.note||'—')+'</td>'
+      +'<td>'
+      // Employee can report, admin can also close
+      +(!isAdmin||USER.id===p.empId?'<button class="btn bp bsm" onclick="openReportM('+p.id+')">Отчитаться</button> ':'')
+      +(isAdmin?'<button class="btn bs bsm" onclick="closePetty('+p.id+')">Закрыть</button>':'')
+      +'</td></tr>';
   }
+
+  for(var i=0;i<reportedRecs.length;i++){
+    var p=reportedRecs[i],u2=userGet(p.empId),iss=null;
+    for(var j=0;j<DB.petty.length;j++) if(DB.petty[j].id===p.issueId){iss=DB.petty[j];break;}
+    reportedRows+='<tr>'
+      +'<td>'+p.date+'</td>'
+      +'<td><b>'+(u2?u2.n:'—')+'</b></td>'
+      +'<td>'+(iss?fmt(iss.amt):'—')+'</td>'
+      +'<td class="an">'+fmt(p.amt)+'</td>'
+      +'<td style="color:var(--mu);font-size:.75rem">'+(p.note||'—')+'</td>'
+      +'<td>'
+      +(isAdmin?'<button class="btn bp bsm" onclick="approvePetty('+p.id+','+p.issueId+')">Принять ✓</button> ':'')
+      +(isAdmin?'<button class="btn bd bsm" onclick="rejectPetty('+p.id+')">Вернуть</button>':'')
+      +'</td></tr>';
+  }
+
+  for(var i=0;i<Math.min(30,allRecs.length);i++){
+    var p=allRecs[i],u2=userGet(p.empId);
+    var typeBdg=p.type==='issued'?bdg('bg-g','💵 Выдано'):p.type==='expense'?bdg('bg-r','💸 Расход'):p.type==='returned'?bdg('bg-b','↩ Возврат'):bdg('bg-o','📋 Отчёт');
+    var stBdg=p.status==='open'?bdg('bg-o','Ожидает'):p.status==='reported'?bdg('bg-p','На проверке'):bdg('bg-g','Закрыт');
+    allRows+='<tr><td>'+p.date+'</td><td>'+(u2?u2.n.split(' ')[0]:'—')+'</td><td>'+typeBdg+'</td>'
+      +'<td class="'+(p.type==='issued'||p.type==='returned'?'ap':'an')+'" style="font-weight:600">'+(p.type==='issued'||p.type==='returned'?'+':'−')+fmt(p.amt)+'</td>'
+      +'<td>'+stBdg+'</td>'
+      +'<td style="color:var(--mu);font-size:.73rem">'+(p.note||'—').slice(0,40)+'</td>'
+      +(isAdmin?'<td><button class="btn bd bic bsm" onclick="delPetty('+p.id+')">✕</button></td>':'<td></td>')
+      +'</tr>';
+  }
+
+  // Issue form (admin only) - uses select for all employees
+  var allEmpOpts=optList(DB.users.filter(function(u){return u.role!=='director';}),function(u){return u.id;},function(u){return u.n+' ('+( ROLES[u.role]?ROLES[u.role].l:u.role)+')';});
+
+  var issueForm=isAdmin?'<div class="cc"><div class="ch"><div class="ct" style="color:var(--gr2)">💵 Выдать деньги под отчёт</div></div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:8px">'
+    +'<div class="fg" style="flex:2;min-width:200px"><label>Сотрудник *</label><select id="pt-emp">'+allEmpOpts+'</select></div>'
+    +'<div class="fg" style="flex:1;min-width:100px"><label>Сумма (сум) *</label><input type="number" id="pt-amt" placeholder="500000"/></div>'
+    +'<div class="fg" style="flex:1;min-width:100px"><label>Счёт списания</label><select id="pt-acc"><option value="cash">💵 Касса</option><option value="bank">🏦 Банк</option></select></div>'
+    +'<div class="fg" style="flex:2;min-width:200px"><label>Цель / На что</label><input id="pt-note" placeholder="Закупка материалов, командировка..."/></div>'
+    +'<div class="fg" style="flex:1;min-width:100px"><label>Дата</label><input type="date" id="pt-date" value="'+today()+'"/></div>'
+    +'</div>'
+    +'<button class="btn bp" style="margin-top:4px" id="pt-issue-btn" onclick="issuePetty()">💵 Выдать деньги</button>'
+    +'</div>':'';
 
   return '<div class="ph"><div class="pt">Подотчётные средства</div></div>'
-    +'<div class="kg">'+summaryHtml+'</div>'
-    +'<div class="g2">'
-
-    // Выдать деньги (только admin)
-    +(canIssue?'<div class="cc"><div class="ch"><div class="ct">💵 Выдать деньги под отчёт</div></div>'
-    +'<div class="fg"><label>Сотрудник</label><select id="pt-emp">'+empOpts+'</select></div>'
-    +'<div class="fg"><label>Сумма (сум) *</label><input type="number" id="pt-amt" placeholder="0"/></div>'
-    +'<div class="fg"><label>На что (цель)</label><input id="pt-note" placeholder="Закупка материалов, командировка..."/></div>'
-    +'<div class="fg"><label>Дата</label><input type="date" id="pt-date" value="'+today()+'"/></div>'
-    +btn('bp','Выдать деньги','savePetty("issued")')
-    +'</div>':'')
-
-    // Отчитаться о расходе (сотрудник + admin)
-    +'<div class="cc"><div class="ch"><div class="ct">💸 '+(isAdmin?'Добавить расход / Возврат':'Отчитаться о расходе')+'</div></div>'
-    +(isAdmin?'<div class="fg"><label>Сотрудник</label><select id="pt-emp2">'+empOpts+'</select></div>':'<input type="hidden" id="pt-emp2" value="'+USER.id+'"/>')
-    +'<div class="fg"><label>Тип</label><select id="pt-type"><option value="expense">💸 Расход (потрачено)</option><option value="returned">↩ Возврат остатка</option></select></div>'
-    +'<div class="fg"><label>Сумма *</label><input type="number" id="pt-amt2" placeholder="0"/></div>'
-    +'<div class="fg"><label>На что потрачено *</label><input id="pt-note2" placeholder="Металл 3 листа, краска, доставка..."/></div>'
-    +'<div class="fg"><label>Дата</label><input type="date" id="pt-date2" value="'+today()+'"/></div>'
-    +btn('bp','Сохранить','savePetty2()')
+    +(empCards?'<div class="kg">'+empCards+'</div>':'')
+    +issueForm
+    +'<div class="tabs">'
+    +'<div class="tab'+(tab===0?' on':'')+'" onclick="SUBTAB=0;rp()">⏳ Ожидают отчёта ('+openRecs.length+')</div>'
+    +(isAdmin?'<div class="tab'+(tab===1?' on':'')+'" onclick="SUBTAB=1;rp()">📋 На проверке ('+reportedRecs.length+')</div>':'')
+    +'<div class="tab'+(tab===2?' on':'')+'" onclick="SUBTAB=2;rp()">📜 История</div>'
     +'</div>'
-    +'</div>'
-
-    +'<div class="tc"><div class="th"><div class="ct">История операций</div></div><div class="tw"><table><thead><tr><th>Дата</th><th>Сотрудник</th><th>Тип</th><th>Сумма</th><th>Примечание</th><th></th></tr></thead><tbody>'+(tRows||'<tr class="er"><td colspan="6">Нет записей</td></tr>')+'</tbody></table></div></div>';
+    +(tab===0?'<div class="tc"><div class="tw"><table><thead><tr><th>Дата выдачи</th><th>Сотрудник</th><th>Выдано</th><th>Потрачено</th><th>Остаток</th><th>Цель</th><th>Действие</th></tr></thead><tbody>'+(openRows||'<tr class="er"><td colspan="7">Нет открытых подотчётов</td></tr>')+'</tbody></table></div></div>':'')
+    +(tab===1&&isAdmin?'<div class="tc"><div class="tw"><table><thead><tr><th>Дата отчёта</th><th>Сотрудник</th><th>Выдано</th><th>Потрачено</th><th>Что купил</th><th>Действие</th></tr></thead><tbody>'+(reportedRows||'<tr class="er"><td colspan="6">Нет отчётов на проверке</td></tr>')+'</tbody></table></div></div>':'')
+    +(tab===2?'<div class="tc"><div class="tw"><table><thead><tr><th>Дата</th><th>Сотрудник</th><th>Тип</th><th>Сумма</th><th>Статус</th><th>Примечание</th><th></th></tr></thead><tbody>'+(allRows||'<tr class="er"><td colspan="7">Нет записей</td></tr>')+'</tbody></table></div></div>':'')
+    // Return form for employee
+    +(!isAdmin?'<div class="cc"><div class="ch"><div class="ct">📋 Мои открытые подотчёты</div></div>'
+      +('<div style="font-size:.82rem;color:var(--mu)">Нажмите «Отчитаться» на нужной строке выше, чтобы сдать отчёт по расходу.</div>')
+      +'</div>':'');
 }
-function savePetty(type){
+
+// Выдать деньги — снимает с кассы/банка, создаёт запись со статусом open
+function issuePetty(){
   var empId=+(document.getElementById('pt-emp')||{value:0}).value;
   var amt=+(document.getElementById('pt-amt')||{value:0}).value;
+  var acc=(document.getElementById('pt-acc')||{value:'cash'}).value;
   var note=(document.getElementById('pt-note')||{value:''}).value||'';
   var date=(document.getElementById('pt-date')||{value:today()}).value;
-  if(!empId||!amt){toast('Заполните все поля','error');return;}
+  if(!empId){toast('Выберите сотрудника','error');return;}
+  if(!amt||amt<=0){toast('Укажите сумму','error');return;}
   if(!DB.petty) DB.petty=[];
-  DB.petty.push({id:nid(DB.petty),empId:empId,date:date,type:type,amt:amt,note:note,by:USER.id});
-  saveDB();toast('Записано','success');rp();
+  var id=nid(DB.petty);
+  // 1. Добавить в подотчёт
+  DB.petty.push({id:id,empId:empId,date:date,type:'issued',amt:amt,acc:acc,note:note,status:'open',by:USER.id});
+  // 2. Снять с кассы/банка как расход
+  DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:acc,iid:15,cpid:null,oid:null,amt:amt,cur:'UZS',rate:1,uzs:amt,note:'[Подотчёт] Выдано '+userGet(empId)?.n+': '+note,by:USER.id,debt:false});
+  saveDB();toast('Деньги выданы и списаны со счёта','success');SUBTAB=0;rp();
 }
-function savePetty2(){
-  var empId=+(document.getElementById('pt-emp2')||{value:USER.id}).value||USER.id;
-  var amt=+(document.getElementById('pt-amt2')||{value:0}).value;
-  var note=(document.getElementById('pt-note2')||{value:''}).value||'';
-  var date=(document.getElementById('pt-date2')||{value:today()}).value;
-  var type=(document.getElementById('pt-type')||{value:'expense'}).value;
-  if(!amt||!note){toast('Укажите сумму и описание','error');return;}
+
+// Открыть форму отчёта (employee)
+function openReportM(issueId){
+  var issue=null; for(var i=0;i<DB.petty.length;i++) if(DB.petty[i].id===issueId){issue=DB.petty[i];break;}
+  if(!issue) return;
+  var spent=0; for(var i=0;i<DB.petty.length;i++) if(DB.petty[i].issueId===issueId&&DB.petty[i].type==='expense') spent+=DB.petty[i].amt;
+  var remain=issue.amt-spent;
+  openModalRaw('Отчёт по подотчёту — '+fmt(issue.amt)+' сум',
+    '<div style="background:#fff8ed;border-radius:8px;padding:10px 13px;margin-bottom:12px;font-size:.81rem;color:#a05000">'
+    +'Выдано: <b>'+fmt(issue.amt)+'</b> сум · Уже потрачено: <b>'+fmt(spent)+'</b> · Остаток: <b>'+fmt(remain)+'</b></div>'
+    +'<div class="fg"><label>Потрачено (факт) *</label><input type="number" id="rp-amt" placeholder="'+remain+'" value="'+remain+'"/></div>'
+    +'<div class="fg"><label>На что потрачено *</label><input id="rp-note" placeholder="Металл 3 листа — 120 000, доставка — 50 000..."/></div>'
+    +'<div class="fg"><label>Дата</label><input type="date" id="rp-date" value="'+today()+'"/></div>'
+    +'<input type="hidden" id="rp-issue-id" value="'+issueId+'"/>',
+    'submitReport()');
+}
+
+// Сотрудник сдаёт отчёт
+function submitReport(){
+  var issueId=+(mEl('rp-issue-id')||{value:0}).value;
+  var amt=+(mEl('rp-amt')||{value:0}).value;
+  var note=(mEl('rp-note')||{value:''}).value||'';
+  var date=(mEl('rp-date')||{value:today()}).value;
+  if(!amt){toast('Укажите сумму расхода','error');return;}
+  if(!note){toast('Опишите на что потрачено','error');return;}
   if(!DB.petty) DB.petty=[];
-  DB.petty.push({id:nid(DB.petty),empId:empId,date:date,type:type,amt:amt,note:note,by:USER.id});
-  // Auto-add to transactions as expense
-  if(type==='expense'){
-    DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:'cash',iid:15,cpid:null,oid:null,amt:amt,cur:'UZS',rate:1,uzs:amt,note:'[Подотчёт] '+note,by:USER.id,debt:false});
+  DB.petty.push({id:nid(DB.petty),empId:USER.id,date:date,type:'expense',amt:amt,note:note,status:'reported',issueId:issueId,by:USER.id});
+  // Пометить выдачу как reported
+  for(var i=0;i<DB.petty.length;i++) if(DB.petty[i].id===issueId) DB.petty[i].status='reported';
+  saveDB();closeModal();toast('Отчёт отправлен на проверку','success');SUBTAB=1;rp();
+}
+
+// Бухгалтер/директор принимает отчёт
+function approvePetty(reportId, issueId){
+  var report=null,issue=null;
+  for(var i=0;i<DB.petty.length;i++){
+    if(DB.petty[i].id===reportId) report=DB.petty[i];
+    if(DB.petty[i].id===issueId) issue=DB.petty[i];
   }
-  saveDB();toast(type==='expense'?'Расход зафиксирован':'Возврат записан','success');rp();
+  if(!report||!issue) return;
+  // Закрыть выдачу
+  issue.status='closed'; report.status='closed';
+  // Если есть остаток — добавить возврат
+  var remain=issue.amt-report.amt;
+  if(remain>0){
+    DB.petty.push({id:nid(DB.petty),empId:issue.empId,date:today(),type:'returned',amt:remain,note:'Возврат остатка по подотчёту',status:'closed',issueId:issueId,by:USER.id});
+    // Вернуть на счёт
+    DB.txs.push({id:nid(DB.txs),date:today(),type:'income',acc:issue.acc||'cash',iid:null,cpid:null,oid:null,amt:remain,cur:'UZS',rate:1,uzs:remain,note:'[Подотчёт] Возврат остатка от '+userGet(issue.empId)?.n,by:USER.id,debt:false});
+  }
+  // Расходную транзакцию уже создали при выдаче, дополним примечание
+  saveDB();toast('Отчёт принят'+( remain>0?' · Возврат '+fmt(remain)+' сум зафиксирован':''),'success');SUBTAB=2;rp();
 }
+
+// Вернуть отчёт на доработку
+function rejectPetty(reportId){
+  for(var i=0;i<DB.petty.length;i++){
+    if(DB.petty[i].id===reportId){
+      var issId=DB.petty[i].issueId;
+      DB.petty[i].status='rejected';
+      // Вернуть выдачу в open
+      for(var j=0;j<DB.petty.length;j++) if(DB.petty[j].id===issId) DB.petty[j].status='open';
+      break;
+    }
+  }
+  saveDB();toast('Отчёт возвращён на доработку','info');rp();
+}
+
+// Закрыть подотчёт вручную (admin)
+function closePetty(issueId){
+  for(var i=0;i<DB.petty.length;i++) if(DB.petty[i].id===issueId) DB.petty[i].status='closed';
+  saveDB();toast('Подотчёт закрыт','success');rp();
+}
+
 function delPetty(id){
   if(!confirm('Удалить запись?')) return;
   DB.petty=DB.petty.filter(function(p){return p.id!==id;});
   saveDB();toast('Удалено','success');rp();
 }
+
 
 // ══════════════════════════════════════════════════════
 // PAGE: SERVICE REQUESTS
