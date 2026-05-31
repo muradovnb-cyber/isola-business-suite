@@ -1882,12 +1882,21 @@ var M_CFGS = {
 function openModal(id){
   var cfg=M_CFGS[id]; if(!cfg) return;
   var src=document.getElementById('m-'+id);
+  if(!src) return;
+  // Clone content and REMOVE source IDs to prevent duplicates
+  var content=src.innerHTML;
+  // Temporarily clear IDs from source div to avoid duplicate ID bug
+  var allInSrc=src.querySelectorAll('[id]');
+  var savedIds=[];
+  for(var i=0;i<allInSrc.length;i++){savedIds.push(allInSrc[i].id);allInSrc[i].removeAttribute('id');}
   document.getElementById('mroot').innerHTML='<div class="mov" onclick="if(event.target===this)closeModal()">'
     +'<div class="modal">'
     +'<div class="mh"><div class="mt">'+cfg.t+'</div>'+btn('bg0 bic','✕','closeModal()')+'</div>'
-    +'<div class="mb2">'+(src?src.innerHTML:'')+'</div>'
+    +'<div class="mb2">'+content+'</div>'
     +'<div class="mf">'+btn('bs','Отмена','closeModal()')+btn('bp','Сохранить',cfg.s)+'</div>'
     +'</div></div>';
+  // Restore source IDs
+  for(var i=0;i<allInSrc.length;i++) allInSrc[i].setAttribute('id',savedIds[i]);
 }
 function openModalRaw(title,body,save,cancel,saveLabel){
   cancel=cancel||'Отмена'; saveLabel=saveLabel||'Сохранить';
