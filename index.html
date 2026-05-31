@@ -752,13 +752,13 @@ function getNavs(){
   var r=USER.role,dir=r==='director',acc=r==='accountant',mgr=r==='manager';
   var n=[];
   if(dir){
-    n.push({s:'👑 Руководство'},{id:'ceo',i:'🤖',l:'CEO Агент'},{id:'udash',i:'🌐',l:'Единый дашборд'});
+    n.push({s:'👑 Руководство'},{id:'ceo',i:'🤖',l:'CEO Агент'},{id:'udash',i:'🌐',l:'Единый дашборд'},{id:'cashflow',i:'🏦',l:'Баланс счетов'});
     n.push({s:'💰 Финансы'},{id:'dash',i:'📊',l:'Дашборд'},{id:'pl',i:'📈',l:'P&L'},{id:'bal',i:'⚖️',l:'Баланс'},{id:'margin',i:'💹',l:'Маржинальность'});
     n.push({s:'📦 Операции'},{id:'orders',i:'📦',l:'Заказы'},{id:'txs',i:'💳',l:'Транзакции'});
     n.push({s:'👥 HR'},{id:'crm',i:'🎯',l:'CRM Сделки'},{id:'asal',i:'💰',l:'Зарплата всех'});
     n.push({s:'⚙️ Данные'},{id:'cps',i:'🏢',l:'Контрагенты'},{id:'rates',i:'💱',l:'Курсы'},{id:'users',i:'👥',l:'Пользователи'});
   } else if(acc){
-    n.push({s:'Финансы'},{id:'txs',i:'💳',l:'Транзакции'},{id:'orders',i:'📦',l:'Заказы'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'asal',i:'💰',l:'Зарплата'});
+    n.push({s:'Финансы'},{id:'cashflow',i:'🏦',l:'Баланс счетов'},{id:'txs',i:'💳',l:'Транзакции'},{id:'orders',i:'📦',l:'Заказы'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'asal',i:'💰',l:'Зарплата'});
     n.push({s:'Справочники'},{id:'cps',i:'🏢',l:'Контрагенты'});
   } else if(mgr){
     n.push({s:'Продажи'},{id:'crm',i:'🎯',l:'CRM — Сделки'},{id:'orders',i:'📦',l:'Мои заказы'});
@@ -770,7 +770,7 @@ function getNavs(){
   }
   return n;
 }
-var PAGE_TITLES={'ceo':'CEO Агент','petty':'Подотчётные средства','udash':'Единый дашборд','dash':'Дашборд','pl':'P&L','bal':'Баланс','margin':'Маржинальность','orders':'Заказы','txs':'Транзакции','crm':'CRM — Сделки','asal':'Зарплата сотрудников','sal':'Моя зарплата','profile':'Профиль','dir':'Справочник','rights':'Регламент','about':'О компании','cps':'Контрагенты','rates':'Курсы','users':'Пользователи','sreqs':'Заявки на услуги'};
+var PAGE_TITLES={'ceo':'CEO Агент','petty':'Подотчётные средства','cashflow':'Баланс счетов','udash':'Единый дашборд','dash':'Дашборд','pl':'P&L','bal':'Баланс','margin':'Маржинальность','orders':'Заказы','txs':'Транзакции','crm':'CRM — Сделки','asal':'Зарплата сотрудников','sal':'Моя зарплата','profile':'Профиль','dir':'Справочник','rights':'Регламент','about':'О компании','cps':'Контрагенты','rates':'Курсы','users':'Пользователи','sreqs':'Заявки на услуги'};
 
 function appHTML(){
   var navs=getNavs(),ri=ROLES[USER.role]||{l:'',c:'#64748b'};
@@ -822,7 +822,7 @@ function rp(){ var m=document.getElementById('mc');if(m) m.innerHTML=pageHTML();
 function pageHTML(){
   var map={
     ceo:pgCEO,udash:pgUDash,dash:pgDash,pl:pgPL,bal:pgBal,margin:pgMargin,
-    orders:pgOrders,txs:pgTxs,petty:pgPetty,crm:pgCRM,asal:pgASal,sal:pgSal,
+    orders:pgOrders,txs:pgTxs,petty:pgPetty,cashflow:pgCashflow,crm:pgCRM,asal:pgASal,sal:pgSal,
     profile:pgProfile,dir:pgDir,rights:pgRights,about:pgAbout,
     cps:pgCPs,rates:pgRates,users:pgUsers,sreqs:pgSreqs,
   };
@@ -1776,6 +1776,120 @@ function saveUserNew(){
 }
 
 // ══════════════════════════════════════════════════════
+// PAGE: CASHFLOW — Баланс счетов (Бухгалтер / Директор)
+// ══════════════════════════════════════════════════════
+function pgCashflow(){
+  var bal=balances();
+  var now=new Date();
+
+  // Monthly P&L for last 6 months
+  var months=[];
+  for(var i=5;i>=0;i--){
+    var d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    var pl=plMonth(d.getFullYear(),d.getMonth()+1);
+    months.push(pl);
+  }
+
+  // Income by type last 30 days
+  var d30=new Date(now); d30.setDate(d30.getDate()-30);
+  var d30s=d30.toISOString().slice(0,10);
+  var txsLast=[]; for(var i=0;i<DB.txs.length;i++) if(DB.txs[i].date>=d30s) txsLast.push(DB.txs[i]);
+  var incLast=0,expLast=0;
+  for(var i=0;i<txsLast.length;i++){
+    if(txsLast[i].type==='income') incLast+=txsLast[i].uzs;
+    else expLast+=txsLast[i].uzs;
+  }
+
+  // Debts to suppliers
+  var debts=[]; var totalDebt=0;
+  for(var i=0;i<DB.cps.length;i++){
+    var d2=debtCP(DB.cps[i].id);
+    if(d2>0){debts.push({cp:DB.cps[i],d:d2});totalDebt+=d2;}
+  }
+
+  // Receivables (клиенты должны)
+  var totalRec=0;
+  for(var i=0;i<DB.orders.length;i++){
+    var o=DB.orders[i];
+    if(o.status==='cancelled') continue;
+    var paid=0;
+    for(var j=0;j<DB.txs.length;j++) if(DB.txs[j].oid===o.id&&DB.txs[j].type==='income') paid+=DB.txs[j].uzs;
+    var rec=o.uzs-paid;
+    if(rec>0) totalRec+=rec;
+  }
+
+  // Open petty cash
+  var openPetty=0;
+  if(DB.petty) for(var i=0;i<DB.petty.length;i++) if(DB.petty[i].type==='issued'&&DB.petty[i].status==='open') openPetty+=DB.petty[i].amt;
+
+  // Bar chart
+  var maxV=1;
+  for(var i=0;i<months.length;i++){if(months[i].rev>maxV) maxV=months[i].rev; if(Math.abs(months[i].net)>maxV) maxV=Math.abs(months[i].net);}
+  var barsH='';
+  for(var i=0;i<months.length;i++){
+    var m2=months[i];
+    var revH=Math.round(m2.rev/maxV*70)+3;
+    var netH=Math.round(Math.abs(m2.net)/maxV*70)+3;
+    var netClr=m2.net>=0?'#4ade80':'#f87171';
+    barsH+='<div class="bc"><div class="brs">'
+      +'<div class="br" style="height:'+revH+'px;background:#3b82f6" title="Выручка '+fmt(m2.rev)+'"></div>'
+      +'<div class="br" style="height:'+netH+'px;background:'+netClr+'" title="Прибыль '+fmt(m2.net)+'"></div>'
+      +'</div><div class="bl2">'+MN[m2.m]+'</div></div>';
+  }
+
+  // Debt rows
+  var debtRows='';
+  for(var i=0;i<debts.length;i++) debtRows+='<tr><td><b>'+debts[i].cp.n+'</b></td><td class="an">'+fmt(debts[i].d)+' сум</td></tr>';
+
+  // Receivable rows
+  var recRows='';
+  for(var i=0;i<DB.orders.length;i++){
+    var o=DB.orders[i]; if(o.status==='cancelled') continue;
+    var paid2=0; for(var j=0;j<DB.txs.length;j++) if(DB.txs[j].oid===o.id&&DB.txs[j].type==='income') paid2+=DB.txs[j].uzs;
+    var rec2=o.uzs-paid2;
+    if(rec2>0){
+      var cp2=cpGet(o.cid);
+      recRows+='<tr><td><b>'+(cp2?cp2.n:'—')+'</b></td><td style="font-size:.75rem;color:var(--mu)">'+o.title.slice(0,25)+'</td>'
+        +'<td>'+fmt(o.uzs)+'</td><td class="ap">'+fmt(paid2)+'</td><td class="or" style="font-weight:700">'+fmt(rec2)+'</td></tr>';
+    }
+  }
+
+  return ''
+    // ── Счета ──────────────────────────────────────
+    +'<div style="font-weight:700;font-size:.95rem;margin-bottom:12px">💳 Остатки по счетам</div>'
+    +'<div class="kg" style="margin-bottom:20px">'
+    +'<div class="kc" style="border-left:4px solid #22c55e"><div class="kl">💵 Касса (нал)</div><div class="kv" style="color:'+(bal.cash>=0?'var(--gr2)':'var(--rd2)')+'">'+fmt(bal.cash)+'</div><div class="ks">сум</div></div>'
+    +'<div class="kc" style="border-left:4px solid #3b82f6"><div class="kl">🏦 Банк (безнал)</div><div class="kv" style="color:'+(bal.bank>=0?'var(--ac2)':'var(--rd2)')+'">'+fmt(bal.bank)+'</div><div class="ks">сум</div></div>'
+    +'<div class="kc" style="border-left:4px solid #8b5cf6"><div class="kl">💳 Карта</div><div class="kv" style="color:'+(bal.card>=0?'var(--pu)':'var(--rd2)')+'">'+fmt(bal.card)+'</div><div class="ks">сум</div></div>'
+    +'<div class="kc" style="border-left:4px solid #0f172a;background:#0f172a"><div class="kl" style="color:#64748b">ИТОГО</div><div class="kv" style="color:#4ade80">'+fmt(bal.total)+'</div><div class="ks" style="color:#475569">все счета</div></div>'
+    +'</div>'
+
+    // ── Дополнительно ──────────────────────────────
+    +'<div class="g2" style="margin-bottom:16px">'
+    +'<div class="kc or" style="border-left:4px solid var(--or)"><div class="kl">📤 Подотчёт (в руках)</div><div class="kv">'+fmt(openPetty)+'</div><div class="ks">не закрыто</div></div>'
+    +'<div class="kc rd" style="border-left:4px solid var(--rd2)"><div class="kl">⚠️ Долги поставщикам</div><div class="kv">'+fmt(totalDebt)+'</div><div class="ks">'+debts.length+' контрагентов</div></div>'
+    +'<div class="kc bl" style="border-left:4px solid var(--ac)"><div class="kl">📥 Дебиторка (нам должны)</div><div class="kv">'+fmt(totalRec)+'</div><div class="ks">клиенты не доплатили</div></div>'
+    +'</div>'
+
+    // ── График ─────────────────────────────────────
+    +'<div class="cc"><div class="ch"><div class="ct">Динамика 6 месяцев</div>'
+    +'<div style="font-size:.7rem;color:var(--mu)"><span style="width:8px;height:8px;background:#3b82f6;border-radius:50%;display:inline-block;margin-right:3px"></span>Выручка '
+    +'<span style="width:8px;height:8px;background:#4ade80;border-radius:50%;display:inline-block;margin-right:3px;margin-left:8px"></span>Прибыль</div></div>'
+    +'<div class="bars">'+barsH+'</div></div>'
+
+    +'<div class="g2">'
+    // Дебиторка
+    +'<div class="tc"><div class="th"><div class="ct">📥 Дебиторка — кто не доплатил</div></div>'
+    +'<div class="tw"><table><thead><tr><th>Клиент</th><th>Заказ</th><th>Договор</th><th>Оплачено</th><th>Остаток</th></tr></thead>'
+    +'<tbody>'+(recRows||'<tr class="er"><td colspan="5">Все оплачено ✓</td></tr>')+'</tbody></table></div></div>'
+    // Долги поставщикам
+    +'<div class="tc"><div class="th"><div class="ct">⚠️ Долги поставщикам</div></div>'
+    +'<div class="tw"><table><thead><tr><th>Поставщик</th><th>Долг</th></tr></thead>'
+    +'<tbody>'+(debtRows||'<tr class="er"><td colspan="2">Долгов нет ✓</td></tr>')+'</tbody></table></div></div>'
+    +'</div>';
+}
+
+// ══════════════════════════════════════════════════════
 // PAGE: PETTY CASH (Подотчёт)
 // Цепочка: Выдать → Ожидает отчёта → Сотрудник отчитался → Закрыть
 // ══════════════════════════════════════════════════════
@@ -1915,35 +2029,152 @@ function issuePetty(){
   saveDB();toast('Деньги выданы и списаны со счёта','success');SUBTAB=0;rp();
 }
 
-// Открыть форму отчёта (employee)
+// ── ПОДОТЧЁТ: многострочный отчёт-калькулятор ───────────────────────
+var _reportLines=[]; // [{cp:'',note:'',amt:0}]
+var _reportIssueId=0;
+var _reportIssueAmt=0;
+
 function openReportM(issueId){
-  var issue=null; for(var i=0;i<DB.petty.length;i++) if(DB.petty[i].id===issueId){issue=DB.petty[i];break;}
+  var issue=null;
+  for(var i=0;i<DB.petty.length;i++) if(DB.petty[i].id===issueId){issue=DB.petty[i];break;}
   if(!issue) return;
-  var spent=0; for(var i=0;i<DB.petty.length;i++) if(DB.petty[i].issueId===issueId&&DB.petty[i].type==='expense') spent+=DB.petty[i].amt;
-  var remain=issue.amt-spent;
-  openModalRaw('Отчёт по подотчёту — '+fmt(issue.amt)+' сум',
-    '<div style="background:#fff8ed;border-radius:8px;padding:10px 13px;margin-bottom:12px;font-size:.81rem;color:#a05000">'
-    +'Выдано: <b>'+fmt(issue.amt)+'</b> сум · Уже потрачено: <b>'+fmt(spent)+'</b> · Остаток: <b>'+fmt(remain)+'</b></div>'
-    +'<div class="fg"><label>Потрачено (факт) *</label><input type="number" id="rp-amt" placeholder="'+remain+'" value="'+remain+'"/></div>'
-    +'<div class="fg"><label>На что потрачено *</label><input id="rp-note" placeholder="Металл 3 листа — 120 000, доставка — 50 000..."/></div>'
-    +'<div class="fg"><label>Дата</label><input type="date" id="rp-date" value="'+today()+'"/></div>'
-    +'<input type="hidden" id="rp-issue-id" value="'+issueId+'"/>',
-    'submitReport()');
+  _reportIssueId=issueId;
+  _reportIssueAmt=issue.amt;
+  _reportLines=[{cp:'',note:'',amt:0}];
+  renderReportM();
 }
 
-// Сотрудник сдаёт отчёт
+function renderReportM(){
+  var issue=null;
+  for(var i=0;i<DB.petty.length;i++) if(DB.petty[i].id===_reportIssueId){issue=DB.petty[i];break;}
+
+  // Build cpOpts string safely
+  var cpOpts='<option value="">— поставщик / цель —</option>';
+  for(var i=0;i<DB.cps.length;i++){
+    var selected=DB.cps[i].n==='' ? '' : '';
+    cpOpts+='<option value="'+DB.cps[i].n+'">'+DB.cps[i].n+'</option>';
+  }
+  cpOpts+='<option value="Транспорт">Транспорт</option>'
+         +'<option value="Питание">Питание</option>'
+         +'<option value="Прочее">Прочее</option>';
+
+  var totalSpent=0;
+  for(var i=0;i<_reportLines.length;i++) totalSpent+=(_reportLines[i].amt||0);
+  var remain=_reportIssueAmt-totalSpent;
+  var balColor=remain<0?'var(--rd2)':remain===0?'var(--gr2)':'var(--or2)';
+
+  // Build rows HTML safely without inline event strings with quotes
+  var rowsHtml='';
+  for(var i=0;i<_reportLines.length;i++){
+    var ln=_reportLines[i];
+    // Build select with current value selected
+    var selOpts=cpOpts.split('value="'+ln.cp+'"').join('value="'+ln.cp+'" selected');
+    var delBtn=_reportLines.length>1
+      ?('<button class="btn bd bsm" style="margin-bottom:4px;flex-shrink:0" '
+        +'onclick="rpRemove('+i+')">&#10005;</button>')
+      :'<div style="width:28px"></div>';
+    rowsHtml+='<div style="display:flex;gap:6px;align-items:flex-end;margin-bottom:8px;flex-wrap:wrap">'
+      +'<div class="fg" style="flex:2;min-width:160px"><label>Поставщик / цель</label>'
+      +'<select data-ri="'+i+'" data-rf="cp" onchange="rpEv(this)">'+selOpts+'</select></div>'
+      +'<div class="fg" style="flex:2;min-width:140px"><label>Что купил / описание</label>'
+      +'<input placeholder="ЛДСП 6 листов, краска..." value="'+ln.note+'" '
+      +'data-ri="'+i+'" data-rf="note" onchange="rpEv(this)"/></div>'
+      +'<div class="fg" style="flex:1;min-width:100px"><label>Сумма *</label>'
+      +'<input type="number" placeholder="0" value="'+(ln.amt||'')+'" '
+      +'data-ri="'+i+'" data-rf="amt" oninput="rpEvAmt(this)"/></div>'
+      +delBtn+'</div>';
+  }
+
+  var html2='<input type="hidden" id="rp-issue-id" value="'+_reportIssueId+'"/>'
+    +'<div id="rp-totals" style="background:#0f172a;border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:8px">'
+    +'<div style="flex:1;text-align:center;min-width:80px"><div style="font-size:.6rem;color:#64748b;margin-bottom:2px">ВЫДАНО</div>'
+    +'<div style="font-size:1.1rem;font-weight:700;color:#fff">'+fmt(_reportIssueAmt)+'</div></div>'
+    +'<div style="flex:1;text-align:center;min-width:80px"><div style="font-size:.6rem;color:#64748b;margin-bottom:2px">ПОТРАЧЕНО</div>'
+    +'<div id="rp-spent" style="font-size:1.1rem;font-weight:700;color:#f87171">'+fmt(totalSpent)+'</div></div>'
+    +'<div style="flex:1;text-align:center;min-width:80px"><div id="rp-remain-lbl" style="font-size:.6rem;color:#64748b;margin-bottom:2px">'+(remain>=0?'ВОЗВРАТ':'ПЕРЕРАСХОД')+'</div>'
+    +'<div id="rp-remain" style="font-size:1.1rem;font-weight:700;color:'+balColor+'">'+fmt(Math.abs(remain))+'</div></div>'
+    +'</div>'
+    +'<div id="rp-lines">'+rowsHtml+'</div>'
+    +'<button class="btn bs" style="width:100%;margin-bottom:12px" onclick="rpAdd()">+ Добавить строку</button>'
+    +'<div class="fg"><label>Дата отчёта</label><input type="date" id="rp-date" value="'+today()+'"/></div>';
+
+  document.getElementById('mroot').innerHTML='<div class="mov" onclick="if(event.target===this)closeModal()">'
+    +'<div class="modal" style="max-width:620px">'
+    +'<div class="mh"><div class="mt">&#128203; Отчёт по подотчёту</div>'
+    +'<button class="btn bg0 bic" onclick="closeModal()">&#10005;</button></div>'
+    +'<div class="mb2">'+html2+'</div>'
+    +'<div class="mf"><button class="btn bs" onclick="closeModal()">Отмена</button>'
+    +'<button class="btn bp" onclick="submitReport()">Отправить отчёт &#8594;</button></div>'
+    +'</div></div>';
+}
+
+function rpEv(el){
+  var idx=+el.getAttribute('data-ri');
+  var field=el.getAttribute('data-rf');
+  if(_reportLines[idx]) _reportLines[idx][field]=el.value;
+}
+function rpEvAmt(el){
+  var idx=+el.getAttribute('data-ri');
+  if(_reportLines[idx]) _reportLines[idx].amt=+(el.value)||0;
+  rpRecalc();
+}
+function rpLineEv(el){rpEv(el);}
+function rpLineEvAmt(el){rpEvAmt(el);}
+function rpAdd(){ _reportLines.push({cp:'',note:'',amt:0}); renderReportM(); }
+function rpRemove(i){ _reportLines.splice(i,1); if(!_reportLines.length) _reportLines=[{cp:'',note:'',amt:0}]; renderReportM(); }
+
 function submitReport(){
-  var issueId=+(mEl('rp-issue-id')||{value:0}).value;
-  var amt=+(mEl('rp-amt')||{value:0}).value;
-  var note=(mEl('rp-note')||{value:''}).value||'';
-  var date=(mEl('rp-date')||{value:today()}).value;
-  if(!amt){toast('Укажите сумму расхода','error');return;}
-  if(!note){toast('Опишите на что потрачено','error');return;}
+  var issueId=+(document.getElementById('rp-issue-id')||{value:0}).value||_reportIssueId;
+  var date=(document.getElementById('rp-date')||{value:today()}).value||today();
+  // Validate lines
+  var hasAmt=false;
+  for(var i=0;i<_reportLines.length;i++) if(_reportLines[i].amt>0){hasAmt=true;break;}
+  if(!hasAmt){toast('Укажите хотя бы одну сумму','error');return;}
+  var totalAmt=0;
+  for(var i=0;i<_reportLines.length;i++) totalAmt+=(_reportLines[i].amt||0);
+
   if(!DB.petty) DB.petty=[];
-  DB.petty.push({id:nid(DB.petty),empId:USER.id,date:date,type:'expense',amt:amt,note:note,status:'reported',issueId:issueId,by:USER.id});
-  // Пометить выдачу как reported
+
+  // Build summary note
+  var lines=[];
+  for(var i=0;i<_reportLines.length;i++){
+    var ln=_reportLines[i];
+    if(!ln.amt) continue;
+    lines.push((ln.cp?ln.cp+': ':'')+( ln.note?ln.note+' — ':'')+fmt(ln.amt)+' сум');
+  }
+  var summaryNote=lines.join(' | ');
+
+  // Save each line as separate petty expense record
+  for(var i=0;i<_reportLines.length;i++){
+    var ln=_reportLines[i];
+    if(!ln.amt) continue;
+    DB.petty.push({
+      id:nid(DB.petty),empId:USER.id,date:date,type:'expense',
+      amt:ln.amt,note:(ln.cp?ln.cp+(ln.note?' — '+ln.note:''):ln.note||'Расход'),
+      status:'reported',issueId:issueId,by:USER.id
+    });
+  }
+
+  // Mark the issue as reported
   for(var i=0;i<DB.petty.length;i++) if(DB.petty[i].id===issueId) DB.petty[i].status='reported';
-  saveDB();closeModal();toast('Отчёт отправлен на проверку','success');SUBTAB=1;rp();
+
+  // Also add to main transactions for each line
+  for(var i=0;i<_reportLines.length;i++){
+    var ln=_reportLines[i];
+    if(!ln.amt) continue;
+    var cpid=null;
+    for(var j=0;j<DB.cps.length;j++) if(DB.cps[j].n===ln.cp){cpid=DB.cps[j].id;break;}
+    DB.txs.push({
+      id:nid(DB.txs),date:date,type:'expense',acc:'cash',iid:15,
+      cpid:cpid,oid:null,amt:ln.amt,cur:'UZS',rate:1,uzs:ln.amt,
+      note:'[Подотчёт] '+(ln.cp?ln.cp+': ':'')+( ln.note||''),
+      by:USER.id,debt:false
+    });
+  }
+
+  saveDB();closeModal();
+  toast('Отчёт отправлен ('+fmt(totalAmt)+' сум по '+lines.length+' позициям)','success');
+  SUBTAB=1;rp();
 }
 
 // Бухгалтер/директор принимает отчёт
