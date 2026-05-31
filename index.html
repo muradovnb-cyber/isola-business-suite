@@ -343,6 +343,14 @@ var ITEMS = [
   {id:31,n:'Услуги производство',  cat:'ord', sub:'svc',    who:'production'},
   {id:32,n:'Прочие расходы заказ', cat:'ord', sub:'other',  who:'all'},
 ];
+var INCOME_CATS = [
+  {id:'advance',   n:'Аванс по договору'},
+  {id:'prepay',    n:'Предоплата'},
+  {id:'payment',   n:'Доплата'},
+  {id:'final',     n:'Финальный расчёт (100%)'},
+  {id:'refund',    n:'Возврат от поставщика'},
+  {id:'other_in',  n:'Прочие поступления'},
+];
 var ACC_T = {salary:'Оклад', bonus:'Бонус', commission:'Комиссия', advance:'Аванс', fine:'Штраф', payout:'Выплата'};
 var ACC_I = {salary:'💼', bonus:'🎯', commission:'💰', advance:'💵', fine:'⚠️', payout:'✅'};
 var SL = {active:'Активен', closed:'Закрыт', cancelled:'Отменён'};
@@ -578,6 +586,11 @@ function inp(id,type,ph,val){
 }
 
 // ── Row builders (all platforms safe) ──
+function getIncomeCatName(id){
+  if(!id) return 'Поступление';
+  for(var i=0;i<INCOME_CATS.length;i++) if(INCOME_CATS[i].id===id) return INCOME_CATS[i].n;
+  return 'Поступление';
+}
 function txBadge(type,debt){
   if(type==='income') return bdg('bg-g','Приход');
   if(debt) return bdg('bg-r','Долг');
@@ -594,7 +607,7 @@ function txRow(t){
   return '<tr><td>'+fmtD(t.date)+'</td><td>'+txBadge(t.type,t.debt)+'</td>'
     +'<td>'+bdg('bg-gr',AL[t.acc]||t.acc)+'</td>'
     +'<td>'+(cp?cp.n:it?it.n:'—')+'</td>'
-    +'<td>'+(it?it.n:'—')+'</td>'
+    +'<td>'+(t.type==='income'?getIncomeCatName(t.inc_cat):(it?it.n:'—'))+'</td>'
     +'<td>'+ordCell+'</td>'
     +'<td>'+fmt(t.amt)+' '+t.cur+'</td>'
     +'<td class="'+cls+'" style="font-weight:600">'+sign+fmt(t.uzs)+'</td>'
@@ -724,13 +737,13 @@ function getNavs(){
     n.push({s:'Продажи'},{id:'crm',i:'🎯',l:'CRM — Сделки'},{id:'orders',i:'📦',l:'Мои заказы'});
     n.push({s:'Личное'},{id:'profile',i:'👤',l:'Профиль'},{id:'sal',i:'💰',l:'Зарплата'},{id:'dir',i:'📖',l:'Справочник'},{id:'rights',i:'📋',l:'Регламент'});
   } else {
-    n.push({s:'Работа'},{id:'orders',i:'📦',l:'Заказы'});
+    n.push({s:'Работа'},{id:'orders',i:'📦',l:'Заказы'},{id:'petty',i:'💵',l:'Подотчёт'});
     if(r==='constructor'||r==='production') n.push({id:'sreqs',i:'🔧',l:'Заявки на услуги'});
     n.push({s:'Личное'},{id:'profile',i:'👤',l:'Профиль'},{id:'sal',i:'💰',l:'Зарплата'},{id:'dir',i:'📖',l:'Справочник'},{id:'rights',i:'📋',l:'Регламент'},{id:'about',i:'🏢',l:'О компании'});
   }
   return n;
 }
-var PAGE_TITLES={'ceo':'CEO Агент','udash':'Единый дашборд','dash':'Дашборд','pl':'P&L','bal':'Баланс','margin':'Маржинальность','orders':'Заказы','txs':'Транзакции','crm':'CRM — Сделки','asal':'Зарплата сотрудников','sal':'Моя зарплата','profile':'Профиль','dir':'Справочник','rights':'Регламент','about':'О компании','cps':'Контрагенты','rates':'Курсы','users':'Пользователи','sreqs':'Заявки на услуги'};
+var PAGE_TITLES={'ceo':'CEO Агент','petty':'Подотчётные средства','udash':'Единый дашборд','dash':'Дашборд','pl':'P&L','bal':'Баланс','margin':'Маржинальность','orders':'Заказы','txs':'Транзакции','crm':'CRM — Сделки','asal':'Зарплата сотрудников','sal':'Моя зарплата','profile':'Профиль','dir':'Справочник','rights':'Регламент','about':'О компании','cps':'Контрагенты','rates':'Курсы','users':'Пользователи','sreqs':'Заявки на услуги'};
 
 function appHTML(){
   var navs=getNavs(),ri=ROLES[USER.role]||{l:'',c:'#64748b'};
@@ -782,7 +795,7 @@ function rp(){ var m=document.getElementById('mc');if(m) m.innerHTML=pageHTML();
 function pageHTML(){
   var map={
     ceo:pgCEO,udash:pgUDash,dash:pgDash,pl:pgPL,bal:pgBal,margin:pgMargin,
-    orders:pgOrders,txs:pgTxs,crm:pgCRM,asal:pgASal,sal:pgSal,
+    orders:pgOrders,txs:pgTxs,petty:pgPetty,crm:pgCRM,asal:pgASal,sal:pgSal,
     profile:pgProfile,dir:pgDir,rights:pgRights,about:pgAbout,
     cps:pgCPs,rates:pgRates,users:pgUsers,sreqs:pgSreqs,
   };
@@ -1181,31 +1194,124 @@ function pgTxs(){
   var txs=canAll?DB.txs:DB.txs.filter(function(t){return t.by===USER.id;});
   var sorted=[].concat(txs).sort(function(a,b){return b.date.localeCompare(a.date);});
   var rows=''; for(var i=0;i<sorted.length;i++) rows+=txRow(sorted[i]);
+
+  var clientOpts=optList(DB.cps.filter(function(c){return c.type==='client';}),function(c){return c.id;},function(c){return c.n;});
+  var supplierOpts=optList(DB.cps,function(c){return c.id;},function(c){return '['+(c.type==='client'?'Покупатель':'Поставщик')+'] '+c.n;});
   var myItems=itemsFor(USER.role);
   var genItems=myItems.filter(function(it){return it.cat==='gen';});
   var ordItems=myItems.filter(function(it){return it.cat==='ord';});
-  var itemOpts='';
-  if(genItems.length) itemOpts+='<optgroup label="── Общие ──">'+optList(genItems,function(it){return it.id;},function(it){return it.n;})+'</optgroup>';
-  if(ordItems.length) itemOpts+='<optgroup label="── На заказ ──">'+optList(ordItems,function(it){return it.id;},function(it){return it.n;})+'</optgroup>';
-  var typeField=canAll?'<div class="fg" style="flex:0 0 auto"><label>Тип</label><select id="tn-t" onchange="txToggle()"><option value="expense">Расход</option><option value="income">Приход</option></select></div>':'<input type="hidden" id="tn-t" value="expense"/>';
+  var itemOpts='<optgroup label="── Общие ──">'+optList(genItems,function(it){return it.id;},function(it){return it.n;})+'</optgroup>';
+  itemOpts+='<optgroup label="── На заказ ──">'+optList(ordItems,function(it){return it.id;},function(it){return it.n;})+'</optgroup>';
+  var incCatOpts=optList(INCOME_CATS,function(c){return c.id;},function(c){return c.n;});
+  var ordOpts=optList(DB.orders.filter(function(o){return o.status==='active';}),function(o){return o.id;},function(o){return '#'+o.id+' '+o.title;});
+
   return '<div class="ph"><div class="pt">Транзакции</div>'+btn('bp','+ Добавить',"openModal('tx-new')")+'</div>'
     +'<div class="srow"><input class="srch" id="txsrch" placeholder="🔍 Поиск по контрагенту, примечанию..." oninput="filterTxs()" style="flex:1;min-width:180px">'
     +'<select class="sfl" id="txtype" onchange="filterTxs()"><option value="">Все типы</option><option value="income">Приходы</option><option value="expense">Расходы</option></select>'
     +'<select class="sfl" id="txacc" onchange="filterTxs()"><option value="">Все счета</option><option value="cash">Касса</option><option value="bank">Банк</option><option value="card">Карта</option><option value="debt">Долг</option></select>'
     +'</div>'
-    +'<div id="tx-wrap"><div class="tc"><div class="tw"><table><thead><tr><th>Дата</th><th>Тип</th><th>Счёт</th><th>Контрагент</th><th>Статья</th><th>Заказ</th><th>Сумма</th><th>UZS</th><th>Примечание</th><th>Кто</th><th></th></tr></thead><tbody>'+(rows||'<tr class="er"><td colspan="11">Нет</td></tr>')+'</tbody></table></div></div></div>'
+    +'<div id="tx-wrap"><div class="tc"><div class="tw"><table><thead><tr><th>Дата</th><th>Тип</th><th>Счёт</th><th>Контрагент</th><th>Статья/Тип</th><th>Заказ</th><th>Сумма</th><th>UZS</th><th>Примечание</th><th>Кто</th><th></th></tr></thead><tbody>'+(rows||'<tr class="er"><td colspan="11">Нет</td></tr>')+'</tbody></table></div></div></div>'
+
+    // ── MODAL FORM ──
     +'<div id="m-tx-new" style="display:none">'
-    +typeField
-    +'<div class="fg"><label>Дата</label><input type="date" id="tn-d" value="'+today()+'"/></div>'
-    +'<div class="fg"><label>Счёт</label><select id="tn-a"><option value="cash">Касса</option><option value="bank">Банк</option><option value="card">Карта</option><option value="debt">Долг</option></select></div>'
-    +'<div class="fg"><label>Валюта</label><select id="tn-c"><option value="UZS">UZS</option><option value="USD">USD</option></select></div>'
-    +'<div class="fg"><label>Сумма *</label><input type="number" id="tn-am" placeholder="0"/></div>'
-    +'<div class="fg"><label>Контрагент</label><select id="tn-cp"><option value="">— нет —</option>'+optList(DB.cps,function(c){return c.id;},function(c){return c.n;})+'</select></div>'
-    +'<div id="tn-iw" class="fg"><label>Статья</label><select id="tn-i"><option value="">— выберите —</option>'+itemOpts+'</select></div>'
-    +'<div id="tn-ow" class="fg"><label>Заказ</label><select id="tn-o"><option value="">— нет —</option>'+optList(DB.orders.filter(function(o){return o.status==='active';}),function(o){return o.id;},function(o){return '#'+o.id+' '+o.title;})+'</select></div>'
-    +'<div class="fg"><label>Примечание</label><input id="tn-n"/></div>'
+
+    // Тип
+    +(canAll
+      ?'<div class="fg"><label>Тип операции</label><select id="tn-t" onchange="txToggle()"><option value="expense">📤 Расход</option><option value="income">📥 Приход</option></select></div>'
+      :'<input type="hidden" id="tn-t" value="expense"/>')
+
+    // Дата + Счёт
+    +'<div style="display:flex;flex-wrap:wrap;gap:8px">'
+    +'<div class="fg" style="flex:1;min-width:120px"><label>Дата</label><input type="date" id="tn-d" value="'+today()+'"/></div>'
+    +'<div class="fg" style="flex:1;min-width:120px"><label>Счёт</label><select id="tn-a"><option value="cash">💵 Касса (нал)</option><option value="bank">🏦 Банк (безнал)</option><option value="card">💳 Карта</option><option value="debt">📋 Долг (отсрочка)</option></select></div>'
+    +'<div class="fg" style="flex:1;min-width:80px"><label>Валюта</label><select id="tn-c"><option value="UZS">UZS</option><option value="USD">USD</option></select></div>'
+    +'</div>'
+
+    // Сумма
+    +'<div class="fg"><label>Сумма *</label><input type="number" id="tn-am" placeholder="0" style="font-size:1.1rem"/></div>'
+
+    // ── ПРИХОД: контрагент = покупатели, тип поступления
+    +'<div id="tn-income-fields" style="display:none">'
+    +'<div class="fg"><label>Покупатель / Клиент *</label><select id="tn-cp-in"><option value="">— выберите клиента —</option>'+clientOpts+'</select></div>'
+    +'<div class="fg"><label>Тип поступления *</label><select id="tn-inc-cat"><option value="">— выберите —</option>'+incCatOpts+'</select></div>'
+    +'<div class="fg"><label>Заказ (необязательно)</label><select id="tn-o-in"><option value="">— без привязки —</option>'+ordOpts+'</select></div>'
+    +'<div id="tn-order-balance" style="display:none;background:#e8f5e9;border-radius:8px;padding:9px 12px;margin-top:4px;font-size:.8rem;color:#00875a"></div>'
+    +'</div>'
+
+    // ── РАСХОД: поставщики + статьи
+    +'<div id="tn-expense-fields">'
+    +'<div class="fg"><label>Контрагент (поставщик)</label><select id="tn-cp"><option value="">— нет —</option>'+supplierOpts+'</select></div>'
+    +'<div class="fg"><label>Статья расхода *</label><select id="tn-i"><option value="">— выберите —</option>'+itemOpts+'</select></div>'
+    +'<div class="fg"><label>Заказ (если расход по заказу)</label><select id="tn-o"><option value="">— общий расход —</option>'+ordOpts+'</select></div>'
+    +'</div>'
+
+    +'<div class="fg"><label>Примечание</label><input id="tn-n" placeholder="Дополнительная информация..."/></div>'
     +'</div>';
 }
+
+function txToggle(){
+  var t=mVal('tn-t')||'expense';
+  var inf=mEl('tn-income-fields');
+  var exf=mEl('tn-expense-fields');
+  if(inf) inf.style.display=t==='income'?'':'none';
+  if(exf) exf.style.display=t==='expense'?'':'none';
+  // При приходе — счёт Долг недоступен
+  var accEl=mEl('tn-a');
+  if(accEl&&t==='income'){
+    for(var i=0;i<accEl.options.length;i++){
+      if(accEl.options[i].value==='debt') accEl.options[i].disabled=true;
+    }
+    if(accEl.value==='debt') accEl.value='bank';
+  } else if(accEl){
+    for(var i=0;i<accEl.options.length;i++) accEl.options[i].disabled=false;
+  }
+  // Показываем остаток по заказу
+  txShowBalance();
+}
+function txShowBalance(){
+  var ordId=+(mVal('tn-o-in')||0);
+  var balEl=mEl('tn-order-balance');
+  if(!balEl) return;
+  if(!ordId){balEl.style.display='none';return;}
+  var o=ordGet(ordId);
+  if(!o){balEl.style.display='none';return;}
+  var paid=0; for(var i=0;i<DB.txs.length;i++) if(DB.txs[i].oid===ordId&&DB.txs[i].type==='income') paid+=DB.txs[i].uzs;
+  var remain=o.uzs-paid;
+  balEl.style.display='';
+  balEl.innerHTML='📊 По заказу: договор <b>'+fmt(o.uzs)+'</b> · получено <b>'+fmt(paid)+'</b> · осталось получить: <b style="color:'+(remain>0?'#e06b00':'#00875a')+'">'+fmt(remain)+'</b>';
+}
+
+function saveTxNew(){
+  var amt=mNum('tn-am');
+  if(!amt){toast('Укажите сумму','error');return;}
+  var date=mVal('tn-d')||today();
+  var cur=mVal('tn-c')||'UZS';
+  var acc=mVal('tn-a')||'bank';
+  var type=mVal('tn-t')||'expense';
+  var rate=cur==='USD'?getRate(date):1;
+  var uzs=cur==='USD'?amt*rate:amt;
+
+  var cpid=null,iid=null,oid=null,note=mVal('tn-n')||'';
+
+  if(type==='income'){
+    cpid=mNum('tn-cp-in')||null;
+    var incCat=mVal('tn-inc-cat')||'';
+    oid=mNum('tn-o-in')||null;
+    if(!cpid){toast('Выберите клиента','error');return;}
+    if(!incCat){toast('Выберите тип поступления','error');return;}
+    var catName=''; for(var i=0;i<INCOME_CATS.length;i++) if(INCOME_CATS[i].id===incCat) catName=INCOME_CATS[i].n;
+    if(!note) note=catName;
+    DB.txs.push({id:nid(DB.txs),date:date,type:'income',acc:acc,iid:null,cpid:cpid,oid:oid,amt:amt,cur:cur,rate:rate,uzs:uzs,note:note,by:USER.id,debt:false,inc_cat:incCat});
+    if(oid){var o=ordGet(oid);if(o&&!o.ca) accrueComm(o,'advance');}
+  } else {
+    cpid=mNum('tn-cp')||null;
+    iid=mNum('tn-i')||null;
+    oid=mNum('tn-o')||null;
+    DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:acc,iid:iid,cpid:cpid,oid:oid,amt:amt,cur:cur,rate:rate,uzs:uzs,note:note,by:USER.id,debt:acc==='debt'});
+  }
+  saveDB();toast(type==='income'?'Поступление зафиксировано ✓':'Расход добавлен ✓','success');closeModal();rp();
+}
+
 function filterTxs(){
   var q=((document.getElementById('txsrch')||{}).value||'').toLowerCase();
   var tf=((document.getElementById('txtype')||{}).value)||'';
@@ -1222,33 +1328,11 @@ function filterTxs(){
   txs=txs.sort(function(a,b){return b.date.localeCompare(a.date);});
   if(!txs.length){wrap.innerHTML='<div class="tc"><div style="padding:20px;text-align:center;color:var(--mu)">Нет транзакций</div></div>';return;}
   var rows=''; for(var i=0;i<txs.length;i++) rows+=txRow(txs[i]);
-  wrap.innerHTML='<div class="tc"><div class="tw"><table><thead><tr><th>Дата</th><th>Тип</th><th>Счёт</th><th>Контрагент</th><th>Статья</th><th>Заказ</th><th>Сумма</th><th>UZS</th><th>Примечание</th><th>Кто</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
-}
-function txToggle(){
-  var t=mVal('tn-t')||'expense';
-  var iw=mEl('tn-iw'),ow=mEl('tn-ow');
-  if(iw) iw.style.display=t==='income'?'none':'';
-  if(ow) ow.style.display=t==='income'?'none':'';
-}
-function saveTxNew(){
-  var amt=mNum('tn-am');
-  if(!amt){toast('Укажите сумму','error');return;}
-  var date=mVal('tn-d')||today();
-  var cur=mVal('tn-c')||'UZS';
-  var acc=mVal('tn-a')||'bank';
-  var type=mVal('tn-t')||'expense';
-  var rate=cur==='USD'?getRate(date):1;
-  var oid=mNum('tn-o')||null;
-  DB.txs.push({id:nid(DB.txs),date:date,type:type,acc:acc,iid:mNum('tn-i')||null,cpid:mNum('tn-cp')||null,oid:oid,amt:amt,cur:cur,rate:rate,uzs:cur==='USD'?amt*rate:amt,note:mVal('tn-n')||'',by:USER.id,debt:acc==='debt'});
-  if(type==='income'&&oid){var o=ordGet(oid);if(o&&!o.ca) accrueComm(o,'advance');}
-  saveDB();toast('Добавлено','success');closeModal();rp();
-}
-function delTx(id){
-  if(!confirm('Удалить транзакцию?')) return;
-  DB.txs=DB.txs.filter(function(t){return t.id!==id;});
-  saveDB();toast('Удалено','success');rp();
+  wrap.innerHTML='<div class="tc"><div class="tw"><table><thead><tr><th>Дата</th><th>Тип</th><th>Счёт</th><th>Контрагент</th><th>Статья/Тип</th><th>Заказ</th><th>Сумма</th><th>UZS</th><th>Примечание</th><th>Кто</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
 }
 
+// ══════════════════════════════════════════════════════
+// PAGE: CRM
 // ══════════════════════════════════════════════════════
 // PAGE: CRM
 // ══════════════════════════════════════════════════════
@@ -1662,6 +1746,112 @@ function saveUserNew(){
   var ri=ROLES[role]||{};
   DB.users.push({id:nid(DB.users),n:n,e:e,p:p,role:role,dept:ri.dept||null,sal:+(document.getElementById('un-s')||{value:0}).value||0,comm:+(document.getElementById('un-c')||{value:0}).value||0,ph:(document.getElementById('un-ph')||{value:''}).value||'',dob:'',start:today(),photo:null,instrs:[]});
   saveDB();toast('Создан','success');closeModal();rp();
+}
+
+// ══════════════════════════════════════════════════════
+// PAGE: PETTY CASH (Подотчёт)
+// ══════════════════════════════════════════════════════
+function pgPetty(){
+  var isAdmin=USER.role==='director'||USER.role==='accountant';
+  var emps=isAdmin?DB.users.filter(function(u){return u.role==='supply';}):DB.users.filter(function(u){return u.id===USER.id;});
+
+  // Petty cash records: {id, empId, date, type:'issued'|'expense'|'returned', amt, note, status:'open'|'closed', by}
+  if(!DB.petty) DB.petty=[];
+
+  var canIssue=isAdmin;
+  var empOpts=isAdmin?optList(emps,function(u){return u.id;},function(u){return u.n;}):
+              '<option value="'+USER.id+'">'+USER.n+'</option>';
+
+  // Summary per employee
+  var summaryHtml='';
+  for(var i=0;i<emps.length;i++){
+    var u=emps[i];
+    var issued=0,spent=0,returned=0;
+    for(var j=0;j<DB.petty.length;j++){
+      var p=DB.petty[j];
+      if(p.empId!==u.id) continue;
+      if(p.type==='issued') issued+=p.amt;
+      else if(p.type==='expense') spent+=p.amt;
+      else if(p.type==='returned') returned+=p.amt;
+    }
+    var balance=issued-spent-returned;
+    summaryHtml+='<div class="kc '+(balance>0?'or':balance<0?'rd':'gn')+'">'
+      +'<div class="kl">'+u.n.split(' ')[0]+'</div>'
+      +'<div class="kv">'+fmt(balance)+'</div>'
+      +'<div class="ks">Выдано '+fmt(issued)+' · Потрачено '+fmt(spent)+'</div>'
+      +'</div>';
+  }
+
+  // Records table
+  var records=[].concat(DB.petty).sort(function(a,b){return b.id-a.id;});
+  if(!isAdmin) records=records.filter(function(p){return p.empId===USER.id;});
+  var tRows='';
+  for(var i=0;i<records.length;i++){
+    var p=records[i],u2=userGet(p.empId);
+    var typeBdg=p.type==='issued'?bdg('bg-g','💵 Выдано'):p.type==='expense'?bdg('bg-r','💸 Расход'):bdg('bg-b','↩ Возврат');
+    var delBtn=isAdmin?'<button class="btn bd bic bsm" onclick="delPetty('+p.id+')">✕</button>':'';
+    tRows+='<tr><td>'+p.date+'</td><td>'+(u2?u2.n.split(' ')[0]:'—')+'</td>'
+      +'<td>'+typeBdg+'</td>'
+      +'<td class="'+(p.type==='issued'?'ap':'an')+'" style="font-weight:600">'+(p.type==='issued'?'+':'−')+fmt(p.amt)+'</td>'
+      +'<td style="font-size:.78rem;color:var(--mu)">'+(p.note||'—')+'</td>'
+      +'<td>'+delBtn+'</td></tr>';
+  }
+
+  return '<div class="ph"><div class="pt">Подотчётные средства</div></div>'
+    +'<div class="kg">'+summaryHtml+'</div>'
+    +'<div class="g2">'
+
+    // Выдать деньги (только admin)
+    +(canIssue?'<div class="cc"><div class="ch"><div class="ct">💵 Выдать деньги под отчёт</div></div>'
+    +'<div class="fg"><label>Сотрудник</label><select id="pt-emp">'+empOpts+'</select></div>'
+    +'<div class="fg"><label>Сумма (сум) *</label><input type="number" id="pt-amt" placeholder="0"/></div>'
+    +'<div class="fg"><label>На что (цель)</label><input id="pt-note" placeholder="Закупка материалов, командировка..."/></div>'
+    +'<div class="fg"><label>Дата</label><input type="date" id="pt-date" value="'+today()+'"/></div>'
+    +btn('bp','Выдать деньги','savePetty("issued")')
+    +'</div>':'')
+
+    // Отчитаться о расходе (сотрудник + admin)
+    +'<div class="cc"><div class="ch"><div class="ct">💸 '+(isAdmin?'Добавить расход / Возврат':'Отчитаться о расходе')+'</div></div>'
+    +(isAdmin?'<div class="fg"><label>Сотрудник</label><select id="pt-emp2">'+empOpts+'</select></div>':'<input type="hidden" id="pt-emp2" value="'+USER.id+'"/>')
+    +'<div class="fg"><label>Тип</label><select id="pt-type"><option value="expense">💸 Расход (потрачено)</option><option value="returned">↩ Возврат остатка</option></select></div>'
+    +'<div class="fg"><label>Сумма *</label><input type="number" id="pt-amt2" placeholder="0"/></div>'
+    +'<div class="fg"><label>На что потрачено *</label><input id="pt-note2" placeholder="Металл 3 листа, краска, доставка..."/></div>'
+    +'<div class="fg"><label>Дата</label><input type="date" id="pt-date2" value="'+today()+'"/></div>'
+    +btn('bp','Сохранить','savePetty2()')
+    +'</div>'
+    +'</div>'
+
+    +'<div class="tc"><div class="th"><div class="ct">История операций</div></div><div class="tw"><table><thead><tr><th>Дата</th><th>Сотрудник</th><th>Тип</th><th>Сумма</th><th>Примечание</th><th></th></tr></thead><tbody>'+(tRows||'<tr class="er"><td colspan="6">Нет записей</td></tr>')+'</tbody></table></div></div>';
+}
+function savePetty(type){
+  var empId=+(document.getElementById('pt-emp')||{value:0}).value;
+  var amt=+(document.getElementById('pt-amt')||{value:0}).value;
+  var note=(document.getElementById('pt-note')||{value:''}).value||'';
+  var date=(document.getElementById('pt-date')||{value:today()}).value;
+  if(!empId||!amt){toast('Заполните все поля','error');return;}
+  if(!DB.petty) DB.petty=[];
+  DB.petty.push({id:nid(DB.petty),empId:empId,date:date,type:type,amt:amt,note:note,by:USER.id});
+  saveDB();toast('Записано','success');rp();
+}
+function savePetty2(){
+  var empId=+(document.getElementById('pt-emp2')||{value:USER.id}).value||USER.id;
+  var amt=+(document.getElementById('pt-amt2')||{value:0}).value;
+  var note=(document.getElementById('pt-note2')||{value:''}).value||'';
+  var date=(document.getElementById('pt-date2')||{value:today()}).value;
+  var type=(document.getElementById('pt-type')||{value:'expense'}).value;
+  if(!amt||!note){toast('Укажите сумму и описание','error');return;}
+  if(!DB.petty) DB.petty=[];
+  DB.petty.push({id:nid(DB.petty),empId:empId,date:date,type:type,amt:amt,note:note,by:USER.id});
+  // Auto-add to transactions as expense
+  if(type==='expense'){
+    DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:'cash',iid:15,cpid:null,oid:null,amt:amt,cur:'UZS',rate:1,uzs:amt,note:'[Подотчёт] '+note,by:USER.id,debt:false});
+  }
+  saveDB();toast(type==='expense'?'Расход зафиксирован':'Возврат записан','success');rp();
+}
+function delPetty(id){
+  if(!confirm('Удалить запись?')) return;
+  DB.petty=DB.petty.filter(function(p){return p.id!==id;});
+  saveDB();toast('Удалено','success');rp();
 }
 
 // ══════════════════════════════════════════════════════
