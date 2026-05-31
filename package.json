@@ -1,0 +1,12 @@
+{
+  "name": "isola-business-suite",
+  "version": "1.0.0",
+  "description": "ISOLA Business Suite — корпоративный портал",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}
