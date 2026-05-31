@@ -468,7 +468,7 @@ var SEED = {
 };
 
 // ── DB ENGINE ──
-var VER='suite-v4';
+var VER='suite-v5';
 var DB = (function(){
   try {
     if(localStorage.getItem('sv')!==VER){localStorage.removeItem('sd');localStorage.setItem('sv',VER);}
@@ -1820,7 +1820,21 @@ function pgCashflow(){
 
   // Open petty cash
   var openPetty=0;
-  if(DB.petty) for(var i=0;i<DB.petty.length;i++) if(DB.petty[i].type==='issued'&&DB.petty[i].status==='open') openPetty+=DB.petty[i].amt;
+  if(DB.petty){
+    for(var i=0;i<DB.petty.length;i++){
+      var pp=DB.petty[i];
+      if(pp.type==='issued'&&pp.status!=='closed'){
+        // issued amount minus what's already been spent
+        openPetty+=pp.amt;
+      }
+    }
+    // subtract reported expenses
+    for(var i=0;i<DB.petty.length;i++){
+      var pp=DB.petty[i];
+      if(pp.type==='expense') openPetty-=pp.amt;
+    }
+    if(openPetty<0) openPetty=0;
+  }
 
   // Bar chart
   var maxV=1;
@@ -1926,9 +1940,9 @@ function pgPetty(){
   if(!isAdmin) records=records.filter(function(p){return p.empId===USER.id;});
 
   // Open (waiting for report)
-  var openRecs=records.filter(function(p){return p.status==='open'&&p.type==='issued';});
+  var openRecs=records.filter(function(p){return p.type==='issued'&&p.status!=='closed';});
   // Reported (waiting for admin to close)
-  var reportedRecs=records.filter(function(p){return p.status==='reported';});
+  var reportedRecs=records.filter(function(p){return p.type==='expense'&&p.status==='reported';});
   // All history
   var allRecs=records;
 
@@ -1953,10 +1967,12 @@ function pgPetty(){
       +'<td class="ap">'+fmt(p.amt)+'</td>'
       +'<td class="'+(spent2>0?'an':'')+'">'+fmt(spent2)+'</td>'
       +'<td class="'+(remain>0?'or':'ap')+'" style="font-weight:700">'+fmt(remain)+'</td>'
-      +'<td style="color:var(--mu);font-size:.75rem">'+(p.note||'—')+'</td>'
+      +'<td style="color:var(--mu);font-size:.75rem">'+(p.note||'—')
+      +'<br>'+(p.status==='reported'?'<span class="bdg bg-p" style="font-size:.6rem">На проверке</span>':'<span class="bdg bg-o" style="font-size:.6rem">Открыт</span>')
+      +'</td>'
       +'<td style="white-space:nowrap">'
       +(canReport?'<button class="btn bp bsm" style="margin-bottom:3px" onclick="openReportM('+p.id+')">'+(spent2>0?'+ Расход':'Отчитаться')+'</button>':'')
-      +(canReport&&spent2>0?'<br><button class="btn bs bsm" onclick="finalizeReport('+p.id+')">&#10003; Закрыть</button> ':'')
+      +(canReport&&spent2>0&&p.status!=='reported'?'<br><button class="btn bs bsm" onclick="finalizeReport('+p.id+')">&#10003; Закрыть</button> ':'')
       +(isAdmin?' <button class="btn bd bsm" onclick="closePetty('+p.id+')">&#10005;</button>':'')
       +'</td></tr>';
   }
