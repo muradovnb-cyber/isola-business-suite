@@ -36,7 +36,7 @@ function handler(req, res) {
   if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
     const idx = path.join(DIR, 'index.html');
     if (fs.existsSync(idx)) {
-      res.writeHead(200, {'Content-Type':MIME['.html'],'Cache-Control':'no-cache'});
+      res.writeHead(200, {'Content-Type':MIME['.html'],'Cache-Control':'no-cache, no-store, must-revalidate','Pragma':'no-cache','Expires':'0'});
       res.end(fs.readFileSync(idx));
     } else { res.writeHead(404); res.end('Not Found'); }
     return;
@@ -44,7 +44,7 @@ function handler(req, res) {
 
   const ext = path.extname(filePath).toLowerCase();
   const ct  = MIME[ext] || 'application/octet-stream';
-  const cc  = ['.png','.ico','.svg'].includes(ext) ? 'max-age=604800' : 'no-cache';
+  const cc  = ['.png','.ico','.svg'].includes(ext) ? 'max-age=604800' : 'no-cache, no-store, must-revalidate';
   res.writeHead(200, {'Content-Type':ct,'Cache-Control':cc});
   res.end(fs.readFileSync(filePath));
 }
