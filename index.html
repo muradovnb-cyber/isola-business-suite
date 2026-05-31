@@ -342,6 +342,7 @@ var ITEMS = [
   {id:30,n:'Покраска',             cat:'ord', sub:'svc',    who:'production'},
   {id:31,n:'Услуги производство',  cat:'ord', sub:'svc',    who:'production'},
   {id:32,n:'Прочие расходы заказ', cat:'ord', sub:'other',  who:'all'},
+  {id:33,n:'Обнал (снятие нал)',     cat:'gen', sub:'bank',   who:'all'},
 ];
 var INCOME_CATS = [
   {id:'advance',   n:'Аванс по договору'},
@@ -1197,8 +1198,14 @@ function saveExpOrd(oid){
   var cur=(document.getElementById('en-v-'+oid)||{value:'UZS'}).value;
   var acc=(document.getElementById('en-a-'+oid)||{value:'cash'}).value;
   var rate=cur==='USD'?getRate(date):1;
-  DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:acc,iid:iid,cpid:+(document.getElementById('en-c-'+oid)||{value:0}).value||null,oid:oid,amt:amt,cur:cur,rate:rate,uzs:cur==='USD'?amt*rate:amt,note:(document.getElementById('en-n-'+oid)||{value:''}).value||'',by:USER.id,debt:acc==='debt'});
-  saveDB();toast('Расход добавлен','success');rp();
+  var expUzs=cur==='USD'?amt*rate:amt;
+  DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:acc,iid:iid,cpid:+(document.getElementById('en-c-'+oid)||{value:0}).value||null,oid:oid,amt:amt,cur:cur,rate:rate,uzs:expUzs,note:(document.getElementById('en-n-'+oid)||{value:''}).value||'',by:USER.id,debt:acc==='debt'});
+  // % банка 0.1% при безнале
+  if(acc==='bank'&&expUzs>0&&iid!==13&&iid!==14){
+    var bFee=Math.round(expUzs*0.001);
+    if(bFee>0) DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:'bank',iid:13,cpid:null,oid:oid,amt:bFee,cur:'UZS',rate:1,uzs:bFee,note:'% банка 0.1%',by:USER.id,debt:false});
+  }
+  saveDB();toast('Расход добавлен'+(acc==='bank'&&expUzs>0&&iid!==13&&iid!==14?' (+% банка)':''),'success');rp();
 }
 function setOrdSt(id,status){
   var o=ordGet(id); if(!o) return;
@@ -1339,9 +1346,24 @@ function saveTxNew(){
     cpid=mNum('tn-cp')||null;
     iid=mNum('tn-i')||null;
     oid=mNum('tn-o')||null;
+    // Спец. случай: обнал — запросить % и добавить потери
+    if(iid===33){
+      var obnalPct=+(prompt('Процент за обнал (например 2.5):')||0);
+      if(obnalPct>0){
+        var obnalFee=Math.round(uzs*obnalPct/100);
+        DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:acc,iid:33,cpid:cpid,oid:oid,amt:amt,cur:cur,rate:rate,uzs:uzs,note:note||'Обнал',by:USER.id,debt:false});
+        DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:acc,iid:14,cpid:null,oid:oid,amt:obnalFee,cur:'UZS',rate:1,uzs:obnalFee,note:'Потери обнал '+obnalPct+'%',by:USER.id,debt:false});
+        saveDB();toast('Обнал зафиксирован. Потери: '+fmt(obnalFee)+' сум ('+obnalPct+'%)','success');closeModal();rp();return;
+      }
+    }
     DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:acc,iid:iid,cpid:cpid,oid:oid,amt:amt,cur:cur,rate:rate,uzs:uzs,note:note,by:USER.id,debt:acc==='debt'});
+    // Автоначисление % банка 0.1% при расходе с банка (безнал)
+    if(acc==='bank'&&uzs>0&&iid!==13&&iid!==14){
+      var bankFee=Math.round(uzs*0.001);
+      if(bankFee>0) DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:'bank',iid:13,cpid:null,oid:oid,amt:bankFee,cur:'UZS',rate:1,uzs:bankFee,note:'% банка 0.1% от '+fmt(uzs),by:USER.id,debt:false});
+    }
   }
-  saveDB();toast(type==='income'?'Поступление зафиксировано ✓':'Расход добавлен ✓','success');closeModal();rp();
+  saveDB();toast(type==='income'?'Поступление зафиксировано ✓':'Расход добавлен ✓'+(acc==='bank'&&uzs>0&&iid!==13&&iid!==14?' (+% банка)':''),'success');closeModal();rp();
 }
 
 function filterTxs(){
