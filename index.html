@@ -468,7 +468,7 @@ var SEED = {
 };
 
 // ── DB ENGINE ──
-var VER='suite-v5';
+var VER='suite-v6';
 var DB = (function(){
   try {
     if(localStorage.getItem('sv')!==VER){localStorage.removeItem('sd');localStorage.setItem('sv',VER);}
@@ -2028,10 +2028,52 @@ function pgPetty(){
     +(tab===0?'<div class="tc"><div class="tw"><table><thead><tr><th>Дата выдачи</th><th>Сотрудник</th><th>Выдано</th><th>Потрачено</th><th>Остаток</th><th>Цель</th><th>Действие</th></tr></thead><tbody>'+(openRows||'<tr class="er"><td colspan="7">Нет открытых подотчётов</td></tr>')+'</tbody></table></div></div>':'')
     +(tab===1&&isAdmin?'<div class="tc"><div class="tw"><table><thead><tr><th>Дата отчёта</th><th>Сотрудник</th><th>Выдано</th><th>Потрачено</th><th>Что купил</th><th>Действие</th></tr></thead><tbody>'+(reportedRows||'<tr class="er"><td colspan="6">Нет отчётов на проверке</td></tr>')+'</tbody></table></div></div>':'')
     +(tab===2?'<div class="tc"><div class="tw"><table><thead><tr><th>Дата</th><th>Сотрудник</th><th>Тип</th><th>Сумма</th><th>Статус</th><th>Примечание</th><th></th></tr></thead><tbody>'+(allRows||'<tr class="er"><td colspan="7">Нет записей</td></tr>')+'</tbody></table></div></div>':'')
-    // Return form for employee
-    +(!isAdmin?'<div class="cc"><div class="ch"><div class="ct">📋 Мои открытые подотчёты</div></div>'
-      +('<div style="font-size:.82rem;color:var(--mu)">Нажмите «Отчитаться» на нужной строке выше, чтобы сдать отчёт по расходу.</div>')
-      +'</div>':'');
+    // For employees: show ALL their non-closed issued records as action cards
+    var myOpenCards='';
+    if(!isAdmin){
+      var myIssued=DB.petty?DB.petty.filter(function(p){return p.type==='issued'&&p.status!=='closed'&&p.empId===USER.id;}):[];
+      if(myIssued.length===0){
+        myOpenCards='<div style="padding:16px;text-align:center;color:var(--mu);font-size:.84rem">Нет открытых подотчётов</div>';
+      } else {
+        for(var i=0;i<myIssued.length;i++){
+          var mi=myIssued[i];
+          var miSpent=0;
+          if(DB.petty) for(var j=0;j<DB.petty.length;j++) if(DB.petty[j].issueId===mi.id&&DB.petty[j].type==='expense') miSpent+=DB.petty[j].amt;
+          var miRemain=mi.amt-miSpent;
+          var miDet='';
+          if(DB.petty) for(var j=0;j<DB.petty.length;j++){
+            var mpe=DB.petty[j];
+            if(mpe.issueId===mi.id&&mpe.type==='expense') miDet+='<div style="font-size:.72rem;color:var(--mu)">&#8594; '+mpe.note+': '+fmt(mpe.amt)+' сум</div>';
+          }
+          myOpenCards+='<div style="background:#fff;border:1px solid var(--bd);border-radius:11px;padding:14px;margin-bottom:10px">'
+            +'<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:10px">'
+            +'<div>'
+            +'<div style="font-size:.72rem;color:var(--mu)">Выдано '+mi.date+(mi.note?' · '+mi.note:'')+'</div>'
+            +'<div style="font-size:1.3rem;font-weight:700;color:var(--or2);margin-top:2px">'+fmt(miRemain)+' сум</div>'
+            +'<div style="font-size:.72rem;color:var(--mu)">Выдано '+fmt(mi.amt)+' · Потрачено '+fmt(miSpent)+'</div>'
+            +'</div>'
+            +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
+            +'<button class="btn bp" onclick="openReportM('+mi.id+')">+ Добавить расход</button>'
+            +(miSpent>0?'<button class="btn bs" onclick="finalizeReport('+mi.id+')">&#10003; Закрыть подотчёт</button>':'')
+            +'</div></div>'
+            +(miDet?'<div style="border-top:1px solid var(--bd);padding-top:8px">'+miDet+'</div>':'')
+            +'</div>';
+        }
+      }
+      myOpenCards='<div style="font-weight:700;font-size:.88rem;margin-bottom:10px">📋 Мои открытые подотчёты</div>'+myOpenCards;
+    }
+    return ''
+      +(empCards?'<div class="kg">'+empCards+'</div>':'')
+      +issueForm
+      +(isAdmin?'<div class="tabs">'
+        +'<div class="tab'+(tab===0?' on':'')+'" onclick="SUBTAB=0;rp()">&#9203; Ожидают ('+openRecs.length+')</div>'
+        +'<div class="tab'+(tab===1?' on':'')+'" onclick="SUBTAB=1;rp()">&#128203; На проверке ('+reportedRecs.length+')</div>'
+        +'<div class="tab'+(tab===2?' on':'')+'" onclick="SUBTAB=2;rp()">&#128220; История</div>'
+        +'</div>':'')
+      +(isAdmin&&tab===0?'<div class="tc"><div class="tw"><table><thead><tr><th>Дата выдачи</th><th>Сотрудник</th><th>Выдано</th><th>Потрачено</th><th>Остаток</th><th>Статус/Цель</th><th>Действие</th></tr></thead><tbody>'+(openRows||'<tr class="er"><td colspan="7">Нет открытых подотчётов</td></tr>')+'</tbody></table></div></div>':'')
+      +(isAdmin&&tab===1?'<div class="tc"><div class="tw"><table><thead><tr><th>Дата</th><th>Сотрудник</th><th>Выдано</th><th>Потрачено</th><th>Что купил</th><th>Действие</th></tr></thead><tbody>'+(reportedRows||'<tr class="er"><td colspan="6">Нет отчётов на проверке</td></tr>')+'</tbody></table></div></div>':'')
+      +(isAdmin&&tab===2?'<div class="tc"><div class="tw"><table><thead><tr><th>Дата</th><th>Сотрудник</th><th>Тип</th><th>Сумма</th><th>Статус</th><th>Примечание</th><th></th></tr></thead><tbody>'+(allRows||'<tr class="er"><td colspan="7">Нет записей</td></tr>')+'</tbody></table></div></div>':'')
+      +(!isAdmin?myOpenCards:'');
 }
 
 // Выдать деньги — снимает с кассы/банка, создаёт запись со статусом open
