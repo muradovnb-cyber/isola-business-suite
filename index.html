@@ -1203,7 +1203,7 @@ function saveExpOrd(oid){
   // % банка 0.1% при безнале
   if(acc==='bank'&&expUzs>0&&iid!==13&&iid!==14){
     var bFee=Math.round(expUzs*0.001);
-    if(bFee>0) DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:'bank',iid:13,cpid:null,oid:oid,amt:bFee,cur:'UZS',rate:1,uzs:bFee,note:'% банка 0.1%',by:USER.id,debt:false});
+    if(bFee>0) DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:'bank',iid:13,cpid:null,oid:oid,amt:bFee,cur:'UZS',rate:1,uzs:bFee,note:'% банка 0.2%',by:USER.id,debt:false});
   }
   saveDB();toast('Расход добавлен'+(acc==='bank'&&expUzs>0&&iid!==13&&iid!==14?' (+% банка)':''),'success');rp();
 }
@@ -1359,8 +1359,8 @@ function saveTxNew(){
     DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:acc,iid:iid,cpid:cpid,oid:oid,amt:amt,cur:cur,rate:rate,uzs:uzs,note:note,by:USER.id,debt:acc==='debt'});
     // Автоначисление % банка 0.1% при расходе с банка (безнал)
     if(acc==='bank'&&uzs>0&&iid!==13&&iid!==14){
-      var bankFee=Math.round(uzs*0.001);
-      if(bankFee>0) DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:'bank',iid:13,cpid:null,oid:oid,amt:bankFee,cur:'UZS',rate:1,uzs:bankFee,note:'% банка 0.1% от '+fmt(uzs),by:USER.id,debt:false});
+      var bankFee=Math.round(uzs*0.002);
+      if(bankFee>0) DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:'bank',iid:13,cpid:null,oid:oid,amt:bankFee,cur:'UZS',rate:1,uzs:bankFee,note:'% банка 0.2% от '+fmt(uzs),by:USER.id,debt:false});
     }
   }
   saveDB();toast(type==='income'?'Поступление зафиксировано ✓':'Расход добавлен ✓'+(acc==='bank'&&uzs>0&&iid!==13&&iid!==14?' (+% банка)':''),'success');closeModal();rp();
