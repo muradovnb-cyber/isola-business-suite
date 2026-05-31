@@ -468,12 +468,17 @@ var SEED = {
 };
 
 // ── DB ENGINE ──
-var VER='suite-v6';
+var VER='suite-v7';
 var DB = (function(){
   try {
     if(localStorage.getItem('sv')!==VER){localStorage.removeItem('sd');localStorage.setItem('sv',VER);}
     var d=localStorage.getItem('sd');
-    return d ? JSON.parse(d) : JSON.parse(JSON.stringify(SEED));
+    var db=d ? JSON.parse(d) : JSON.parse(JSON.stringify(SEED));
+    // Clean up bad petty issuance transactions (old bug: issuance created as expense)
+    if(db.txs) db.txs=db.txs.filter(function(t){
+      return !(t.note&&t.note.indexOf('[Подотчёт] Выдано ')===0);
+    });
+    return db;
   } catch(e){ return JSON.parse(JSON.stringify(SEED)); }
 })();
 function saveDB(){ try{localStorage.setItem('sd',JSON.stringify(DB));}catch(e){} }
@@ -2086,12 +2091,10 @@ function issuePetty(){
   if(!empId){toast('Выберите сотрудника','error');return;}
   if(!amt||amt<=0){toast('Укажите сумму','error');return;}
   if(!DB.petty) DB.petty=[];
-  var id=nid(DB.petty);
-  // 1. Добавить в подотчёт
-  DB.petty.push({id:id,empId:empId,date:date,type:'issued',amt:amt,acc:acc,note:note,status:'open',by:USER.id});
-  // 2. Снять с кассы/банка как расход
-  DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:acc,iid:15,cpid:null,oid:null,amt:amt,cur:'UZS',rate:1,uzs:amt,note:'[Подотчёт] Выдано '+userGet(empId)?.n+': '+note,by:USER.id,debt:false});
-  saveDB();toast('Деньги выданы и списаны со счёта','success');SUBTAB=0;rp();
+  // Создаём только запись подотчёта. НЕ создаём транзакцию расхода.
+  // Расход в транзакциях появится когда сотрудник отчитается о покупках.
+  DB.petty.push({id:nid(DB.petty),empId:empId,date:date,type:'issued',amt:amt,acc:acc,note:note,status:'open',by:USER.id});
+  saveDB();toast('Деньги выданы — ждём отчёта от сотрудника','success');SUBTAB=0;rp();
 }
 
 // ── ПОДОТЧЁТ: многострочный отчёт-калькулятор ───────────────────────
@@ -2231,8 +2234,11 @@ function submitReport(){
     if(!ln.amt) continue;
     var cpid=null;
     for(var j=0;j<DB.cps.length;j++) if(DB.cps[j].n===ln.cp){cpid=DB.cps[j].id;break;}
+    // Find the original issue account
+    var issueAcc='cash';
+    for(var ix=0;ix<DB.petty.length;ix++) if(DB.petty[ix].id===issueId&&DB.petty[ix].type==='issued'){issueAcc=DB.petty[ix].acc||'cash';break;}
     DB.txs.push({
-      id:nid(DB.txs),date:date,type:'expense',acc:'cash',iid:15,
+      id:nid(DB.txs),date:date,type:'expense',acc:issueAcc,iid:15,
       cpid:cpid,oid:null,amt:ln.amt,cur:'UZS',rate:1,uzs:ln.amt,
       note:'[Подотчёт] '+(ln.cp?ln.cp+': ':'')+( ln.note||''),
       by:USER.id,debt:false
@@ -2277,7 +2283,8 @@ function approvePetty(reportId, issueId){
   if(remain>0){
     DB.petty.push({id:nid(DB.petty),empId:issue.empId,date:today(),type:'returned',amt:remain,note:'Возврат остатка по подотчёту',status:'closed',issueId:issueId,by:USER.id});
     // Вернуть на счёт
-    DB.txs.push({id:nid(DB.txs),date:today(),type:'income',acc:issue.acc||'cash',iid:null,cpid:null,oid:null,amt:remain,cur:'UZS',rate:1,uzs:remain,note:'[Подотчёт] Возврат остатка от '+userGet(issue.empId)?.n,by:USER.id,debt:false});
+    var returnAcc=issue.acc||'cash';
+    DB.txs.push({id:nid(DB.txs),date:today(),type:'income',acc:returnAcc,iid:null,cpid:null,oid:null,amt:remain,cur:'UZS',rate:1,uzs:remain,note:'[Подотчёт] Возврат остатка от '+(userGet(issue.empId)?userGet(issue.empId).n:''),by:USER.id,debt:false});
   }
   // Расходную транзакцию уже создали при выдаче, дополним примечание
   saveDB();toast('Отчёт принят'+( remain>0?' · Возврат '+fmt(remain)+' сум зафиксирован':''),'success');SUBTAB=2;rp();
