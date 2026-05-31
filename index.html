@@ -770,6 +770,12 @@ function openSide(){ var s=document.getElementById('sidebar'),o=document.getElem
 function closeSide(){ var s=document.getElementById('sidebar'),o=document.getElementById('ov');if(s){s.classList.remove('open');if(o) o.classList.remove('open');}}
 function logout(){ USER=null;PAGE='ceo';render(); }
 
+function mEl(id){
+  var e=document.querySelector('#mroot [id="'+id+'"]');
+  return e || document.getElementById(id);
+}
+function mVal(id){ var e=mEl(id); return e?e.value:''; }
+function mNum(id){ var e=mEl(id); return e?+(e.value)||0:0; }
 function render(){ document.getElementById('app').innerHTML=USER?appHTML():loginHTML(); }
 function rp(){ var m=document.getElementById('mc');if(m) m.innerHTML=pageHTML(); }
 
@@ -1049,10 +1055,10 @@ function filterOrders(){
   wrap.innerHTML='<div class="tc"><div class="tw"><table><thead><tr><th>№</th><th>Название</th><th>Клиент</th><th>Сумма</th><th>Расходы</th><th>Оплата</th><th>Статус</th><th>Менеджер</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
 }
 function saveOrderNew(){
-  var t=(document.getElementById('on-t')||{value:''}).value.trim();
-  var c=+(document.getElementById('on-c')||{value:0}).value;
+  var t=mVal('on-t').trim();
+  var c=mNum('on-c');
   if(!t||!c){toast('Заполните обязательные поля','error');return;}
-  DB.orders.push({id:nid(DB.orders),title:t,cid:c,uzs:+(document.getElementById('on-u').value)||0,usd:+(document.getElementById('on-d').value)||0,status:'active',created:today(),closed:null,note:(document.getElementById('on-n').value)||'',mid:+(document.getElementById('on-m').value)||null,ca:false,cc:false,did:null});
+  DB.orders.push({id:nid(DB.orders),title:t,cid:c,uzs:mNum('on-u'),usd:mNum('on-d'),status:'active',created:today(),closed:null,note:mVal('on-n'),mid:mNum('on-m')||null,ca:false,cc:false,did:null});
   saveDB();toast('Заказ создан','success');closeModal();rp();
 }
 
@@ -1219,21 +1225,21 @@ function filterTxs(){
   wrap.innerHTML='<div class="tc"><div class="tw"><table><thead><tr><th>Дата</th><th>Тип</th><th>Счёт</th><th>Контрагент</th><th>Статья</th><th>Заказ</th><th>Сумма</th><th>UZS</th><th>Примечание</th><th>Кто</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
 }
 function txToggle(){
-  var t=(document.getElementById('tn-t')||{value:'expense'}).value;
-  var iw=document.getElementById('tn-iw'),ow=document.getElementById('tn-ow');
+  var t=mVal('tn-t')||'expense';
+  var iw=mEl('tn-iw'),ow=mEl('tn-ow');
   if(iw) iw.style.display=t==='income'?'none':'';
   if(ow) ow.style.display=t==='income'?'none':'';
 }
 function saveTxNew(){
-  var amt=+(document.getElementById('tn-am')||{value:0}).value;
+  var amt=mNum('tn-am');
   if(!amt){toast('Укажите сумму','error');return;}
-  var date=(document.getElementById('tn-d')||{value:today()}).value;
-  var cur=(document.getElementById('tn-c')||{value:'UZS'}).value;
-  var acc=(document.getElementById('tn-a')||{value:'bank'}).value;
-  var type=(document.getElementById('tn-t')||{value:'expense'}).value;
+  var date=mVal('tn-d')||today();
+  var cur=mVal('tn-c')||'UZS';
+  var acc=mVal('tn-a')||'bank';
+  var type=mVal('tn-t')||'expense';
   var rate=cur==='USD'?getRate(date):1;
-  var oid=+(document.getElementById('tn-o')||{value:0}).value||null;
-  DB.txs.push({id:nid(DB.txs),date:date,type:type,acc:acc,iid:+(document.getElementById('tn-i')||{value:0}).value||null,cpid:+(document.getElementById('tn-cp')||{value:0}).value||null,oid:oid,amt:amt,cur:cur,rate:rate,uzs:cur==='USD'?amt*rate:amt,note:(document.getElementById('tn-n')||{value:''}).value||'',by:USER.id,debt:acc==='debt'});
+  var oid=mNum('tn-o')||null;
+  DB.txs.push({id:nid(DB.txs),date:date,type:type,acc:acc,iid:mNum('tn-i')||null,cpid:mNum('tn-cp')||null,oid:oid,amt:amt,cur:cur,rate:rate,uzs:cur==='USD'?amt*rate:amt,note:mVal('tn-n')||'',by:USER.id,debt:acc==='debt'});
   if(type==='income'&&oid){var o=ordGet(oid);if(o&&!o.ca) accrueComm(o,'advance');}
   saveDB();toast('Добавлено','success');closeModal();rp();
 }
