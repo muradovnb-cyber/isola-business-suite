@@ -1939,20 +1939,27 @@ function pgPetty(){
     var spent2=0;
     for(var j=0;j<DB.petty.length;j++) if(DB.petty[j].issueId===p.id&&DB.petty[j].type==='expense') spent2+=DB.petty[j].amt;
     var remain=p.amt-spent2;
+    var expDetails='';
+    for(var j=0;j<DB.petty.length;j++){
+      var pe=DB.petty[j];
+      if(pe.issueId===p.id&&pe.type==='expense'){
+        expDetails+='<div style="font-size:.69rem;color:var(--mu);padding:1px 0">&#8594; '+pe.note+': <b>'+fmt(pe.amt)+'</b></div>';
+      }
+    }
+    var canReport=USER.id===p.empId||isAdmin;
     openRows+='<tr>'
       +'<td>'+p.date+'</td>'
-      +'<td><b>'+(u2?u2.n:'—')+'</b></td>'
+      +'<td><b>'+(u2?u2.n:'—')+'</b>'+(expDetails?'<div style="margin-top:3px">'+expDetails+'</div>':'')+'</td>'
       +'<td class="ap">'+fmt(p.amt)+'</td>'
       +'<td class="'+(spent2>0?'an':'')+'">'+fmt(spent2)+'</td>'
-      +'<td class="'+(remain>0?'or':'ap')+'"><b>'+fmt(remain)+'</b></td>'
+      +'<td class="'+(remain>0?'or':'ap')+'" style="font-weight:700">'+fmt(remain)+'</td>'
       +'<td style="color:var(--mu);font-size:.75rem">'+(p.note||'—')+'</td>'
-      +'<td>'
-      // Employee can report, admin can also close
-      +(!isAdmin||USER.id===p.empId?'<button class="btn bp bsm" onclick="openReportM('+p.id+')">Отчитаться</button> ':'')
-      +(isAdmin?'<button class="btn bs bsm" onclick="closePetty('+p.id+')">Закрыть</button>':'')
+      +'<td style="white-space:nowrap">'
+      +(canReport?'<button class="btn bp bsm" style="margin-bottom:3px" onclick="openReportM('+p.id+')">'+(spent2>0?'+ Расход':'Отчитаться')+'</button>':'')
+      +(canReport&&spent2>0?'<br><button class="btn bs bsm" onclick="finalizeReport('+p.id+')">&#10003; Закрыть</button> ':'')
+      +(isAdmin?' <button class="btn bd bsm" onclick="closePetty('+p.id+')">&#10005;</button>':'')
       +'</td></tr>';
   }
-
   for(var i=0;i<reportedRecs.length;i++){
     var p=reportedRecs[i],u2=userGet(p.empId),iss=null;
     for(var j=0;j<DB.petty.length;j++) if(DB.petty[j].id===p.issueId){iss=DB.petty[j];break;}
@@ -2033,6 +2040,7 @@ function issuePetty(){
 var _reportLines=[]; // [{cp:'',note:'',amt:0}]
 var _reportIssueId=0;
 var _reportIssueAmt=0;
+var _reportIsFinal=false;
 
 function openReportM(issueId){
   var issue=null;
@@ -2104,7 +2112,8 @@ function renderReportM(){
     +'<button class="btn bg0 bic" onclick="closeModal()">&#10005;</button></div>'
     +'<div class="mb2">'+html2+'</div>'
     +'<div class="mf"><button class="btn bs" onclick="closeModal()">Отмена</button>'
-    +'<button class="btn bp" onclick="submitReport()">Отправить отчёт &#8594;</button></div>'
+    +'<button class="btn bs" onclick="_reportIsFinal=false;submitReport()">+ Добавить расходы</button>'
+    +'<button class="btn bp" onclick="_reportIsFinal=true;submitReport()">✓ Закрыть подотчёт</button></div>'
     +'</div></div>';
 }
 
@@ -2155,10 +2164,10 @@ function submitReport(){
     });
   }
 
-  // Mark the issue as reported
-  for(var i=0;i<DB.petty.length;i++) if(DB.petty[i].id===issueId) DB.petty[i].status='reported';
+  // Determine if this is a final report (close) or partial
+  var isFinal=_reportIsFinal||false;
 
-  // Also add to main transactions for each line
+  // Add to main transactions for each line
   for(var i=0;i<_reportLines.length;i++){
     var ln=_reportLines[i];
     if(!ln.amt) continue;
@@ -2172,9 +2181,27 @@ function submitReport(){
     });
   }
 
-  saveDB();closeModal();
-  toast('Отчёт отправлен ('+fmt(totalAmt)+' сум по '+lines.length+' позициям)','success');
-  SUBTAB=1;rp();
+  if(isFinal){
+    // Final: mark issue as reported — goes to admin for approval
+    for(var i=0;i<DB.petty.length;i++) if(DB.petty[i].id===issueId) DB.petty[i].status='reported';
+    saveDB();closeModal();
+    toast('Финальный отчёт отправлен на проверку ✓','success');
+    SUBTAB=1;rp();
+  } else {
+    // Partial: keep issue 'open', just save expenses
+    saveDB();closeModal();
+    toast('Расходы добавлены ('+fmt(totalAmt)+' сум). Подотчёт остаётся открытым.','success');
+    SUBTAB=0;rp();
+  }
+}
+
+// Сотрудник закрывает подотчёт без новых расходов (финальный)
+function finalizeReport(issueId){
+  _reportLines=[{cp:'',note:'',amt:0}];
+  _reportIssueId=issueId;
+  for(var i=0;i<DB.petty.length;i++) if(DB.petty[i].id===issueId){_reportIssueAmt=DB.petty[i].amt;break;}
+  _reportIsFinal=true;
+  renderReportM();
 }
 
 // Бухгалтер/директор принимает отчёт
