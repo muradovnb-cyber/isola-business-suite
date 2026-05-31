@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ISOLA — Подключение телефона</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:#101418;color:#e2e2e9;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+.wrap{max-width:520px;width:100%;text-align:center;}
+.logo{font-size:48px;font-weight:700;letter-spacing:-3px;margin-bottom:6px;
+  background:linear-gradient(135deg,#fff 30%,#8cb4f5);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.sub{color:#8e909a;font-size:14px;margin-bottom:36px;}
+.card{background:#1e2227;border:1px solid #3a3f45;border-radius:20px;padding:32px;margin-bottom:20px;}
+.card h2{font-size:18px;font-weight:500;margin-bottom:20px;color:#c5c6d0;}
+#qr-container{width:200px;height:200px;background:#fff;border-radius:12px;margin:0 auto 20px;
+  display:flex;align-items:center;justify-content:center;font-size:13px;color:#333;}
+.url-box{background:#101418;border:1px solid #3a3f45;border-radius:10px;padding:12px 16px;
+  font-family:monospace;font-size:15px;color:#8cb4f5;word-break:break-all;margin-bottom:16px;}
+.copy-btn{background:#8cb4f5;color:#001d36;border:none;border-radius:100px;padding:12px 28px;
+  font-size:15px;font-weight:700;cursor:pointer;transition:opacity .15s;}
+.copy-btn:active{opacity:.7;}
+.steps{text-align:left;margin-top:20px;}
+.step{display:flex;gap:14px;align-items:flex-start;padding:12px 0;border-bottom:1px solid #2e3238;}
+.step:last-child{border-bottom:none;}
+.step-n{width:28px;height:28px;border-radius:50%;background:#8cb4f5;color:#001d36;
+  font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.step-t{font-size:14px;color:#c5c6d0;line-height:1.5;}
+.step-t b{color:#e2e2e9;}
+.warn{background:rgba(230,195,46,.1);border:1px solid rgba(230,195,46,.2);border-radius:12px;
+  padding:14px 16px;font-size:13px;color:#e6c32e;margin-top:16px;line-height:1.6;}
+.ips{margin-top:16px;}
+.ip-item{background:#101418;border:1px solid #3a3f45;border-radius:10px;padding:10px 14px;
+  margin-bottom:8px;font-family:monospace;font-size:14px;color:#6dd58c;cursor:pointer;transition:background .15s;}
+.ip-item:hover{background:#1e2227;}
+.ip-item:last-child{margin-bottom:0;}
+.copied{color:#6dd58c;font-size:13px;margin-top:8px;height:20px;transition:opacity .3s;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">ISOLA</div>
+  <div class="sub">Страница подключения сотрудников</div>
+
+  <div class="card">
+    <h2>📱 QR-код для телефона</h2>
+    <div id="qr-container"><span id="qr-status">Загрузка...</span></div>
+    <div class="url-box" id="main-url">Определяю адрес...</div>
+    <button class="copy-btn" onclick="copyUrl()">Скопировать ссылку</button>
+    <div class="copied" id="copied-msg"></div>
+
+    <div class="ips" id="ip-list"></div>
+  </div>
+
+  <div class="card">
+    <h2>📲 Как установить приложение</h2>
+    <div class="steps">
+      <div class="step"><div class="step-n">1</div><div class="step-t">Подключитесь к той же <b>WiFi-сети</b>, что и компьютер-сервер</div></div>
+      <div class="step"><div class="step-n">2</div><div class="step-t">Откройте QR-код камерой или введите адрес вручную</div></div>
+      <div class="step"><div class="step-n">3</div><div class="step-t"><b>Android Chrome:</b> нажмите ⋮ → «Установить приложение» или «Добавить на главный экран»</div></div>
+      <div class="step"><div class="step-n">4</div><div class="step-t"><b>iPhone Safari:</b> нажмите кнопку «Поделиться» (квадрат со стрелкой) → «На экран Домой»</div></div>
+    </div>
+    <div class="warn">⚠️ При первом открытии браузер покажет предупреждение о сертификате безопасности. Нажмите <b>«Дополнительно»</b> → <b>«Перейти на сайт»</b> — это нормально для локальной сети.</div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+// Detect server URL
+const proto = location.protocol;
+const host = location.hostname;
+const port = location.port;
+const portStr = (!port || port==='443' || port==='80') ? '' : ':'+port;
+const serverUrl = `${proto}//${host}${portStr}/`;
+
+document.getElementById('main-url').textContent = serverUrl;
+
+// Generate QR
+try {
+  document.getElementById('qr-status').textContent = '';
+  new QRCode(document.getElementById('qr-container'), {
+    text: serverUrl,
+    width: 180, height: 180,
+    colorDark: '#000000', colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+} catch(e) {
+  document.getElementById('qr-status').textContent = serverUrl;
+}
+
+// Show multiple IPs if available
+fetch('/api/info').then(r=>r.json()).then(d=>{
+  if(d.ips && d.ips.length > 1) {
+    const list = document.getElementById('ip-list');
+    list.innerHTML = '<div style="font-size:13px;color:#8e909a;margin-bottom:8px">Другие адреса сервера:</div>';
+    d.ips.forEach(ip => {
+      const url = `${proto}//${ip}${portStr}/`;
+      list.innerHTML += `<div class="ip-item" onclick="selectUrl('${url}')">${url}</div>`;
+    });
+  }
+}).catch(()=>{});
+
+function copyUrl() {
+  const url = document.getElementById('main-url').textContent;
+  navigator.clipboard.writeText(url).then(()=>{
+    const el = document.getElementById('copied-msg');
+    el.textContent = '✓ Скопировано!';
+    el.style.opacity = '1';
+    setTimeout(()=>{el.style.opacity='0';},2000);
+  });
+}
+function selectUrl(url) {
+  document.getElementById('main-url').textContent = url;
+  try {
+    document.getElementById('qr-container').innerHTML = '';
+    new QRCode(document.getElementById('qr-container'), {
+      text: url, width:180, height:180,
+      colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M
+    });
+  } catch(e){}
+}
+</script>
+</body>
+</html>
