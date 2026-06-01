@@ -350,14 +350,17 @@ var DEPTS = {
 var MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 var MN = ['','Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
 var ITEMS = [
-  {id:1, n:'ЗП Илхом',             cat:'gen', sub:'salary', who:'all'},
-  {id:2, n:'ЗП Нодир',             cat:'gen', sub:'salary', who:'all'},
-  {id:3, n:'ЗП Афруз',             cat:'gen', sub:'salary', who:'all'},
-  {id:4, n:'ЗП Абдурауф фикс',     cat:'gen', sub:'salary', who:'all'},
-  {id:5, n:'ЗП Адхам',             cat:'gen', sub:'salary', who:'all'},
-  {id:6, n:'ЗП сторож',            cat:'gen', sub:'salary', who:'all'},
-  {id:7, n:'ЗП повар',             cat:'gen', sub:'salary', who:'all'},
-  {id:8, n:'Прочие ЗП',            cat:'gen', sub:'salary', who:'all'},
+  // parent:0 = это родительская статья (группа)
+  // parent:N = это подстатья группы N
+  {id:1, n:'ЗП Фонд',              cat:'gen', sub:'salary', who:'all', parent:0},
+  {id:2, n:'ЗП Илхом',             cat:'gen', sub:'salary', who:'all', parent:1},
+  {id:3, n:'ЗП Нодир',             cat:'gen', sub:'salary', who:'all', parent:1},
+  {id:4, n:'ЗП Афруз',             cat:'gen', sub:'salary', who:'all', parent:1},
+  {id:5, n:'ЗП Абдурауф',          cat:'gen', sub:'salary', who:'all', parent:1},
+  {id:6, n:'ЗП Адхам',             cat:'gen', sub:'salary', who:'all', parent:1},
+  {id:7, n:'ЗП сторож',            cat:'gen', sub:'salary', who:'all', parent:1},
+  {id:8, n:'ЗП повар',             cat:'gen', sub:'salary', who:'all', parent:1},
+  {id:34,n:'Прочие ЗП',            cat:'gen', sub:'salary', who:'all', parent:1},
   {id:9, n:'Аренда',               cat:'gen', sub:'office', who:'all'},
   {id:10,n:'Коммунальные',         cat:'gen', sub:'office', who:'all'},
   {id:11,n:'Питание офис',         cat:'gen', sub:'office', who:'all'},
@@ -1277,10 +1280,37 @@ function pgTxs(){
   var clientOpts=optList(DB.cps.filter(function(c){return c.type==='client';}),function(c){return c.id;},function(c){return c.n;});
   var supplierOpts=optList(DB.cps,function(c){return c.id;},function(c){return '['+(c.type==='client'?'Покупатель':'Поставщик')+'] '+c.n;});
   var myItems=itemsFor(USER.role);
+  // Build grouped item select HTML
   var genItems=myItems.filter(function(it){return it.cat==='gen';});
   var ordItems=myItems.filter(function(it){return it.cat==='ord';});
-  var itemOpts='<optgroup label="── Общие ──">'+optList(genItems,function(it){return it.id;},function(it){return it.n;})+'</optgroup>';
-  itemOpts+='<optgroup label="── На заказ ──">'+optList(ordItems,function(it){return it.id;},function(it){return it.n;})+'</optgroup>';
+
+  // Gen items with parent grouping
+  function buildGroupedOpts(items2){
+    var parents2=items2.filter(function(it){return it.parent===0;});
+    var noParent2=items2.filter(function(it){return it.parent===undefined||it.parent===null;});
+    var children2=items2.filter(function(it){return it.parent&&it.parent>0;});
+    var html3='';
+    if(parents2.length){
+      // items without parent first
+      for(var i=0;i<noParent2.length;i++) html3+='<option value="'+noParent2[i].id+'">'+noParent2[i].n+'</option>';
+      for(var i=0;i<parents2.length;i++){
+        var par2=parents2[i];
+        var kids2=children2.filter(function(c){return c.parent===par2.id;});
+        if(kids2.length){
+          html3+='<optgroup label="📁 '+par2.n+'">';
+          for(var j=0;j<kids2.length;j++) html3+='<option value="'+kids2[j].id+'">'+kids2[j].n+'</option>';
+          html3+='</optgroup>';
+        } else {
+          html3+='<option value="'+par2.id+'">'+par2.n+'</option>';
+        }
+      }
+    } else {
+      for(var i=0;i<items2.length;i++) html3+='<option value="'+items2[i].id+'">'+items2[i].n+'</option>';
+    }
+    return html3;
+  }
+  var itemOpts='<optgroup label="── Общие ──">'+buildGroupedOpts(genItems)+'</optgroup>';
+  itemOpts+='<optgroup label="── На заказ ──">'+buildGroupedOpts(ordItems)+'</optgroup>';
   var incCatOpts=optList(INCOME_CATS,function(c){return c.id;},function(c){return c.n;});
   var ordOpts=optList(DB.orders.filter(function(o){return o.status==='active';}),function(o){return o.id;},function(o){return '#'+o.id+' '+o.title;});
 
