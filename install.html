@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<title>Установить ISOLA</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display',sans-serif;background:#0f172a;color:#fff;min-height:100vh;overflow-x:hidden;}
+
+/* HERO */
+.hero{text-align:center;padding:60px 24px 32px;}
+.app-icon{width:96px;height:96px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);border-radius:22px;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:48px;box-shadow:0 20px 60px rgba(59,130,246,.4);}
+.app-name{font-size:28px;font-weight:800;letter-spacing:-1px;margin-bottom:6px;}
+.app-sub{font-size:15px;color:#64748b;}
+
+/* QR */
+.qr-wrap{background:#fff;border-radius:20px;padding:20px;margin:24px auto;width:fit-content;box-shadow:0 20px 60px rgba(0,0,0,.4);}
+.qr-wrap svg{display:block;}
+.qr-label{text-align:center;color:#1e293b;font-size:12px;font-weight:600;margin-top:10px;letter-spacing:.05em;}
+
+/* STEPS */
+.steps-wrap{padding:0 20px 32px;}
+.step-title{font-size:13px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:.1em;text-align:center;margin-bottom:16px;}
+.step{display:flex;gap:14px;align-items:flex-start;background:rgba(255,255,255,.06);border-radius:14px;padding:14px 16px;margin-bottom:10px;border:1px solid rgba(255,255,255,.08);opacity:0;transform:translateY(12px);transition:all .4s;}
+.step.show{opacity:1;transform:none;}
+.step-n{width:32px;height:32px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0;}
+.step-body{flex:1;}
+.step-head{font-weight:700;font-size:15px;margin-bottom:3px;}
+.step-desc{font-size:13px;color:#94a3b8;line-height:1.5;}
+.step-img{margin-top:10px;background:rgba(255,255,255,.08);border-radius:10px;padding:10px;text-align:center;font-size:24px;}
+
+/* iOS BANNER - shown on iPhone */
+.ios-banner{display:none;position:fixed;bottom:0;left:0;right:0;z-index:100;padding:16px 20px calc(16px + env(safe-area-inset-bottom));background:linear-gradient(0deg,#0f172a 60%,transparent);text-align:center;}
+.ios-arrow{font-size:36px;animation:bounce 1s infinite;}
+.ios-text{font-size:14px;color:#94a3b8;margin-top:4px;}
+.ios-text b{color:#fff;}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(8px)}}
+
+/* OPEN BTN */
+.open-btn{display:block;margin:0 auto 32px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;border-radius:14px;padding:16px 40px;font-size:17px;font-weight:700;text-decoration:none;box-shadow:0 10px 40px rgba(59,130,246,.4);letter-spacing:-.3px;}
+
+/* DESKTOP */
+@media(min-width:700px){.ios-banner{display:none !important;}}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="app-icon">🏢</div>
+  <div class="app-name">ISOLA Suite</div>
+  <div class="app-sub">Корпоративный портал компании ISOLA</div>
+</div>
+
+<!-- QR Code (generated via JS) -->
+<div style="text-align:center;padding:0 24px;">
+  <div class="qr-wrap" id="qr-container">
+    <canvas id="qr-canvas" width="200" height="200"></canvas>
+    <div class="qr-label">ОТСКАНИРУЙ НА ТЕЛЕФОНЕ</div>
+  </div>
+</div>
+
+<!-- Open button -->
+<div style="text-align:center;padding:16px 24px 0;">
+  <a href="https://isola-business-suite-production.up.railway.app" class="open-btn">
+    Открыть приложение →
+  </a>
+</div>
+
+<!-- Steps -->
+<div class="steps-wrap">
+  <div class="step-title">Как установить на iPhone</div>
+  <div class="step" id="s1">
+    <div class="step-n">1</div>
+    <div class="step-body">
+      <div class="step-head">Открой в Safari</div>
+      <div class="step-desc">Обязательно через Safari — Chrome не поддерживает установку на iOS.</div>
+      <div class="step-img">🧭</div>
+    </div>
+  </div>
+  <div class="step" id="s2">
+    <div class="step-n">2</div>
+    <div class="step-body">
+      <div class="step-head">Нажми кнопку «Поделиться» ⬆</div>
+      <div class="step-desc">Кнопка внизу по центру Safari — квадрат со стрелкой вверх.</div>
+      <div class="step-img">⬆️</div>
+    </div>
+  </div>
+  <div class="step" id="s3">
+    <div class="step-n">3</div>
+    <div class="step-body">
+      <div class="step-head">Выбери «На экран «Домой»»</div>
+      <div class="step-desc">Прокрути меню вниз, найди значок с плюсиком.</div>
+      <div class="step-img">➕</div>
+    </div>
+  </div>
+  <div class="step" id="s4">
+    <div class="step-n">4</div>
+    <div class="step-body">
+      <div class="step-head">Нажми «Добавить»</div>
+      <div class="step-desc">Иконка ISOLA появится на рабочем столе — открывается как обычное приложение!</div>
+      <div class="step-img">✅</div>
+    </div>
+  </div>
+</div>
+
+<!-- iOS floating arrow -->
+<div class="ios-banner" id="ios-banner">
+  <div class="ios-arrow">⬆</div>
+  <div class="ios-text">Нажми кнопку <b>«Поделиться»</b> ниже,<br>затем <b>«На экран "Домой"»</b></div>
+</div>
+
+<!-- QR generation -->
+<script>
+// Simple QR Code generator (pure JS, no external libs)
+var APP_URL='https://isola-business-suite-production.up.railway.app';
+
+// Detect iOS
+var isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+var isStandalone=window.navigator.standalone;
+
+if(isIOS&&!isStandalone){
+  document.getElementById('ios-banner').style.display='block';
+  document.body.style.paddingBottom='120px';
+}
+
+// If already installed as PWA - redirect
+if(isStandalone){
+  window.location.href=APP_URL;
+}
+
+// Animate steps
+var steps=['s1','s2','s3','s4'];
+steps.forEach(function(id,i){
+  setTimeout(function(){
+    var el=document.getElementById(id);
+    if(el) el.classList.add('show');
+  },300+i*200);
+});
+
+// Draw QR code manually using a tiny QR encoder
+// Using qrcode-generator logic embedded
+(function(){
+  var canvas=document.getElementById('qr-canvas');
+  var ctx=canvas.getContext('2d');
+  var size=200;
+  canvas.width=size;canvas.height=size;
+
+  // Use Google Charts API to render QR
+  var img=new Image();
+  var url='https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(APP_URL)+'&bgcolor=ffffff&color=0f172a&margin=10&qzone=1';
+  img.crossOrigin='anonymous';
+  img.onload=function(){ctx.drawImage(img,0,0,size,size);};
+  img.onerror=function(){
+    // Fallback: just show URL text
+    ctx.fillStyle='#fff';
+    ctx.fillRect(0,0,size,size);
+    ctx.fillStyle='#0f172a';
+    ctx.font='10px monospace';
+    ctx.textAlign='center';
+    var words=APP_URL.replace('https://','').split('.');
+    words.forEach(function(w,i){ctx.fillText(w,100,80+i*16);});
+  };
+  img.src=url;
+})();
+</script>
+</body>
+</html>
