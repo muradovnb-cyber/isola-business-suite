@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#0f172a"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-touch-fullscreen" content="yes"/>
 <meta name="apple-mobile-web-app-title" content="ISOLA Suite"/>
 <meta name="mobile-web-app-capable" content="yes"/>
 <meta name="format-detection" content="telephone=no"/>
@@ -245,11 +246,50 @@ tr:active td{background:#fafbfc;}
   .kg{-webkit-flex-direction:column;flex-direction:column;}
   .kc{min-width:unset;}
 }
-/* ── iOS SAFE AREA ── */
+/* ── iOS SAFE AREA & IPHONE FIXES ── */
 @supports(padding-top: env(safe-area-inset-top)){
+  /* Sidebar: учёт Dynamic Island / notch */
   .side{padding-top:env(safe-area-inset-top);}
-  .top{padding-top:0;}
-  .pg{padding-bottom:calc(16px + env(safe-area-inset-bottom));}
+  /* Topbar: высота + safe area */
+  .top{
+    padding-top:env(safe-area-inset-top);
+    height:calc(var(--nav) + env(safe-area-inset-top));
+  }
+  /* Контент: отступ снизу для home indicator */
+  .pg{padding-bottom:calc(20px + env(safe-area-inset-bottom));}
+  /* Модал: отступ снизу */
+  .modal{margin-bottom:env(safe-area-inset-bottom);}
+  /* Тосты: выше home indicator */
+  .toasts{bottom:calc(16px + env(safe-area-inset-bottom));}
+}
+
+/* iPhone: предотвращаем zoom при фокусе на input (минимум 16px) */
+@media screen and (-webkit-min-device-pixel-ratio:0){
+  input, select, textarea{font-size:16px !important;}
+  .fg input,.fg select,.fg textarea{font-size:16px !important;}
+}
+
+/* iOS Safari: нативный select без обрезания */
+select{-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px !important;}
+
+/* iOS Safari: убираем inner shadow у input */
+input[type="text"],input[type="number"],input[type="email"],input[type="password"],input[type="date"],textarea{
+  -webkit-appearance:none;appearance:none;
+}
+
+/* iPhone: плавный скролл таблиц */
+.tw{-webkit-overflow-scrolling:touch;overflow-x:auto;}
+
+/* iPhone: modal scroll */
+.modal{-webkit-overflow-scrolling:touch;}
+
+/* iPhone: кнопки — убираем rounded */
+button{-webkit-appearance:none;}
+
+/* iPhone X+ landscape: левый отступ */
+@media(orientation:landscape){
+  .side{padding-left:env(safe-area-inset-left);}
+  .pg{padding-right:calc(16px + env(safe-area-inset-right));}
 }
 /* ── SAMSUNG INTERNET ── */
 @media all and (-webkit-min-device-pixel-ratio:0) and (min-resolution:.001dpcm){
