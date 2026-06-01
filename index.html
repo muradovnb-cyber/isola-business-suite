@@ -517,19 +517,48 @@ var SEED = {
 
 // ── DB ENGINE ──
 var VER='suite-v7';
-var DB = (function(){
-  try {
-    if(localStorage.getItem('sv')!==VER){localStorage.removeItem('sd');localStorage.setItem('sv',VER);}
-    var d=localStorage.getItem('sd');
-    var db=d ? JSON.parse(d) : JSON.parse(JSON.stringify(SEED));
-    // Clean up bad petty issuance transactions (old bug: issuance created as expense)
-    if(db.txs) db.txs=db.txs.filter(function(t){
-      return !(t.note&&t.note.indexOf('[Подотчёт] Выдано ')===0);
+// DB starts from SEED, then server data loads async
+var DB = JSON.parse(JSON.stringify(SEED));
+
+function initFromServer(){
+  fetch('/api/data')
+    .then(function(r){ return r.json(); })
+    .then(function(resp){
+      if(resp.ok && resp.data && resp.data.users && resp.data.users.length>0){
+        DB = resp.data;
+        // Clean bad petty transactions
+        if(DB.txs) DB.txs=DB.txs.filter(function(t){
+          return !(t.note&&t.note.indexOf('[Подотчёт] Выдано ')===0);
+        });
+        console.log('DB loaded from server. Txs:', DB.txs.length);
+        // If logged in - refresh page
+        if(USER) rp();
+      } else {
+        // Server has no data yet - push local data
+        var local=localStorage.getItem('sd');
+        if(local){
+          try{
+            DB=JSON.parse(local);
+            if(DB.txs) DB.txs=DB.txs.filter(function(t){
+              return !(t.note&&t.note.indexOf('[Подотчёт] Выдано ')===0);
+            });
+            saveDB(); // push to server
+          }catch(e){}
+        }
+      }
+    })
+    .catch(function(e){
+      // Offline: use localStorage
+      try{
+        var local=localStorage.getItem('sd');
+        if(local) DB=JSON.parse(local);
+      }catch(ex){}
     });
-    return db;
-  } catch(e){ return JSON.parse(JSON.stringify(SEED)); }
-})();
-function saveDB(){ try{localStorage.setItem('sd',JSON.stringify(DB));}catch(e){} }
+}
+function saveDB(){
+  try{localStorage.setItem('sd',JSON.stringify(DB));}catch(e){}
+  fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(DB)}).catch(function(){});
+}
 function nid(a){ var m=0; for(var i=0;i<a.length;i++) if(a[i].id>m) m=a[i].id; return m+1; }
 function fmt(n){ return new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(n||0); }
 function fmtD(d){ if(!d) return '—'; var p=d.split('-'); return p.length===3 ? p[2]+'.'+p[1]+'.'+p[0] : d; }
@@ -2504,8 +2533,31 @@ window.addEventListener('appinstalled',function(){
 });
 function doInst(){if(_ie){_ie.prompt();_ie.userChoice.then(function(r){if(r.outcome==='accepted'){var b=document.getElementById('ibar');if(b)b.style.display='none';}});_ie=null;}}
 function dimInst(){var b=document.getElementById('ibar');if(b)b.style.display='none';localStorage.setItem('ibd','1');}
+// Auto-sync: pull fresh data from server every 30 seconds
+setInterval(function(){
+  if(!USER) return; // only when logged in
+  fetch('/api/data')
+    .then(function(r){return r.json();})
+    .then(function(resp){
+      if(resp.ok&&resp.data&&resp.data.txs){
+        var serverTxs=resp.data.txs.length;
+        var localTxs=(DB.txs||[]).length;
+        // If server has more data - update local
+        if(serverTxs>localTxs){
+          DB=resp.data;
+          if(DB.txs) DB.txs=DB.txs.filter(function(t){
+            return !(t.note&&t.note.indexOf('[Подотчёт] Выдано ')===0);
+          });
+          rp();
+          toast('🔄 Данные обновлены','info');
+        }
+      }
+    }).catch(function(){});
+}, 30000);
+
 if('serviceWorker' in navigator){
-  window.addEventListener('load',function(){
+  initFromServer();
+window.addEventListener('load',function(){
     navigator.serviceWorker.register('/sw.js').catch(function(){});
   });
 }
