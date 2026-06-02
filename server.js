@@ -20,6 +20,28 @@ const MIME = {
   '.webmanifest': 'application/manifest+json',
 };
 
+// ── Security: blocked IPs + event log ──────────────────────────────────────
+const blockedIPs = new Set();
+const securityLog = [];
+const MAX_LOG = 200;
+
+function logSecurity(ip, event, detail) {
+  const entry = { ts: new Date().toISOString(), ip, event, detail };
+  securityLog.unshift(entry);
+  if (securityLog.length > MAX_LOG) securityLog.pop();
+  console.log('[SECURITY]', JSON.stringify(entry));
+}
+
+function checkBlocked(req, res) {
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+  if (blockedIPs.has(ip)) {
+    res.writeHead(403, {'Content-Type':'application/json'});
+    res.end(JSON.stringify({ok:false,err:'blocked'}));
+    return null;
+  }
+  return ip;
+}
+
 // ── In-memory DB ────────────────────────────────────────────────────────
 let DB     = null;
 let ghSHA  = null;     // SHA of data.json on GitHub (needed for updates)
@@ -142,7 +164,11 @@ function handler(req, res) {
 
   // ── API: save full DB (from browser) ─────────────────────────────────
   if (url === '/api/data' && req.method === 'POST') {
-    if (!checkApiKey(req)) { json(res,{ok:false,err:'unauthorized'},401); return; }
+    const ip_data = checkBlocked(req, res); if (!ip_data) return;
+    if (!checkApiKey(req)) {
+      logSecurity(ip_data, 'UNAUTHORIZED_WRITE', '/api/data POST');
+      json(res,{ok:false,err:'unauthorized'},401); return;
+    }
     readBody(req, (err, body) => {
       if (err || !body) { json(res, {ok:false, err:'bad json'}, 400); return; }
       DB = body;
@@ -184,6 +210,25 @@ function handler(req, res) {
   }
 
   // ── API: health check ─────────────────────────────────────────────────
+  // ── Security log (только с правильным ключом) ───────────────────────────
+  if (url === '/api/security' && req.method === 'GET') {
+    if (!checkApiKey(req)) { json(res,{ok:false,err:'unauthorized'},401); return; }
+    json(res, { ok:true, blocked: Array.from(blockedIPs), log: securityLog.slice(0,50) });
+    return;
+  }
+
+  // ── Block IP manually ────────────────────────────────────────────────────
+  if (url === '/api/block' && req.method === 'POST') {
+    if (!checkApiKey(req)) { json(res,{ok:false,err:'unauthorized'},401); return; }
+    readBody(req, (err,body) => {
+      if(err||!body) { json(res,{ok:false},400); return; }
+      if(body.ip) { blockedIPs.add(body.ip); logSecurity(body.ip,'MANUALLY_BLOCKED','admin action'); }
+      if(body.unblock) blockedIPs.delete(body.unblock);
+      json(res, {ok:true, blocked: Array.from(blockedIPs)});
+    });
+    return;
+  }
+
   if (url === '/api/health') {
     json(res, {
       ok:       true,
