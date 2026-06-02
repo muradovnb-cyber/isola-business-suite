@@ -419,9 +419,13 @@ var SEED = {
     {id:1,n:'Мурадов Нуриддин', e:'director@isola.uz',  p:'1234',role:'director',    dept:null,        sal:0,       comm:0, ph:'+998 90 111 22 33',dob:'15.06.1975',start:'2018-01-01',photo:null,instrs:[]},
     {id:2,n:'Адхам Джалолов',   e:'buh@isola.uz',       p:'1234',role:'accountant',  dept:'finance',   sal:4000000, comm:0, ph:'+998 90 222 33 44',dob:'22.03.1985',start:'2018-03-01',photo:null,instrs:['Первичная документация','Расчёт зарплаты','Налоговая отчётность']},
     {id:3,n:'Илхом Худайназаров',e:'snab@isola.uz',     p:'1234',role:'supply',      dept:'production',sal:3500000, comm:0, ph:'+998 91 333 44 55',dob:'10.07.1990',start:'2019-06-01',photo:null,instrs:['Закупка материалов','Контроль склада','Работа с поставщиками']},
-    {id:4,n:'Абдурауф Шарипов', e:'manager@isola.uz',   p:'1234',role:'manager',     dept:'sales',     sal:3000000, comm:2,salType:'fixed+pct',commBase:'deal', ph:'+998 90 444 55 66',dob:'18.11.1992',start:'2020-01-15',photo:null,instrs:['Привлечение клиентов','Ведение заказов','Контроль оплат']},
+    {id:4,n:'Абдурауф Шарипов', e:'manager@isola.uz',   p:'1234',role:'manager',     dept:'sales',     sal:3000000, comm:2,salType:'fixed+pct',commBase:'deal',commPre:1,commClose:1, ph:'+998 90 444 55 66',dob:'18.11.1992',start:'2020-01-15',photo:null,instrs:['Привлечение клиентов','Ведение заказов','Контроль оплат']},
     {id:5,n:'Афруз Хамидов',    e:'konstr@isola.uz',    p:'1234',role:'constructor', dept:'production',sal:4500000, comm:0, ph:'+998 93 555 66 77',dob:'03.09.1988',start:'2018-09-01',photo:null,instrs:['Разработка проектов','Технические расчёты','Контроль производства']},
     {id:6,n:'Нодир Халилов',    e:'prod@isola.uz',      p:'1234',role:'production',  dept:'production',sal:5000000, comm:0, ph:'+998 97 666 77 88',dob:'25.05.1983',start:'2018-01-01',photo:null,instrs:['Управление производством','Контроль качества','Планирование сроков']},
+    {id:7,n:'Киличбек Раимбердиев',e:null,p:null,role:'brigadier',dept:'production',sal:0,comm:0,salType:'pct',commBase:'order',ph:null,dob:null,start:'2024-01-01',photo:null,instrs:[]},
+    {id:8,n:'Окилжон Канай',       e:null,p:null,role:'brigadier',dept:'production',sal:0,comm:0,salType:'pct',commBase:'order',ph:null,dob:null,start:'2024-01-01',photo:null,instrs:[]},
+    {id:9,n:'Улугбек',             e:null,p:null,role:'brigadier',dept:'production',sal:0,comm:0,salType:'pct',commBase:'order',ph:null,dob:null,start:'2024-01-01',photo:null,instrs:[]},
+    {id:10,n:'Акмал Бакиров',      e:null,p:null,role:'brigadier',dept:'production',sal:0,comm:0,salType:'pct',commBase:'order',ph:null,dob:null,start:'2024-01-01',photo:null,instrs:[]},
   ],
   cps:[
     {id:10,n:'BLUM',org:'BLUM',fio:'',type:'supplier',ph:'',note:'Фурнитура BLUM'},
@@ -1571,6 +1575,37 @@ function saveDealNew(){
   saveDB();closeModal();rp();toast('Сделка добавлена','success');
 }
 
+// ── КОМИССИЯ МЕНЕДЖЕРА ───────────────────────────────────────────────
+// commPre: % при авансе/предоплате | commClose: % при закрытии заказа
+function calcManagerComm(uid){
+  var u=userGet(uid);
+  if(!u||(!u.commPre&&!u.commClose)) return {pre:0,close:0,total:0,details:[]};
+  var pre=0, close=0, details=[];
+  // По сделкам/заказам связанным с менеджером
+  for(var i=0;i<DB.txs.length;i++){
+    var t=DB.txs[i];
+    if(t.type!=='income'||!t.oid) continue;
+    var ord=null; for(var j=0;j<DB.orders.length;j++) if(DB.orders[j].id===t.oid){ord=DB.orders[j];break;}
+    if(!ord||ord.mid!==uid) continue; // mid = manager id
+    var pct=u.commPre||0;
+    // Аванс/предоплата → commPre
+    if(t.payType==='advance'||t.payType==='prepay'){
+      var fee=Math.round(t.uzs*pct/100);
+      pre+=fee;
+      details.push({type:'advance',oid:t.oid,base:t.uzs,pct:pct,fee:fee});
+    }
+    // Финальный расчёт = commClose
+    if(t.payType==='final'||(ord.status==='done'&&t.payType==='payment')){
+      var pct2=u.commClose||0;
+      var fee2=Math.round(t.uzs*pct2/100);
+      close+=fee2;
+      details.push({type:'close',oid:t.oid,base:t.uzs,pct:pct2,fee:fee2});
+    }
+  }
+  return {pre:pre,close:close,total:pre+close,details:details};
+}
+
+
 // ══════════════════════════════════════════════════════
 // PAGE: SALARY (employee)
 // ══════════════════════════════════════════════════════
@@ -1872,7 +1907,7 @@ function pgUsers(){
     rows+='<tr><td><b>'+u.n+'</b></td><td style="font-size:.78rem">'+u.e+'</td>'
       +'<td><span class="bdg" style="background:'+ri.c+'20;color:'+ri.c+';font-size:.62rem">'+ri.l+'</span></td>'
       +'<td style="font-size:.78rem">'+salInfo+'</td>'
-      +'<td>'+btn('bp bsm','✏️ Изменить','editUserFull('+u.id+')')+' '+btn('bs bsm','🔑','openPwM('+u.id+')')+'</td></tr>';
+      +'<td>'+btn('bp bsm','✏️ Изменить','editUserFull('+u.id+')')+(u.e?' '+btn('bs bsm','🔑','openPwM('+u.id+')'):'<span class="bdg bg-m" style="font-size:.62rem;margin-left:4px">без входа</span>')+'</td></tr>';
   }
   return '<div class="ph"><div class="pt">Пользователи</div>'+btn('bp','+ Добавить','openUserM()')+'</div>'
     +'<div class="tc"><div class="tw"><table><thead><tr><th>Имя</th><th>Email</th><th>Роль</th><th>Оклад / Комиссия</th><th></th></tr></thead><tbody>'+(rows||'<tr class="er"><td colspan="6">—</td></tr>')+'</tbody></table></div></div>';
