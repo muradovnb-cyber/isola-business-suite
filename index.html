@@ -1728,17 +1728,12 @@ function delAcc(id){
 function pgProfile(){
   var e=USER,ri=ROLES[e.role]||{l:'',c:'#64748b'};
   var dp=DEPTS[e.dept||'production']||{};
-  var photoHtml=e.photo?'<img src="'+e.photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">':'<span style="font-size:1.4rem;font-weight:700;color:#fff">'+inits(e.n)+'</span>';
-  var instrHtml='';
-  if(e.instrs&&e.instrs.length){
-    for(var i=0;i<e.instrs.length;i++){
-      instrHtml+='<div style="display:flex;gap:9px;padding:8px 13px;border-bottom:1px solid #f1f5f9;font-size:.79rem">'
-        +'<div style="width:20px;height:20px;border-radius:50%;background:var(--ac-g);color:var(--ac);display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;flex-shrink:0">'+(i+1)+'</div>'
-        +'<div style="color:var(--mu)">'+e.instrs[i]+'</div></div>';
-    }
-  } else instrHtml='<div style="padding:14px;text-align:center;color:var(--mu)">Не заданы</div>';
+  var photoHtml=e.photo
+    ?'<img src="'+e.photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">'
+    :'<span style="font-size:1.4rem;font-weight:700;color:#fff">'+inits(e.n)+'</span>';
+
   return '<div class="pcard">'
-    +'<div class="pav" style="background:'+ri.c+'" onclick="document.getElementById(\'pi\').click()">'+photoHtml+'<div class="pav-ed">📷</div></div>'
+    +'<div class="pav" style="background:'+ri.c+'" onclick="document.getElementById('pi').click()">'+photoHtml+'<div class="pav-ed">📷</div></div>'
     +'<div style="flex:1;min-width:0">'
     +'<div style="font-size:1.05rem;font-weight:700">'+e.n+'</div>'
     +'<div style="font-size:.79rem;color:var(--ac);margin-top:2px">'+ri.l+(dp.n?' · '+dp.i+' '+dp.n:'')+'</div>'
@@ -1748,27 +1743,67 @@ function pgProfile(){
     +'<div class="pmi"><div class="pmil">Оклад</div><div class="pmiv">💰 '+fmt(e.sal)+' сум</div></div>'
     +(e.comm?'<div class="pmi"><div class="pmil">Комиссия</div><div class="pmiv" style="color:var(--pu)">💰 '+e.comm+'% от сделок</div></div>':'')
     +'<div class="pmi"><div class="pmil">Телефон</div><div class="pmiv">📞 <a href="tel:'+(e.ph||'')+'" style="color:var(--ac)">'+(e.ph||'—')+'</a></div></div>'
-    +'<div class="pmi"><div class="pmil">Email</div><div class="pmiv">🔑 '+e.e+'</div></div>'
+    +'<div class="pmi"><div class="pmil">Email</div><div class="pmiv">📧 '+e.e+'</div></div>'
     +'</div></div></div>'
-    +'<div class="g2">'
-    +'<div class="tc"><div class="th"><div class="ct">📋 Должностные инструкции</div></div>'+instrHtml+'</div>'
-    +'<div class="tc"><div class="th"><div class="ct">📞 Реквизиты</div></div>'
-    +'<div style="padding:4px 0">'
-    +'<div style="display:flex;align-items:center;gap:11px;padding:9px 13px;border-bottom:1px solid #f1f5f9"><div style="font-size:1rem">📅</div><div><div style="font-size:.67rem;color:var(--mu)">В компании с</div><div style="font-size:.81rem">'+e.start+'</div></div></div>'
-    +'<div style="display:flex;align-items:center;gap:11px;padding:9px 13px;border-bottom:1px solid #f1f5f9"><div style="font-size:1rem">🔑</div><div><div style="font-size:.67rem;color:var(--mu)">Логин</div><div style="font-size:.81rem">'+e.e+'</div></div></div>'
-    +'<div style="display:flex;align-items:center;gap:11px;padding:9px 13px"><div style="font-size:1rem">🏢</div><div><div style="font-size:.67rem;color:var(--mu)">Отдел</div><div style="font-size:.81rem">'+(dp.i?dp.i+' '+dp.n:'—')+'</div></div></div>'
-    +'</div></div></div>';
+
+    // ── Редактирование личных данных ──────────────────────────────
+    +'<div class="cc" style="margin-top:12px">'
+    +'<div class="ch"><div class="ct">✏️ Мои данные</div></div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:10px">'
+    +'<div class="fg" style="flex:1;min-width:160px"><label>Телефон</label>'
+    +'<input id="pr-ph" type="tel" placeholder="+998 90 000 00 00" value="'+(e.ph||'')+'"/></div>'
+    +'<div class="fg" style="flex:1;min-width:160px"><label>Email (логин)</label>'
+    +'<input id="pr-email" type="email" value="'+(e.e||'')+'"/></div>'
+    +'<div class="fg" style="flex:1;min-width:160px"><label>Дата рождения</label>'
+    +'<input id="pr-dob" type="date" value="'+(e.dob&&e.dob.match(/\d{4}-\d{2}-\d{2}/)?e.dob:(e.dob?e.dob.split('.').reverse().join('-'):''))+'" placeholder="дд.мм.гггг"/></div>'
+    +'</div>'
+    +'<button class="btn bp" style="margin-top:6px" onclick="saveMyProfile()">💾 Сохранить данные</button>'
+    +'</div>'
+
+    // ── Смена пароля ──────────────────────────────────────────────
+    +'<div class="cc" style="margin-top:12px">'
+    +'<div class="ch"><div class="ct">🔒 Смена пароля</div></div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:10px">'
+    +'<div class="fg" style="flex:1;min-width:140px"><label>Текущий пароль</label>'
+    +'<input type="password" id="pw-cur" placeholder="Текущий пароль"/></div>'
+    +'<div class="fg" style="flex:1;min-width:140px"><label>Новый пароль</label>'
+    +'<input type="password" id="pw-new" placeholder="Минимум 4 символа"/></div>'
+    +'<div class="fg" style="flex:1;min-width:140px"><label>Повторите</label>'
+    +'<input type="password" id="pw-rep" placeholder="Повторите пароль"/></div>'
+    +'</div>'
+    +'<button class="btn bs" style="margin-top:6px" onclick="changeMyPassword()">🔒 Сменить пароль</button>'
+    +'</div>';
 }
-function handlePhoto(e){
-  var f=e.target.files[0]; if(!f) return;
-  var r=new FileReader();
-  r.onload=function(x){
-    var idx=-1; for(var i=0;i<DB.users.length;i++) if(DB.users[i].id===USER.id){idx=i;break;}
-    if(idx>-1){DB.users[idx].photo=x.target.result;USER.photo=x.target.result;saveDB();}
-    rp();toast('Фото обновлено','success');
-  };
-  r.readAsDataURL(f);
+
+function saveMyProfile(){
+  var ph=(document.getElementById('pr-ph')||{value:''}).value.trim();
+  var email=(document.getElementById('pr-email')||{value:''}).value.trim();
+  var dob=(document.getElementById('pr-dob')||{value:''}).value;
+  if(!email){toast('Email не может быть пустым','error');return;}
+  USER.ph=ph; USER.e=email; USER.dob=dob;
+  for(var i=0;i<DB.users.length;i++) if(DB.users[i].id===USER.id){
+    DB.users[i].ph=ph; DB.users[i].e=email; DB.users[i].dob=dob; break;
+  }
+  saveDB(); toast('Данные сохранены ✓','success'); rp();
 }
+
+function changeMyPassword(){
+  var cur=(document.getElementById('pw-cur')||{value:''}).value;
+  var n1=(document.getElementById('pw-new')||{value:''}).value;
+  var n2=(document.getElementById('pw-rep')||{value:''}).value;
+  if(!cur||!n1||!n2){toast('Заполните все поля','error');return;}
+  if(USER.p!==cur){toast('Неверный текущий пароль','error');return;}
+  if(n1.length<4){toast('Минимум 4 символа','error');return;}
+  if(n1!==n2){toast('Пароли не совпадают','error');return;}
+  USER.p=n1;
+  for(var i=0;i<DB.users.length;i++) if(DB.users[i].id===USER.id){DB.users[i].p=n1;break;}
+  saveDB();
+  document.getElementById('pw-cur').value='';
+  document.getElementById('pw-new').value='';
+  document.getElementById('pw-rep').value='';
+  toast('Пароль успешно изменён ✓','success');
+}
+
 
 // ══════════════════════════════════════════════════════
 // PAGE: DIRECTORY
