@@ -2056,6 +2056,7 @@ function editUserFull(uid){
     +'<div class="fg"><label>Роль</label><select id="euf-r">'+roleOpts+'</select></div>'
     +'</div>'
     +'<div class="fg"><label>Телефон</label><input id="euf-ph" type="tel" value="'+(u.ph||'')+'"/></div>'
+    +'<div class="fg"><label>Дата рождения (ДР)</label><input id="euf-dob" type="date" value="'+(u.dob&&u.dob.match(/[0-9]{4}-[0-9]{2}-[0-9]{2}/)?u.dob:'')+'"/></div>'
     +'<div class="fg"><label>Дата начала работы</label><input id="euf-start" type="date" value="'+(u.start||'')+'"/></div>'
     +'<hr style="border:none;border-top:1px solid var(--bd);margin:10px 0"/>'
     +'<div class="fg"><label>💰 Тип зарплаты</label>'
@@ -2079,6 +2080,7 @@ function saveUserFull(){
   var n=(document.getElementById('euf-n')||{value:''}).value.trim();
   var role=(document.getElementById('euf-r')||{value:''}).value;
   var ph=(document.getElementById('euf-ph')||{value:''}).value.trim();
+  var dob=(document.getElementById('euf-dob')||{value:''}).value;
   var start=(document.getElementById('euf-start')||{value:''}).value;
   var salType=(document.getElementById('euf-st')||{value:'fixed'}).value;
   var sal=+(document.getElementById('euf-s')||{value:0}).value||0;
@@ -2087,7 +2089,7 @@ function saveUserFull(){
   if(!n){toast('Введите имя','error');return;}
   for(var i=0;i<DB.users.length;i++) if(DB.users[i].id===uid){
     DB.users[i].n=n; DB.users[i].role=role; DB.users[i].ph=ph;
-    DB.users[i].start=start; DB.users[i].sal=sal; DB.users[i].comm=comm;
+    DB.users[i].dob=dob; DB.users[i].start=start; DB.users[i].sal=sal; DB.users[i].comm=comm;
     DB.users[i].salType=salType; DB.users[i].commBase=commBase;
     break;
   }
