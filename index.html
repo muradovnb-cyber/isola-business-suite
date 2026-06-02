@@ -2049,19 +2049,21 @@ function editUserFull(uid){
     +'<option value="pct"'+(u.salType==='pct'?' selected':'')+'>Только % (без фиксы)</option>';
   var commBaseOpts='<option value="deal"'+(!u.commBase||u.commBase==='deal'?' selected':'')+'>% от сделки (CRM)</option>'
     +'<option value="order"'+(u.commBase==='order'?' selected':'')+'>% от заказа</option>';
+  var dobVal=u.dob&&u.dob.match(/[0-9]{4}-[0-9]{2}-[0-9]{2}/)?u.dob:'';
   openModalRaw('✏️ '+u.n,
     '<input type="hidden" id="euf-id" value="'+uid+'"/>'
     +'<div class="g2">'
     +'<div class="fg"><label>Имя</label><input id="euf-n" value="'+u.n+'"/></div>'
     +'<div class="fg"><label>Роль</label><select id="euf-r">'+roleOpts+'</select></div>'
     +'</div>'
+    +'<div class="g2">'
     +'<div class="fg"><label>Телефон</label><input id="euf-ph" type="tel" value="'+(u.ph||'')+'"/></div>'
-    +'<div class="fg"><label>Дата рождения (ДР)</label><input id="euf-dob" type="date" value="'+(u.dob&&u.dob.match(/[0-9]{4}-[0-9]{2}-[0-9]{2}/)?u.dob:'')+'"/></div>'
+    +'<div class="fg"><label>Дата рождения</label><input id="euf-dob" type="date" value="'+dobVal+'"/></div>'
+    +'</div>'
     +'<div class="fg"><label>Дата начала работы</label><input id="euf-start" type="date" value="'+(u.start||'')+'"/></div>'
     +'<hr style="border:none;border-top:1px solid var(--bd);margin:10px 0"/>'
     +'<div class="fg"><label>💰 Тип зарплаты</label>'
-    +'<select id="euf-st" onchange="(function(){'
-    +salTypeOpts+'</select></div>'
+    +'<select id="euf-st" onchange="toggleEufSalary(this.value)">'+salTypeOpts+'</select></div>'
     +'<div id="euf-fix-wrap" style="display:'+(u.salType==='pct'?'none':'block')+'">'
     +'<div class="fg"><label>Оклад (фикса, сум)</label><input type="number" id="euf-s" value="'+(u.sal||0)+'"/></div>'
     +'</div>'
@@ -2072,6 +2074,7 @@ function editUserFull(uid){
     +'</div></div>',
     'saveUserFull()');
 }
+
 
 function toggleEufSalary(st){
 }
