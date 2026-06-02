@@ -610,9 +610,15 @@ function plMonth(y,m){
 function debtCP(cid){ var s=0; for(var i=0;i<DB.txs.length;i++){var t=DB.txs[i];if(t.debt&&t.cpid===cid&&t.type==='expense') s+=t.uzs;} return s; }
 function ageStr(dob){
   if(!dob) return '?';
-  var p=dob.split('.');
-  if(p.length<3) return '?';
-  var bd=new Date(+p[2],+p[1]-1,+p[0]),now=new Date();
+  var bd;
+  if(dob.match(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)){
+    bd=new Date(dob);
+  } else {
+    var p=dob.split('.');
+    if(p.length<3) return '?';
+    bd=new Date(+p[2],+p[1]-1,+p[0]);
+  }
+  var now=new Date();
   var age=now.getFullYear()-bd.getFullYear();
   if(now<new Date(now.getFullYear(),bd.getMonth(),bd.getDate())) age--;
   return isNaN(age)?'?':age;
