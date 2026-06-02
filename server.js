@@ -5,7 +5,7 @@ const path  = require('path');
 
 const PORT       = process.env.PORT || 3000;
 const DIR        = __dirname;
-const GH_TOKEN   = process.env.GH_TOKEN || '';
+const GH_TOKEN   = (process.env.GH_TOKEN || '').replace(/^"|"$/g,'').replace(/^'|'$/g,'').trim();
 const GH_REPO    = 'muradovnb-cyber/isola-business-suite';
 const GH_FILE    = 'data.json';
 
