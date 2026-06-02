@@ -511,6 +511,10 @@ var VER='suite-v8';
 // DB starts from SEED, then server data loads async
 var DB = JSON.parse(JSON.stringify(SEED));
 
+function getItems(){
+  // DB.items takes priority (user-edited), fallback to hardcoded ITEMS
+  return (DB.items && DB.items.length > 0) ? DB.items : ITEMS;
+}
 function initFromServer(){
   fetch('/api/data')
     .then(function(r){ return r.json(); })
@@ -829,7 +833,7 @@ function getNavs(){
     n.push({s:'💰 Финансы'},{id:'dash',i:'📊',l:'Дашборд'},{id:'pl',i:'📈',l:'P&L'},{id:'bal',i:'⚖️',l:'Баланс'},{id:'margin',i:'💹',l:'Маржинальность'});
     n.push({s:'📦 Операции'},{id:'orders',i:'📦',l:'Заказы'},{id:'txs',i:'💳',l:'Транзакции'});
     n.push({s:'👥 HR'},{id:'crm',i:'🎯',l:'CRM Сделки'},{id:'asal',i:'💰',l:'Зарплата всех'});
-    n.push({s:'⚙️ Данные'},{id:'cps',i:'🏢',l:'Контрагенты'},{id:'rates',i:'💱',l:'Курсы'},{id:'users',i:'👥',l:'Пользователи'});
+    n.push({s:'⚙️ Данные'},{id:'cps',i:'🏢',l:'Контрагенты'},{id:'rates',i:'💱',l:'Курсы'},{id:'users',i:'👥',l:'Пользователи'},{id:'items',i:'📋',l:'Статьи расходов'});
   } else if(acc){
     n.push({s:'Финансы'},{id:'cashflow',i:'🏦',l:'Баланс счетов'},{id:'txs',i:'💳',l:'Транзакции'},{id:'orders',i:'📦',l:'Заказы'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'asal',i:'💰',l:'Зарплата'});
     n.push({s:'Справочники'},{id:'cps',i:'🏢',l:'Контрагенты'});
@@ -843,7 +847,7 @@ function getNavs(){
   }
   return n;
 }
-var PAGE_TITLES={'ceo':'CEO Агент','petty':'Подотчётные средства','cashflow':'Баланс счетов','udash':'Единый дашборд','dash':'Дашборд','pl':'P&L','bal':'Баланс','margin':'Маржинальность','orders':'Заказы','txs':'Транзакции','crm':'CRM — Сделки','asal':'Зарплата сотрудников','sal':'Моя зарплата','profile':'Профиль','dir':'Справочник','rights':'Регламент','about':'О компании','cps':'Контрагенты','rates':'Курсы','users':'Пользователи','sreqs':'Заявки на услуги'};
+var PAGE_TITLES={'ceo':'CEO Агент','petty':'Подотчётные средства','items':'Статьи расходов','cashflow':'Баланс счетов','udash':'Единый дашборд','dash':'Дашборд','pl':'P&L','bal':'Баланс','margin':'Маржинальность','orders':'Заказы','txs':'Транзакции','crm':'CRM — Сделки','asal':'Зарплата сотрудников','sal':'Моя зарплата','profile':'Профиль','dir':'Справочник','rights':'Регламент','about':'О компании','cps':'Контрагенты','rates':'Курсы','users':'Пользователи','sreqs':'Заявки на услуги'};
 
 function appHTML(){
   var navs=getNavs(),ri=ROLES[USER.role]||{l:'',c:'#64748b'};
@@ -895,7 +899,7 @@ function rp(){ var m=document.getElementById('mc');if(m) m.innerHTML=pageHTML();
 function pageHTML(){
   var map={
     ceo:pgCEO,udash:pgUDash,dash:pgDash,pl:pgPL,bal:pgBal,margin:pgMargin,
-    orders:pgOrders,txs:pgTxs,petty:pgPetty,cashflow:pgCashflow,crm:pgCRM,asal:pgASal,sal:pgSal,
+    orders:pgOrders,txs:pgTxs,petty:pgPetty,cashflow:pgCashflow,items:pgItems,crm:pgCRM,asal:pgASal,sal:pgSal,
     profile:pgProfile,dir:pgDir,rights:pgRights,about:pgAbout,
     cps:pgCPs,rates:pgRates,users:pgUsers,sreqs:pgSreqs,
   };
@@ -2033,6 +2037,92 @@ function pgCashflow(){
     +'<tbody>'+(debtRows||'<tr class="er"><td colspan="2">Долгов нет ✓</td></tr>')+'</tbody></table></div></div>'
     +'</div>';
 }
+
+// ══════════════════════════════════════════════════════
+// PAGE: ITEMS — Статьи расходов (только директор)
+// ══════════════════════════════════════════════════════
+function pgItems(){
+  var items=getItems();
+  var rows='';
+  for(var i=0;i<items.length;i++){
+    var it=items[i];
+    var parentName='';
+    if(it.parent>0){ for(var j=0;j<items.length;j++) if(items[j].id===it.parent){parentName=items[j].n;break;} }
+    var catBdg=it.cat==='gen'?bdg('bg-b','Общие'):bdg('bg-o','На заказ');
+    var indent=it.parent>0?'&nbsp;&nbsp;&nbsp;↳ ':'';
+    rows+='<tr>'
+      +'<td>'+catBdg+'</td>'
+      +'<td style="font-size:.8rem">'+(it.parent===0?'<b>📁 </b>':it.parent>0?'<span style="color:var(--mu)">'+indent+'</span>':'')+'<b>'+it.n+'</b></td>'
+      +'<td style="font-size:.75rem;color:var(--mu)">'+(parentName||'—')+'</td>'
+      +'<td><span class="bdg bg-p" style="font-size:.62rem">'+it.sub+'</span></td>'
+      +'<td style="display:flex;gap:4px">'
+      +'<button class="btn bs bsm" onclick="editItem('+it.id+')">✏️</button>'
+      +(it.id>15?'<button class="btn bd bsm" onclick="delItem('+it.id+')">✕</button>':'')
+      +'</td></tr>';
+  }
+
+  return '<div class="ph"><div class="pt">Статьи расходов</div>'+btn('bp','+ Добавить','openAddItem()')+'</div>'
+    +'<div class="tip" style="margin-bottom:12px">💡 Статьи с id ≤ 15 системные — удалить нельзя. Добавляйте свои.</div>'
+    +'<div class="tc"><div class="tw"><table><thead><tr><th>Тип</th><th>Название</th><th>Родитель</th><th>Категория</th><th></th></tr></thead>'
+    +'<tbody>'+rows+'</tbody></table></div></div>';
+}
+
+function openAddItem(){
+  var items=getItems();
+  var parentOpts='<option value="0">— нет (группа) —</option>';
+  for(var i=0;i<items.length;i++) if(!items[i].parent||items[i].parent===0) parentOpts+='<option value="'+items[i].id+'">'+items[i].n+'</option>';
+  openModalRaw('Новая статья расхода',
+    '<div class="fg"><label>Название *</label><input id="ni-n" placeholder="Название статьи"/></div>'
+    +'<div class="fg"><label>Тип</label><select id="ni-cat"><option value="gen">Общие (не привязаны к заказу)</option><option value="ord">На заказ</option></select></div>'
+    +'<div class="fg"><label>Входит в группу</label><select id="ni-par">'+parentOpts+'</select></div>',
+    'saveNewItem()');
+}
+
+function saveNewItem(){
+  var n=(mEl('ni-n')||{value:''}).value.trim();
+  var cat=(mEl('ni-cat')||{value:'gen'}).value;
+  var par=+(mEl('ni-par')||{value:0}).value;
+  if(!n){toast('Введите название','error');return;}
+  var items=getItems();
+  var maxId=0; for(var i=0;i<items.length;i++) if(items[i].id>maxId) maxId=items[i].id;
+  var newItem={id:maxId+1,n:n,cat:cat,sub:'other',who:'all',parent:par};
+  if(!DB.items||DB.items.length===0) DB.items=JSON.parse(JSON.stringify(ITEMS));
+  DB.items.push(newItem);
+  saveDB();closeModal();toast('Статья добавлена','success');rp();
+}
+
+function editItem(id){
+  var items=getItems();
+  var it=null; for(var i=0;i<items.length;i++) if(items[i].id===id){it=items[i];break;}
+  if(!it) return;
+  var parentOpts='<option value="0">— нет (группа) —</option>';
+  for(var i=0;i<items.length;i++) if((!items[i].parent||items[i].parent===0)&&items[i].id!==id) parentOpts+='<option value="'+items[i].id+'"'+(it.parent===items[i].id?' selected':'')+'>'+items[i].n+'</option>';
+  openModalRaw('Редактировать статью',
+    '<input type="hidden" id="ei-id" value="'+id+'"/>'
+    +'<div class="fg"><label>Название *</label><input id="ei-n" value="'+it.n+'"/></div>'
+    +'<div class="fg"><label>Тип</label><select id="ei-cat"><option value="gen"'+(it.cat==='gen'?' selected':'')+'>Общие</option><option value="ord"'+(it.cat==='ord'?' selected':'')+'>На заказ</option></select></div>'
+    +'<div class="fg"><label>Входит в группу</label><select id="ei-par">'+parentOpts+'</select></div>',
+    'saveEditItem()');
+}
+
+function saveEditItem(){
+  var id=+(mEl('ei-id')||{value:0}).value;
+  var n=(mEl('ei-n')||{value:''}).value.trim();
+  var cat=(mEl('ei-cat')||{value:'gen'}).value;
+  var par=+(mEl('ei-par')||{value:0}).value;
+  if(!n){toast('Введите название','error');return;}
+  if(!DB.items||DB.items.length===0) DB.items=JSON.parse(JSON.stringify(ITEMS));
+  for(var i=0;i<DB.items.length;i++) if(DB.items[i].id===id){DB.items[i].n=n;DB.items[i].cat=cat;DB.items[i].parent=par;break;}
+  saveDB();closeModal();toast('Сохранено','success');rp();
+}
+
+function delItem(id){
+  if(!confirm('Удалить статью?')) return;
+  if(!DB.items||DB.items.length===0) DB.items=JSON.parse(JSON.stringify(ITEMS));
+  DB.items=DB.items.filter(function(it){return it.id!==id;});
+  saveDB();toast('Удалено','success');rp();
+}
+
 
 // ══════════════════════════════════════════════════════
 // PAGE: PETTY CASH (Подотчёт)
