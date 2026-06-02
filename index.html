@@ -424,9 +424,6 @@ var SEED = {
     {id:6,n:'Нодир Халилов',    e:'prod@isola.uz',      p:'1234',role:'production',  dept:'production',sal:5000000, comm:0, ph:'+998 97 666 77 88',dob:'25.05.1983',start:'2018-01-01',photo:null,instrs:['Управление производством','Контроль качества','Планирование сроков']},
   ],
   cps:[
-    {id:1,n:'ООО СтройМаш',   org:'ООО СтройМаш',   fio:'Каримов Алишер', type:'client',   ph:'+998 90 111 11 11',note:''},
-    {id:2,n:'АО ТехноПром',   org:'АО ТехноПром',   fio:'Рашидов Бахром', type:'client',   ph:'+998 90 222 22 22',note:''},
-    {id:3,n:'ООО МебельСтиль',org:'ООО МебельСтиль',fio:'Юсупов Санжар',  type:'client',   ph:'+998 91 333 33 33',note:''},
     {id:10,n:'BLUM',org:'BLUM',fio:'',type:'supplier',ph:'',note:'Фурнитура BLUM'},
     {id:11,n:'Крафтвуд',org:'Крафтвуд',fio:'',type:'supplier',ph:'',note:'ЛДСП, МДФ'},
     {id:12,n:'ЭМАН',org:'ЭМАН',fio:'',type:'supplier',ph:'',note:''},
@@ -505,18 +502,12 @@ var SEED = {
     {id:3,date:'2025-03-01',rate:12750},{id:4,date:'2025-04-01',rate:12800},
     {id:5,date:'2025-05-01',rate:12850},
   ],
-  orders:[
-    {id:1,title:'Тестовый заказ №1 — Кухня',  cid:1,uzs:20000000,usd:1560,status:'active',created:'2026-05-31',closed:null,note:'Тестовый заказ',mid:4,ca:false,cc:false,did:null},
-    {id:2,title:'Тестовый заказ №2 — Шкаф',   cid:2,uzs:15000000,usd:1170,status:'active',created:'2026-05-31',closed:null,note:'Тестовый заказ',mid:4,ca:false,cc:false,did:null},
-  ],
-  deals:[],
-  txs:[],
-  accruals:[],
-  sreqs:[], petty:[],
+  orders:[],
+  petty:[],
 };
 
 // ── DB ENGINE ──
-var VER='suite-v7';
+var VER='suite-v8';
 // DB starts from SEED, then server data loads async
 var DB = JSON.parse(JSON.stringify(SEED));
 
