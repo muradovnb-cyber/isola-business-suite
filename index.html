@@ -837,7 +837,7 @@ function getNavs(){
     n.push({s:'💰 Финансы'},{id:'dash',i:'📊',l:'Дашборд'},{id:'pl',i:'📈',l:'P&L'},{id:'bal',i:'⚖️',l:'Баланс'},{id:'margin',i:'💹',l:'Маржинальность'});
     n.push({s:'📦 Операции'},{id:'orders',i:'📦',l:'Заказы'},{id:'txs',i:'💳',l:'Транзакции'});
     n.push({s:'👥 HR'},{id:'crm',i:'🎯',l:'CRM Сделки'},{id:'asal',i:'💰',l:'Зарплата всех'});
-    n.push({s:'⚙️ Данные'},{id:'cps',i:'🏢',l:'Контрагенты'},{id:'rates',i:'💱',l:'Курсы'},{id:'users',i:'👥',l:'Пользователи'},{id:'items',i:'📋',l:'Статьи расходов'});
+    n.push({s:'⚙️ Данные'},{id:'cps',i:'🏢',l:'Контрагенты'},{id:'rates',i:'💱',l:'Курсы'},{id:'staff',i:'👤',l:'Сотрудники'},{id:'users',i:'⚙️',l:'Управление'},{id:'items',i:'📋',l:'Статьи расходов'});
   } else if(acc){
     n.push({s:'Финансы'},{id:'cashflow',i:'🏦',l:'Баланс счетов'},{id:'txs',i:'💳',l:'Транзакции'},{id:'orders',i:'📦',l:'Заказы'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'items',i:'📋',l:'Статьи расходов'},{id:'asal',i:'💰',l:'Зарплата'});
     n.push({s:'Справочники'},{id:'cps',i:'🏢',l:'Контрагенты'});
@@ -851,7 +851,7 @@ function getNavs(){
   }
   return n;
 }
-var PAGE_TITLES={'ceo':'CEO Агент','petty':'Подотчётные средства','items':'Статьи расходов','cashflow':'Баланс счетов','udash':'Единый дашборд','dash':'Дашборд','pl':'P&L','bal':'Баланс','margin':'Маржинальность','orders':'Заказы','txs':'Транзакции','crm':'CRM — Сделки','asal':'Зарплата сотрудников','sal':'Моя зарплата','profile':'Профиль','dir':'Справочник','rights':'Регламент','about':'О компании','cps':'Контрагенты','rates':'Курсы','users':'Пользователи','sreqs':'Заявки на услуги'};
+var PAGE_TITLES={'ceo':'CEO Агент','petty':'Подотчётные средства','items':'Статьи расходов','staff':'Сотрудники','cashflow':'Баланс счетов','udash':'Единый дашборд','dash':'Дашборд','pl':'P&L','bal':'Баланс','margin':'Маржинальность','orders':'Заказы','txs':'Транзакции','crm':'CRM — Сделки','asal':'Зарплата сотрудников','sal':'Моя зарплата','profile':'Профиль','dir':'Справочник','rights':'Регламент','about':'О компании','cps':'Контрагенты','rates':'Курсы','users':'Пользователи','sreqs':'Заявки на услуги'};
 
 function appHTML(){
   var navs=getNavs(),ri=ROLES[USER.role]||{l:'',c:'#64748b'};
@@ -903,7 +903,7 @@ function rp(){ var m=document.getElementById('mc');if(m) m.innerHTML=pageHTML();
 function pageHTML(){
   var map={
     ceo:pgCEO,udash:pgUDash,dash:pgDash,pl:pgPL,bal:pgBal,margin:pgMargin,
-    orders:pgOrders,txs:pgTxs,petty:pgPetty,cashflow:pgCashflow,items:pgItems,crm:pgCRM,asal:pgASal,sal:pgSal,
+    orders:pgOrders,txs:pgTxs,petty:pgPetty,cashflow:pgCashflow,items:pgItems,staff:pgStaff,crm:pgCRM,asal:pgASal,sal:pgSal,
     profile:pgProfile,dir:pgDir,rights:pgRights,about:pgAbout,
     cps:pgCPs,rates:pgRates,users:pgUsers,sreqs:pgSreqs,
   };
@@ -1932,6 +1932,92 @@ function saveRate(){
 // ══════════════════════════════════════════════════════
 // PAGE: USERS
 // ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
+// PAGE: STAFF — Сотрудники (директор)
+// ══════════════════════════════════════════════════════
+function pgStaff(){
+  var cards='';
+  for(var i=0;i<DB.users.length;i++){
+    var u=DB.users[i];
+    var ri=ROLES[u.role]||{l:u.role,c:'#64748b',i:'👤'};
+
+    // Salary line
+    var salLine=u.salType==='fixed+pct'
+      ?fmt(u.sal)+' сум + '+u.comm+'% ('+(u.commBase==='deal'?'сделка':'заказ')+')'
+      :u.salType==='pct'
+      ?u.comm+'% от '+(u.commBase==='deal'?'сделки':'заказа')
+      :fmt(u.sal||0)+' сум';
+
+    // Tenure
+    var tenure=u.start?tenStr(u.start):'—';
+
+    // Open petty
+    var openPetty=0;
+    if(DB.petty) for(var j=0;j<DB.petty.length;j++)
+      if(DB.petty[j].empId===u.id&&DB.petty[j].type==='issued'&&DB.petty[j].status!=='closed')
+        openPetty+=DB.petty[j].amt;
+
+    // Avatar
+    var av=u.photo
+      ?'<img src="'+u.photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'
+      :'<span style="font-size:1.1rem;font-weight:800;color:#fff">'+inits(u.n)+'</span>';
+
+    var noLogin=!u.e;
+
+    cards+='<div class="cc" style="padding:0;overflow:hidden">'
+      // Header
+      +'<div style="background:'+ri.c+';padding:16px 18px;display:flex;align-items:center;gap:12px">'
+      +'<div style="width:46px;height:46px;border-radius:50%;background:rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+av+'</div>'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-weight:800;font-size:.95rem;color:#fff">'+u.n+'</div>'
+      +'<div style="font-size:.72rem;color:rgba(255,255,255,.75);margin-top:1px">'+ri.i+' '+ri.l+(noLogin?' · <i>без входа</i>':'')+'</div>'
+      +'</div>'
+      +(openPetty>0?'<div style="background:rgba(255,255,255,.2);border-radius:8px;padding:4px 8px;text-align:center;flex-shrink:0">'
+        +'<div style="font-size:.6rem;color:rgba(255,255,255,.8)">Подотчёт</div>'
+        +'<div style="font-weight:700;color:#fff;font-size:.82rem">'+fmt(openPetty)+'</div>'
+        +'</div>':'')
+      +'</div>'
+      // Body
+      +'<div style="padding:14px 18px;display:flex;flex-wrap:wrap;gap:0">'
+      // Phone
+      +(u.ph?'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd);width:100%">'
+        +'<span style="font-size:.8rem;color:var(--mu);width:80px;flex-shrink:0">📞 Телефон</span>'
+        +'<a href="tel:'+u.ph+'" style="font-size:.82rem;color:var(--ac);font-weight:500">'+u.ph+'</a>'
+        +'</div>':'')
+      // Email
+      +(u.e?'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd);width:100%">'
+        +'<span style="font-size:.8rem;color:var(--mu);width:80px;flex-shrink:0">📧 Email</span>'
+        +'<span style="font-size:.82rem">'+u.e+'</span>'
+        +'</div>':'')
+      // Birthday
+      +(u.dob?'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd);width:100%">'
+        +'<span style="font-size:.8rem;color:var(--mu);width:80px;flex-shrink:0">🎂 День рождения</span>'
+        +'<span style="font-size:.82rem">'+u.dob+' · '+ageStr(u.dob)+' лет</span>'
+        +'</div>':'')
+      // Start
+      +'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd);width:100%">'
+      +'<span style="font-size:.8rem;color:var(--mu);width:80px;flex-shrink:0">⏱ В компании</span>'
+      +'<span style="font-size:.82rem">'+(u.start||'—')+' ('+tenure+')</span>'
+      +'</div>'
+      // Salary
+      +'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;width:100%">'
+      +'<span style="font-size:.8rem;color:var(--mu);width:80px;flex-shrink:0">💰 Зарплата</span>'
+      +'<span style="font-size:.82rem;font-weight:600;color:var(--gr2)">'+salLine+'</span>'
+      +'</div>'
+      +'</div>'
+      // Actions
+      +'<div style="padding:0 18px 14px;display:flex;gap:8px">'
+      +btn('bp bsm','✏️ Изменить','editUserFull('+u.id+')')
+      +btn('bs bsm','🔑 Пароль','openPwM('+u.id+')')
+      +'</div>'
+      +'</div>';
+  }
+  return '<div class="ph"><div class="pt">Сотрудники</div>'
+    +'<div style="font-size:.8rem;color:var(--mu)">'+DB.users.length+' чел.</div>'
+    +'</div>'
+    +'<div class="kg" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">'+cards+'</div>';
+}
+
 function pgUsers(){
   var rows='';
   for(var i=0;i<DB.users.length;i++){
