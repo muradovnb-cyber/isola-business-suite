@@ -554,9 +554,10 @@ function initFromServer(){
       }catch(ex){}
     });
 }
+var API_KEY='ISOLA-2026-S3CR3T-K3Y';
 function saveDB(){
   try{localStorage.setItem('sd',JSON.stringify(DB));}catch(e){}
-  fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(DB)}).catch(function(){});
+  fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':API_KEY},body:JSON.stringify(DB)}).catch(function(){});
 }
 function nid(a){ var m=0; for(var i=0;i<a.length;i++) if(a[i].id>m) m=a[i].id; return m+1; }
 function fmt(n){ return new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(n||0); }
@@ -807,7 +808,7 @@ function loginHTML(){
     +'<div class="fg"><label>Пароль</label><input id="lp" type="password" value="1234"/></div>'
     +'<div id="lerr" style="color:#dc2626;font-size:.76rem;margin-bottom:6px;display:none"></div>'
     +'<button class="btn bp bfull" onclick="doLogin()">Войти в систему →</button>'
-    +'<div style="margin-top:11px"><div style="font-size:.64rem;color:var(--mu);margin-bottom:6px;font-weight:700">БЫСТРЫЙ ВХОД (пароль: 1234)</div><div class="dg">'+demos+'</div></div>'
+    +'<div style="margin-top:11px"><div class="dg">'+demos+'</div></div>'
     +'<div style="margin-top:12px;padding:10px 12px;background:#f0f9ff;border-radius:8px;border:1px solid #bae6fd;font-size:.71rem;color:#0369a1">💡 Объединяет FinApp и HR-портал ISOLA. Оба оригинальных приложения сохранены.</div>'
     +'</div></div>';
 }
@@ -901,6 +902,27 @@ function render(){ document.getElementById('app').innerHTML=USER?appHTML():login
 function rp(){ var m=document.getElementById('mc');if(m) m.innerHTML=pageHTML(); }
 
 function pageHTML(){
+  if(!USER) return '<div style="padding:32px;text-align:center;color:var(--mu)">Не авторизован</div>';
+  // Allowed pages per role
+  var allowed={
+    director: ['ceo','udash','dash','pl','bal','margin','orders','txs','petty','cashflow','items','staff','crm','asal','sal','profile','dir','rights','about','cps','rates','users','sreqs'],
+    accountant:['cashflow','txs','orders','petty','items','asal','sal','profile','about','cps'],
+    supply:    ['orders','petty','sal','profile','about','sreqs'],
+    manager:   ['crm','orders','sal','profile','about','petty'],
+    constructor:['orders','petty','sal','profile','about','sreqs'],
+    production: ['orders','petty','sal','profile','about','sreqs'],
+    brigadier:  []
+  };
+  var role=USER.role||'supply';
+  var ok=allowed[role]||[];
+  // If page not allowed for role - show access denied
+  if(ok.length>0&&ok.indexOf(PAGE)<0){
+    return '<div style="padding:48px;text-align:center">'
+      +'<div style="font-size:2rem;margin-bottom:12px">🔒</div>'
+      +'<div style="font-weight:700;margin-bottom:6px">Нет доступа</div>'
+      +'<div style="color:var(--mu);font-size:.85rem">Эта страница недоступна для вашей роли</div>'
+      +'</div>';
+  }
   var map={
     ceo:pgCEO,udash:pgUDash,dash:pgDash,pl:pgPL,bal:pgBal,margin:pgMargin,
     orders:pgOrders,txs:pgTxs,petty:pgPetty,cashflow:pgCashflow,items:pgItems,staff:pgStaff,crm:pgCRM,asal:pgASal,sal:pgSal,
