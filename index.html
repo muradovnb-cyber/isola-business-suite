@@ -2078,6 +2078,12 @@ function editUserFull(uid){
     'saveUserFull()');
 }
 
+function toggleEufSalary(st){
+  var fw=document.getElementById('euf-fix-wrap');
+  var cw=document.getElementById('euf-comm-wrap');
+  if(fw) fw.style.display=st==='pct'?'none':'block';
+  if(cw) cw.style.display=st==='fixed'?'none':'block';
+}
 function saveUserFull(){
   var uid=+(document.getElementById('euf-id')||{value:0}).value;
   var n=(document.getElementById('euf-n')||{value:''}).value.trim();
