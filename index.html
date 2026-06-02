@@ -2040,6 +2040,65 @@ function pgStaff(){
     +'<div class="kg" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">'+cards+'</div>';
 }
 
+function editUserFull(uid){
+  var u=userGet(uid); if(!u){toast('Сотрудник не найден','error');return;}
+  var roleOpts=''; var rkeys=Object.keys(ROLES);
+  for(var i=0;i<rkeys.length;i++) roleOpts+='<option value="'+rkeys[i]+'"'+(u.role===rkeys[i]?' selected':'')+'>'+ROLES[rkeys[i]].l+'</option>';
+  var salTypeOpts='<option value="fixed"'+(!u.salType||u.salType==='fixed'?' selected':'')+'>Только фикса</option>'
+    +'<option value="fixed+pct"'+(u.salType==='fixed+pct'?' selected':'')+'>Фикса + %</option>'
+    +'<option value="pct"'+(u.salType==='pct'?' selected':'')+'>Только % (без фиксы)</option>';
+  var commBaseOpts='<option value="deal"'+(!u.commBase||u.commBase==='deal'?' selected':'')+'>% от сделки (CRM)</option>'
+    +'<option value="order"'+(u.commBase==='order'?' selected':'')+'>% от заказа</option>';
+  openModalRaw('✏️ '+u.n,
+    '<input type="hidden" id="euf-id" value="'+uid+'"/>'
+    +'<div class="g2">'
+    +'<div class="fg"><label>Имя</label><input id="euf-n" value="'+u.n+'"/></div>'
+    +'<div class="fg"><label>Роль</label><select id="euf-r">'+roleOpts+'</select></div>'
+    +'</div>'
+    +'<div class="fg"><label>Телефон</label><input id="euf-ph" type="tel" value="'+(u.ph||'')+'"/></div>'
+    +'<div class="fg"><label>Дата начала работы</label><input id="euf-start" type="date" value="'+(u.start||'')+'"/></div>'
+    +'<hr style="border:none;border-top:1px solid var(--bd);margin:10px 0"/>'
+    +'<div class="fg"><label>💰 Тип зарплаты</label>'
+    +'<select id="euf-st" onchange="(function(){'
+    +'var st=document.getElementById('euf-st').value;'
+    +'var fw=document.getElementById('euf-fix-wrap');'
+    +'var cw=document.getElementById('euf-comm-wrap');'
+    +'if(fw)fw.style.display=st==='pct'?'none':'block';'
+    +'if(cw)cw.style.display=st==='fixed'?'none':'block';'
+    +'})()">'
+    +salTypeOpts+'</select></div>'
+    +'<div id="euf-fix-wrap" style="display:'+(u.salType==='pct'?'none':'block')+'">'
+    +'<div class="fg"><label>Оклад (фикса, сум)</label><input type="number" id="euf-s" value="'+(u.sal||0)+'"/></div>'
+    +'</div>'
+    +'<div id="euf-comm-wrap" style="display:'+(!u.salType||u.salType==='fixed'?'none':'block')+'">'
+    +'<div class="g2">'
+    +'<div class="fg"><label>Процент %</label><input type="number" id="euf-c" value="'+(u.comm||0)+'"/></div>'
+    +'<div class="fg"><label>База</label><select id="euf-cb">'+commBaseOpts+'</select></div>'
+    +'</div></div>',
+    'saveUserFull()');
+}
+
+function saveUserFull(){
+  var uid=+(document.getElementById('euf-id')||{value:0}).value;
+  var n=(document.getElementById('euf-n')||{value:''}).value.trim();
+  var role=(document.getElementById('euf-r')||{value:''}).value;
+  var ph=(document.getElementById('euf-ph')||{value:''}).value.trim();
+  var start=(document.getElementById('euf-start')||{value:''}).value;
+  var salType=(document.getElementById('euf-st')||{value:'fixed'}).value;
+  var sal=+(document.getElementById('euf-s')||{value:0}).value||0;
+  var comm=+(document.getElementById('euf-c')||{value:0}).value||0;
+  var commBase=(document.getElementById('euf-cb')||{value:'deal'}).value;
+  if(!n){toast('Введите имя','error');return;}
+  for(var i=0;i<DB.users.length;i++) if(DB.users[i].id===uid){
+    DB.users[i].n=n; DB.users[i].role=role; DB.users[i].ph=ph;
+    DB.users[i].start=start; DB.users[i].sal=sal; DB.users[i].comm=comm;
+    DB.users[i].salType=salType; DB.users[i].commBase=commBase;
+    break;
+  }
+  saveDB();closeModal();toast('Сохранено ✓','success');rp();
+}
+
+
 function pgUsers(){
   var rows='';
   for(var i=0;i<DB.users.length;i++){
