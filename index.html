@@ -1866,14 +1866,16 @@ function pgUsers(){
   var rows='';
   for(var i=0;i<DB.users.length;i++){
     var u=DB.users[i],ri=ROLES[u.role]||{l:u.role,c:'#64748b'};
-    rows+='<tr><td><b>'+u.n+'</b></td><td>'+u.e+'</td>'
+    var salInfo=u.salType==='fixed+pct'?fmt(u.sal||0)+' + '+u.comm+'% от '+(u.commBase==='deal'?'сделки':'заказа')
+      :u.salType==='pct'?u.comm+'% от '+(u.commBase==='deal'?'сделки':'заказа')
+      :fmt(u.sal||0)+' сум';
+    rows+='<tr><td><b>'+u.n+'</b></td><td style="font-size:.78rem">'+u.e+'</td>'
       +'<td><span class="bdg" style="background:'+ri.c+'20;color:'+ri.c+';font-size:.62rem">'+ri.l+'</span></td>'
-      +'<td>'+(u.sal?fmt(u.sal)+' сум':'—')+'</td>'
-      +'<td>'+(u.comm?u.comm+'%':'—')+'</td>'
-      +'<td>'+btn('bs bsm','Пароль','openPwM('+u.id+')')+'</td></tr>';
+      +'<td style="font-size:.78rem">'+salInfo+'</td>'
+      +'<td>'+btn('bp bsm','✏️ Изменить','editUserFull('+u.id+')')+' '+btn('bs bsm','🔑','openPwM('+u.id+')')+'</td></tr>';
   }
   return '<div class="ph"><div class="pt">Пользователи</div>'+btn('bp','+ Добавить','openUserM()')+'</div>'
-    +'<div class="tc"><div class="tw"><table><thead><tr><th>Имя</th><th>Email</th><th>Роль</th><th>Оклад</th><th>Комиссия</th><th></th></tr></thead><tbody>'+(rows||'<tr class="er"><td colspan="6">—</td></tr>')+'</tbody></table></div></div>';
+    +'<div class="tc"><div class="tw"><table><thead><tr><th>Имя</th><th>Email</th><th>Роль</th><th>Оклад / Комиссия</th><th></th></tr></thead><tbody>'+(rows||'<tr class="er"><td colspan="6">—</td></tr>')+'</tbody></table></div></div>';
 }
 function openPwM(uid){
   openModalRaw('Смена пароля',
