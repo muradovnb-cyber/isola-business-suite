@@ -118,6 +118,12 @@ function json(res, data, code) {
 }
 
 // ── Request handler ─────────────────────────────────────────────────────
+function checkApiKey(req) {
+  const validKey = (process.env.API_SECRET || '').replace(/^"|"$/g,'').trim();
+  if (!validKey) return true; // If no secret set, allow all (backwards compat)
+  return req.headers['x-api-key'] === validKey;
+}
+
 function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
@@ -136,6 +142,7 @@ function handler(req, res) {
 
   // ── API: save full DB (from browser) ─────────────────────────────────
   if (url === '/api/data' && req.method === 'POST') {
+    if (!checkApiKey(req)) { json(res,{ok:false,err:'unauthorized'},401); return; }
     readBody(req, (err, body) => {
       if (err || !body) { json(res, {ok:false, err:'bad json'}, 400); return; }
       DB = body;
@@ -147,6 +154,7 @@ function handler(req, res) {
 
   // ── API: add expense from n8n bot ─────────────────────────────────────
   if (url === '/api/expense' && req.method === 'POST') {
+    if (!checkApiKey(req)) { json(res,{ok:false,err:'unauthorized'},401); return; }
     readBody(req, (err, body) => {
       if (err || !body) { json(res, {ok:false, err:'bad json'}, 400); return; }
       if (!DB.txs) DB.txs = [];
