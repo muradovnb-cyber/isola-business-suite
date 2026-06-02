@@ -2060,12 +2060,6 @@ function editUserFull(uid){
     +'<hr style="border:none;border-top:1px solid var(--bd);margin:10px 0"/>'
     +'<div class="fg"><label>💰 Тип зарплаты</label>'
     +'<select id="euf-st" onchange="(function(){'
-    +'var st=document.getElementById('euf-st').value;'
-    +'var fw=document.getElementById('euf-fix-wrap');'
-    +'var cw=document.getElementById('euf-comm-wrap');'
-    +'if(fw)fw.style.display=st==='pct'?'none':'block';'
-    +'if(cw)cw.style.display=st==='fixed'?'none':'block';'
-    +'})()">'
     +salTypeOpts+'</select></div>'
     +'<div id="euf-fix-wrap" style="display:'+(u.salType==='pct'?'none':'block')+'">'
     +'<div class="fg"><label>Оклад (фикса, сум)</label><input type="number" id="euf-s" value="'+(u.sal||0)+'"/></div>'
@@ -2079,10 +2073,6 @@ function editUserFull(uid){
 }
 
 function toggleEufSalary(st){
-  var fw=document.getElementById('euf-fix-wrap');
-  var cw=document.getElementById('euf-comm-wrap');
-  if(fw) fw.style.display=st==='pct'?'none':'block';
-  if(cw) cw.style.display=st==='fixed'?'none':'block';
 }
 function saveUserFull(){
   var uid=+(document.getElementById('euf-id')||{value:0}).value;
