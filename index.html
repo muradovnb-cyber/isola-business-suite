@@ -2861,27 +2861,44 @@ window.addEventListener('appinstalled',function(){
 });
 function doInst(){if(_ie){_ie.prompt();_ie.userChoice.then(function(r){if(r.outcome==='accepted'){var b=document.getElementById('ibar');if(b)b.style.display='none';}});_ie=null;}}
 function dimInst(){var b=document.getElementById('ibar');if(b)b.style.display='none';localStorage.setItem('ibd','1');}
-// Auto-sync: pull fresh data from server every 30 seconds
-setInterval(function(){
-  if(!USER) return; // only when logged in
+// Auto-sync: pull fresh data every 10s (mobile-friendly)
+var _lastSyncHash = '';
+function calcHash(db){
+  return [
+    (db.txs||[]).length,
+    (db.petty||[]).length,
+    (db.orders||[]).length,
+    (db.deals||[]).length,
+    (db.users||[]).length
+  ].join('|');
+}
+function doSync(){
+  if(!USER) return;
   fetch('/api/data')
     .then(function(r){return r.json();})
     .then(function(resp){
-      if(resp.ok&&resp.data&&resp.data.txs){
-        var serverTxs=resp.data.txs.length;
-        var localTxs=(DB.txs||[]).length;
-        // If server has more data - update local
-        if(serverTxs>localTxs){
-          DB=resp.data;
-          if(DB.txs) DB.txs=DB.txs.filter(function(t){
-            return !(t.note&&t.note.indexOf('[Подотчёт] Выдано ')===0);
-          });
-          rp();
-          toast('🔄 Данные обновлены','info');
-        }
+      if(!resp.ok||!resp.data) return;
+      var newHash = calcHash(resp.data);
+      if(newHash !== _lastSyncHash && _lastSyncHash !== ''){
+        DB = resp.data;
+        if(DB.txs) DB.txs=DB.txs.filter(function(t){
+          return !(t.note&&t.note.indexOf('[Подотчёт] Выдано ')===0);
+        });
+        _lastSyncHash = newHash;
+        rp();
+        toast('🔄 Обновлено','info');
+      } else {
+        _lastSyncHash = newHash;
       }
     }).catch(function(){});
-}, 30000);
+}
+setInterval(doSync, 10000);
+
+// Sync on page focus (mobile returns from background)
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'visible') doSync();
+});
+window.addEventListener('focus', doSync);
 
 if('serviceWorker' in navigator){
   initFromServer();
