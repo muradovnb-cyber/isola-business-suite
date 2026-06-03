@@ -520,20 +520,19 @@ function getItems(){
   return (DB.items && DB.items.length > 0) ? DB.items : ITEMS;
 }
 function initFromServer(){
-  fetch('/api/data')
+  fetch('/api/data?t='+Date.now()) // cache bust
     .then(function(r){ return r.json(); })
     .then(function(resp){
       if(resp.ok && resp.data && resp.data.users && resp.data.users.length>0){
         DB = resp.data;
-        // Clean bad petty transactions
         if(DB.txs) DB.txs=DB.txs.filter(function(t){
           return !(t.note&&t.note.indexOf('[Подотчёт] Выдано ')===0);
         });
-        console.log('DB loaded from server. Txs:', DB.txs.length);
-        // If logged in - refresh page
+        // Always update localStorage cache
+        try{ localStorage.setItem('sd', JSON.stringify(DB)); }catch(e){}
+        _lastSyncHash = calcHash(DB);
         if(USER) rp();
       } else {
-        // Server has no data yet - push local data
         var local=localStorage.getItem('sd');
         if(local){
           try{
@@ -541,13 +540,12 @@ function initFromServer(){
             if(DB.txs) DB.txs=DB.txs.filter(function(t){
               return !(t.note&&t.note.indexOf('[Подотчёт] Выдано ')===0);
             });
-            saveDB(); // push to server
+            saveDB();
           }catch(e){}
         }
       }
     })
     .catch(function(e){
-      // Offline: use localStorage
       try{
         var local=localStorage.getItem('sd');
         if(local) DB=JSON.parse(local);
@@ -2896,9 +2894,14 @@ setInterval(doSync, 10000);
 
 // Sync on page focus (mobile returns from background)
 document.addEventListener('visibilitychange', function(){
-  if(document.visibilityState === 'visible') doSync();
+  if(document.visibilityState === 'visible'){
+    // Full reload from server when app comes to foreground
+    initFromServer();
+  }
 });
-window.addEventListener('focus', doSync);
+window.addEventListener('focus', function(){
+  initFromServer();
+});
 
 if('serviceWorker' in navigator){
   initFromServer();
