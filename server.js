@@ -210,6 +210,83 @@ function handler(req, res) {
   }
 
   // ── API: health check ─────────────────────────────────────────────────
+  // ── API: add income ─────────────────────────────────────────────────────
+  if (url === '/api/income' && req.method === 'POST') {
+    if (!checkApiKey(req)) { logSecurity(checkBlocked(req,res)||'?','UNAUTH','/api/income'); json(res,{ok:false,err:'unauthorized'},401); return; }
+    readBody(req, (err, body) => {
+      if (err || !body) { json(res,{ok:false},400); return; }
+      if (!DB.txs) DB.txs = [];
+      const id = DB.txs.length ? Math.max(...DB.txs.map(t=>t.id||0))+1 : 1;
+      const tx = { id, date: body.date||new Date().toISOString().slice(0,10),
+        type:'income', acc: body.acc||'cash', iid: body.iid||1,
+        cpid: body.cpid||null, oid: body.oid||null,
+        amt: body.amt||0, cur: body.cur||'UZS', rate:1, uzs: body.amt||0,
+        note: body.note||'', by: body.by||1, payType: body.payType||'payment', fromBot:true };
+      DB.txs.push(tx); saveDB(); json(res,{ok:true,tx});
+    }); return;
+  }
+
+  // ── API: create order ────────────────────────────────────────────────────
+  if (url === '/api/order' && req.method === 'POST') {
+    if (!checkApiKey(req)) { json(res,{ok:false,err:'unauthorized'},401); return; }
+    readBody(req, (err, body) => {
+      if (err || !body) { json(res,{ok:false},400); return; }
+      if (!DB.orders) DB.orders = [];
+      const id = DB.orders.length ? Math.max(...DB.orders.map(o=>o.id||0))+1 : 1;
+      const order = { id, num:'#'+id, name: body.name||'Новый заказ',
+        cpid: body.cpid||null, mid: body.mid||4, status: body.status||'new',
+        total: body.total||0, paid:0, date: body.date||new Date().toISOString().slice(0,10),
+        deadline: body.deadline||null, note: body.note||'', fromBot:true };
+      DB.orders.push(order); saveDB(); json(res,{ok:true,order});
+    }); return;
+  }
+
+  // ── API: create deal (CRM) ───────────────────────────────────────────────
+  if (url === '/api/deal' && req.method === 'POST') {
+    if (!checkApiKey(req)) { json(res,{ok:false,err:'unauthorized'},401); return; }
+    readBody(req, (err, body) => {
+      if (err || !body) { json(res,{ok:false},400); return; }
+      if (!DB.deals) DB.deals = [];
+      const id = DB.deals.length ? Math.max(...DB.deals.map(d=>d.id||0))+1 : 1;
+      const deal = { id, name: body.name||'Новая сделка',
+        cpid: body.cpid||null, mid: body.mid||4, stage: body.stage||'lead',
+        amt: body.amt||0, date: body.date||new Date().toISOString().slice(0,10),
+        note: body.note||'', fromBot:true };
+      DB.deals.push(deal); saveDB(); json(res,{ok:true,deal});
+    }); return;
+  }
+
+  // ── API: petty cash issue/report ─────────────────────────────────────────
+  if (url === '/api/petty' && req.method === 'POST') {
+    if (!checkApiKey(req)) { json(res,{ok:false,err:'unauthorized'},401); return; }
+    readBody(req, (err, body) => {
+      if (err || !body) { json(res,{ok:false},400); return; }
+      if (!DB.petty) DB.petty = [];
+      const id = DB.petty.length ? Math.max(...DB.petty.map(p=>p.id||0))+1 : 1;
+      const entry = { id, empId: body.empId||3, type: body.type||'issued',
+        amt: body.amt||0, date: body.date||new Date().toISOString().slice(0,10),
+        note: body.note||'', status: body.status||'open',
+        iid: body.iid||null, oid: body.oid||null, fromBot:true };
+      DB.petty.push(entry); saveDB(); json(res,{ok:true,entry});
+    }); return;
+  }
+
+  // ── API: salary accrual ──────────────────────────────────────────────────
+  if (url === '/api/salary' && req.method === 'POST') {
+    if (!checkApiKey(req)) { json(res,{ok:false,err:'unauthorized'},401); return; }
+    readBody(req, (err, body) => {
+      if (err || !body) { json(res,{ok:false},400); return; }
+      if (!DB.accruals) DB.accruals = [];
+      const id = DB.accruals.length ? Math.max(...DB.accruals.map(a=>a.id||0))+1 : 1;
+      const acc = { id, empId: body.empId, amt: body.amt||0,
+        month: body.month||new Date().getMonth()+1,
+        year: body.year||new Date().getFullYear(),
+        type: body.type||'salary', paid: body.paid||false,
+        date: body.date||new Date().toISOString().slice(0,10), fromBot:true };
+      DB.accruals.push(acc); saveDB(); json(res,{ok:true,accrual:acc});
+    }); return;
+  }
+
   // ── Security log (только с правильным ключом) ───────────────────────────
   if (url === '/api/security' && req.method === 'GET') {
     if (!checkApiKey(req)) { json(res,{ok:false,err:'unauthorized'},401); return; }
