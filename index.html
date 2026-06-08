@@ -531,7 +531,7 @@ function initFromServer(){
         // Always update localStorage cache
         try{ localStorage.setItem('sd', JSON.stringify(DB)); }catch(e){}
         _lastSyncHash = calcHash(DB);
-        if(USER) rp();
+        if(USER){ var _mr=document.getElementById('mroot'); if(!_mr||!_mr.innerHTML.trim()) rp(); }
       } else {
         var local=localStorage.getItem('sd');
         if(local){
@@ -765,8 +765,13 @@ function dealCard(d){
       +'<button class="dsb lost" onclick="updDeal('+d.id+',\'lost\')">❌ Проиграна</button>'
       +'</div>';
   }
+  var editBtn=(d.st!=='won'&&d.st!=='lost')||(USER.role==='director')
+    ?'<button style="background:none;border:none;cursor:pointer;color:var(--mu);font-size:.8rem;padding:2px 6px" onclick="openDealM('+d.id+')" title="Редактировать">✏️</button>'
+    :'';
+  var phStr=d.ph?'<div style="font-size:.72rem;color:var(--ac);margin-top:3px">📞 <a href="tel:'+d.ph+'" style="color:var(--ac)">'+d.ph+'</a></div>':'';
+  var noteStr=d.note?'<div style="font-size:.72rem;color:var(--mu);margin-top:3px">💬 '+d.note+'</div>':'';
   return '<div class="deal">'
-    +'<div class="deal-t"><div><div class="deal-cl">'+d.cl+empStr+'</div>'+(d.ds?'<div class="deal-d">'+d.ds+'</div>':'')+'</div>'
+    +'<div class="deal-t"><div><div class="deal-cl">'+d.cl+empStr+editBtn+'</div>'+(d.ds?'<div class="deal-d">'+d.ds+'</div>':'')+phStr+noteStr+'</div>'
     +'<div class="deal-a">'+fmt(d.amt)+' сум</div></div>'
     +'<div class="deal-m">'+bdg(st.c,st.i+' '+st.l)+'<span style="font-size:.72rem;color:var(--mu)">'+d.date+'</span>'+commStr+'</div>'
     +linkStr+acts+'</div>';
@@ -793,7 +798,7 @@ function periodBtns(yrs,mos){
   return h+'</div>';
 }
 function allMonths(){ return [0,1,2,3,4,5,6,7,8,9,10,11]; }
-function allYears(){ return [2024,2025]; }
+function allYears(){ var y=new Date().getFullYear(); var r=[]; for(var i=y-2;i<=y;i++) r.push(i); return r; }
 
 // ══════════════════════════════════════════════════════
 // LOGIN
@@ -1543,7 +1548,7 @@ function pgCRM(){
   var fs=[['all','Все'],['new','Новые'],['progress','В работе'],['negotiation','Переговоры'],['won','Выиграны ✅'],['lost','Проиграны ❌']];
   for(var i=0;i<fs.length;i++) fBtns+='<button class="prb'+(DF===fs[i][0]?' on':'')+'" onclick="setCRMF(\''+fs[i][0]+'\')">'+fs[i][1]+'</button>';
   return '<div class="ph"><div class="pt">CRM — Сделки</div>'+btn('bp','+ Новая сделка','openDealM()')+'</div>'
-    +periodBtns([2024,2025],allMonths())
+    +periodBtns(allYears(),allMonths())
     +'<div class="kg">'
     +kpi('gn','✅ Выиграно',String(won.length),fmt(wonAmt)+' сум')
     +kpi('or','🔄 В работе',String(pipe.length),fmt(pipeAmt)+' сум')
@@ -1574,17 +1579,32 @@ function updDeal(id,status){
   } else toast('Статус обновлён','success');
   saveDB();rp();
 }
-function openDealM(){
-  var empOpts=USER.role==='director'?'<div class="fg"><label>Менеджер</label><select id="d-emp">'+optList(DB.users.filter(function(u){return u.dept==='sales';}),function(u){return u.id;},function(u){return u.n;})+'</select></div>':'';
-  var moOpts=''; for(var i=0;i<12;i++) moOpts+='<option value="'+i+'"'+(i===CM?' selected':'')+'>'+MONTHS[i]+'</option>';
-  openModalRaw('Новая сделка',
-    '<div class="fg"><label>Клиент *</label><input id="dcl" placeholder="ООО Название или ФИО"/></div>'
-    +'<div class="fg"><label>Описание</label><input id="dds" placeholder="Продукт, услуга..."/></div>'
-    +'<div class="fg"><label>Сумма (сум) *</label><input id="dam" type="number" placeholder="5000000"/></div>'
+function openDealM(editId){
+  var curYr=new Date().getFullYear();
+  var ed=editId?null:null; for(var _i=0;_i<DB.deals.length;_i++) if(DB.deals[_i].id===editId){ed=DB.deals[_i];break;}
+  var empOpts=USER.role==='director'?'<div class="fg"><label>Ответственный менеджер</label><select id="d-emp">'+optList(DB.users.filter(function(u){return u.dept==='sales';}),function(u){return u.id;},function(u){return u.n;},ed?ed.eid:null)+'</select></div>':'';
+  var moOpts=''; for(var i=0;i<12;i++) moOpts+='<option value="'+i+'"'+((ed?ed.mo:CM)===i?' selected':'')+'>'+MONTHS[i]+'</option>';
+  var yrOpts=''; var yrs=allYears(); for(var i=0;i<yrs.length;i++) yrOpts+='<option value="'+yrs[i]+'"'+((ed?ed.yr:curYr)===yrs[i]?' selected':'')+'>'+yrs[i]+'</option>';
+  var stOpts='<option value="new"'+(ed&&ed.st==='new'?' selected':'')+'>🆕 Новая</option>'
+    +'<option value="progress"'+(ed&&ed.st==='progress'?' selected':'')+'>🔄 В работе</option>'
+    +'<option value="negotiation"'+(ed&&ed.st==='negotiation'?' selected':'')+'>🤝 Переговоры</option>'
+    +'<option value="won"'+(ed&&ed.st==='won'?' selected':'')+'>✅ Выиграна</option>'
+    +'<option value="lost"'+(ed&&ed.st==='lost'?' selected':'')+'>❌ Проиграна</option>';
+  openModalRaw(editId?'✏️ Редактировать сделку':'Новая сделка',
+    '<input type="hidden" id="d-edit-id" value="'+(editId||'')+'">'
+    +'<div class="g2">'
+    +'<div class="fg"><label>Клиент *</label><input id="dcl" placeholder="ООО Название или ФИО" value="'+(ed?ed.cl:'')+'" /></div>'
+    +'<div class="fg"><label>Телефон</label><input id="d-ph" type="tel" placeholder="+998 90 123 45 67" value="'+(ed&&ed.ph?ed.ph:'')+'" /></div>'
+    +'</div>'
+    +'<div class="fg"><label>Описание / продукт</label><input id="dds" placeholder="Кухня, шкаф, стеллаж..." value="'+(ed?ed.ds||'':'')+'" /></div>'
+    +'<div class="fg"><label>Сумма (сум) *</label><input id="dam" type="number" placeholder="5000000" value="'+(ed?ed.amt:'')+'" /></div>'
+    +'<div class="fg"><label>Заметка</label><input id="d-note" placeholder="Доп. информация..." value="'+(ed&&ed.note?ed.note:'')+'" /></div>'
     +empOpts
-    +'<div class="fg"><label>Год</label><select id="dyr"><option value="2025">2025</option><option value="2024">2024</option></select></div>'
+    +'<div class="g2">'
+    +'<div class="fg"><label>Год</label><select id="dyr">'+yrOpts+'</select></div>'
     +'<div class="fg"><label>Месяц</label><select id="dmo">'+moOpts+'</select></div>'
-    +'<div class="fg"><label>Статус</label><select id="dst"><option value="new">🆕 Новая</option><option value="progress">🔄 В работе</option><option value="won">✅ Выиграна</option></select></div>',
+    +'</div>'
+    +'<div class="fg"><label>Статус</label><select id="dst">'+stOpts+'</select></div>',
     'saveDealNew()');
 }
 function saveDealNew(){
@@ -1594,11 +1614,35 @@ function saveDealNew(){
   var eid=USER.role==='director'?(+(document.getElementById('d-emp')||{value:USER.id}).value):USER.id;
   var st=(document.getElementById('dst')||{value:'new'}).value;
   var mo=+(document.getElementById('dmo')||{value:0}).value;
-  var yr=+(document.getElementById('dyr')||{value:2025}).value;
-  var nd={id:nid(DB.deals),eid:eid,cl:cl,ds:(document.getElementById('dds')||{value:''}).value||'',amt:am,st:st,date:new Date().toLocaleDateString('ru-RU'),mo:mo,yr:yr,oid:null};
-  DB.deals.push(nd);
-  if(st==='won'){var emp=userGet(eid);if(emp&&emp.dept==='sales'){var r=emp.comm||5,c=Math.round(am*r/100);DB.accruals.push({id:nid(DB.accruals),eid:emp.id,type:'commission',amt:c,note:'Комиссия '+r+'% — '+cl,date:today(),mo:mo,yr:yr});}}
-  saveDB();closeModal();rp();toast('Сделка добавлена','success');
+  var yr=+(document.getElementById('dyr')||{value:new Date().getFullYear()}).value;
+  var ph=(document.getElementById('d-ph')||{value:''}).value||'';
+  var note=(document.getElementById('d-note')||{value:''}).value||'';
+  var ds=(document.getElementById('dds')||{value:''}).value||'';
+  var editId=+(document.getElementById('d-edit-id')||{value:0}).value||0;
+  if(editId){
+    // Edit existing deal
+    for(var i=0;i<DB.deals.length;i++){
+      if(DB.deals[i].id===editId){
+        var old=DB.deals[i].st;
+        DB.deals[i].cl=cl; DB.deals[i].ds=ds; DB.deals[i].amt=am;
+        DB.deals[i].st=st; DB.deals[i].mo=mo; DB.deals[i].yr=yr;
+        DB.deals[i].ph=ph; DB.deals[i].note=note;
+        if(USER.role==='director') DB.deals[i].eid=eid;
+        if(st==='won'&&old!=='won'){
+          var emp2=userGet(DB.deals[i].eid);
+          if(emp2&&emp2.dept==='sales'){var r2=emp2.comm||5,c2=Math.round(am*r2/100);DB.accruals.push({id:nid(DB.accruals),eid:emp2.id,type:'commission',amt:c2,note:'Комиссия '+r2+'% — '+cl,date:today(),mo:mo,yr:yr});}
+        }
+        break;
+      }
+    }
+    saveDB();closeModal();rp();toast('Сделка обновлена','success');
+  } else {
+    // New deal
+    var nd={id:nid(DB.deals),eid:eid,cl:cl,ds:ds,ph:ph,note:note,amt:am,st:st,date:new Date().toLocaleDateString('ru-RU'),mo:mo,yr:yr,oid:null};
+    DB.deals.push(nd);
+    if(st==='won'){var emp=userGet(eid);if(emp&&emp.dept==='sales'){var r=emp.comm||5,c=Math.round(am*r/100);DB.accruals.push({id:nid(DB.accruals),eid:emp.id,type:'commission',amt:c,note:'Комиссия '+r+'% — '+cl,date:today(),mo:mo,yr:yr});}}
+    saveDB();closeModal();rp();toast('Сделка добавлена','success');
+  }
 }
 
 // ── КОМИССИЯ МЕНЕДЖЕРА ───────────────────────────────────────────────
@@ -1719,7 +1763,7 @@ function pgASal(){
   var lastAcc=[].concat(DB.accruals).sort(function(a,b){return b.id-a.id;}).slice(0,20);
   var accRows=''; for(var i=0;i<lastAcc.length;i++) accRows+=accRow(lastAcc[i]);
   return '<div class="ph"><div class="pt">Зарплата — '+MONTHS[CM]+' '+CY+'</div>'+btn('bp','+ Начислить','openAccM(0)')+'</div>'
-    +periodBtns([2024,2025],allMonths())
+    +periodBtns(allYears(),allMonths())
     +'<div class="tc"><div class="tw"><table><thead><tr><th>Сотрудник</th><th>Должность</th><th>Оклад план</th><th>Начислено</th><th>Авансы</th><th>Штрафы</th><th>К выдаче</th><th></th></tr></thead><tbody>'+(rows||'<tr class="er"><td colspan="8">—</td></tr>')+'</tbody></table></div></div>'
     +'<div class="tc"><div class="th"><div class="ct">Последние начисления</div></div><div class="tw"><table><thead><tr><th>Дата</th><th>Сотрудник</th><th>Тип</th><th>Сумма</th><th>Комментарий</th><th></th></tr></thead><tbody>'+(accRows||'<tr class="er"><td colspan="6">—</td></tr>')+'</tbody></table></div></div>';
 }
