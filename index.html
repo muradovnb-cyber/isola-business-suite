@@ -2189,9 +2189,19 @@ function saveRate(){
 // PAGE: STAFF — Сотрудники (директор)
 // ══════════════════════════════════════════════════════
 function pgStaff(){
+  var withAccess=DB.users.filter(function(u){return u.e&&u.e.length>0;});
+  var noAccess=DB.users.filter(function(u){return !u.e||u.e.length===0;});
   var cards='';
-  for(var i=0;i<DB.users.length;i++){
-    var u=DB.users[i];
+  var allGroups=[{label:'С доступом к приложению',icon:'🔐',color:'#22c55e',users:withAccess},{label:'Без доступа к приложению',icon:'🔒',color:'#94a3b8',users:noAccess}];
+  for(var g=0;g<allGroups.length;g++){
+    var grp=allGroups[g];
+    if(!grp.users.length) continue;
+    cards+='<div style="grid-column:1/-1;display:flex;align-items:center;gap:10px;margin-top:'+(g>0?'8px':'0')+'px">'
+      +'<div style="font-size:.78rem;font-weight:700;color:'+grp.color+';white-space:nowrap">'+grp.icon+' '+grp.label+' ('+grp.users.length+')</div>'
+      +'<div style="flex:1;height:2px;background:linear-gradient(to right,'+grp.color+'40,transparent)"></div>'
+      +'</div>';
+    for(var i=0;i<grp.users.length;i++){
+  var u=grp.users[i];
     var ri=ROLES[u.role]||{l:u.role,c:'#64748b',i:'👤'};
 
     // Salary line
@@ -2270,6 +2280,7 @@ function pgStaff(){
       +btn('bs bsm','🔑 Пароль','openPwM('+u.id+')')
       +'</div>'
       +'</div>';
+    }
   }
   return '<div class="ph"><div class="pt">Сотрудники</div>'
     +'<div style="display:flex;align-items:center;gap:8px">'
@@ -2277,7 +2288,7 @@ function pgStaff(){
     +btn('bp','+ Добавить','openUserM()')
     +'</div>'
     +'</div>'
-    +'<div class="kg" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">'+cards+'</div>';
+    +'<div class="kg" style="grid-template-columns:repeat(2,1fr)">'+cards+'</div>';
 }
 
 function editUserFull(uid){
