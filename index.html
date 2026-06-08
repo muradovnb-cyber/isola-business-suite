@@ -917,7 +917,7 @@ function pageHTML(){
     director: ['ceo','udash','dash','pl','bal','margin','orders','txs','petty','cashflow','items','staff','crm','asal','sal','profile','dir','rights','about','cps','rates','users','sreqs','clients'],
     accountant:['cashflow','txs','orders','petty','items','asal','sal','profile','about','cps','clients'],
     supply:    ['orders','petty','sal','profile','about','sreqs','clients'],
-    manager:   ['crm','orders','sal','profile','about','petty','clients','dir','rights'],
+    manager:   ['crm','orders','sal','profile','about','petty','clients','dir','rights','cps'],
     constructor:['orders','petty','sal','profile','about','sreqs','clients','dir','rights'],
     production: ['orders','petty','sal','profile','about','sreqs','clients','dir','rights'],
     brigadier:  []
@@ -1541,12 +1541,39 @@ function pgCRM(){
   var won=mDeals.filter(function(d){return d.st==='won';}),wonAmt=0; for(var i=0;i<won.length;i++) wonAmt+=won[i].amt;
   var pipe=mDeals.filter(function(d){return ['new','progress','negotiation'].indexOf(d.st)>-1;}),pipeAmt=0; for(var i=0;i<pipe.length;i++) pipeAmt+=pipe[i].amt;
   var lost=mDeals.filter(function(d){return d.st==='lost';});
-  var rate=USER.comm||5,comm=Math.round(wonAmt*rate/100);
-  var filtered=DF==='all'?mDeals:mDeals.filter(function(d){return d.st===DF;});
-  var cardsHtml=''; for(var i=0;i<filtered.length;i++) cardsHtml+=dealCard(filtered[i]);
-  var fBtns='';
-  var fs=[['all','Все'],['new','Новые'],['progress','В работе'],['negotiation','Переговоры'],['won','Выиграны ✅'],['lost','Проиграны ❌']];
-  for(var i=0;i<fs.length;i++) fBtns+='<button class="prb'+(DF===fs[i][0]?' on':'')+'" onclick="setCRMF(\''+fs[i][0]+'\')">'+fs[i][1]+'</button>';
+  var rate=USER.comm||2,comm=Math.round(wonAmt*rate/100);
+
+  // Kanban columns
+  var cols=[
+    {id:'new',     icon:'🆕', label:'Новые',      color:'#64748b', deals:[]},
+    {id:'progress',icon:'🔄', label:'В работе',   color:'#3b82f6', deals:[]},
+    {id:'negotiation',icon:'🤝',label:'Переговоры',color:'#f59e0b',deals:[]},
+    {id:'won',     icon:'✅', label:'Выиграны',   color:'#22c55e', deals:[]},
+    {id:'lost',    icon:'❌', label:'Проиграны',  color:'#ef4444', deals:[]}
+  ];
+  for(var i=0;i<mDeals.length;i++){
+    for(var j=0;j<cols.length;j++){
+      if(cols[j].id===mDeals[i].st){cols[j].deals.push(mDeals[i]);break;}
+    }
+  }
+  var kanban='<div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:12px;min-height:300px">';
+  for(var c=0;c<cols.length;c++){
+    var col=cols[c];
+    var colAmt=0; for(var d=0;d<col.deals.length;d++) colAmt+=col.deals[d].amt;
+    var colCards=''; for(var d=0;d<col.deals.length;d++) colCards+=dealCard(col.deals[d]);
+    kanban+='<div style="flex:0 0 280px;background:#f8fafc;border-radius:12px;padding:12px">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+      +'<div style="font-weight:700;font-size:.85rem;color:'+col.color+'">'+col.icon+' '+col.label+'</div>'
+      +'<div style="display:flex;align-items:center;gap:6px">'
+      +'<span style="background:'+col.color+'20;color:'+col.color+';border-radius:20px;padding:2px 8px;font-size:.7rem;font-weight:700">'+col.deals.length+'</span>'
+      +(colAmt>0?'<span style="font-size:.68rem;color:var(--mu)">'+fmt(colAmt)+'</span>':'')
+      +'</div></div>'
+      +(colCards||'<div style="text-align:center;padding:20px 0;color:var(--mu);font-size:.78rem">Нет сделок</div>')
+      +'<button onclick="openDealM()" style="width:100%;margin-top:8px;background:none;border:1.5px dashed var(--bd);border-radius:8px;padding:8px;color:var(--mu);cursor:pointer;font-size:.78rem">+ Добавить</button>'
+      +'</div>';
+  }
+  kanban+='</div>';
+
   return '<div class="ph"><div class="pt">CRM — Сделки</div>'+btn('bp','+ Новая сделка','openDealM()')+'</div>'
     +periodBtns(allYears(),allMonths())
     +'<div class="kg">'
@@ -1556,8 +1583,7 @@ function pgCRM(){
     +kpi('pu','💰 Моя комиссия',fmt(comm),rate+'% от сделок')
     +'</div>'
     +(won.length>0?'<div style="margin-bottom:10px;background:var(--gr-g);border-radius:9px;padding:9px 13px;font-size:.79rem;color:var(--gr2)">🔗 <b>Интеграция:</b> Выигранные сделки автоматически создали заказы и начислили комиссию.</div>':'')
-    +'<div class="prow">'+fBtns+'</div>'
-    +'<div id="deal-list">'+( cardsHtml||'<div class="tc"><div style="padding:20px;text-align:center;color:var(--mu)">Нет сделок</div></div>')+'</div>';
+    +kanban;
 }
 function setCRMF(s){DF=s;rp();}
 function updDeal(id,status){
@@ -1990,6 +2016,7 @@ function pgClients(){
       +'<div style="font-weight:800;color:#fff;font-size:.95rem">'+cl.n+'</div>'
       +(cl.fio?'<div style="font-size:.72rem;color:rgba(255,255,255,.7);margin-top:2px">'+cl.fio+'</div>':'')
       +'</div>'
+      +(isDir||USER.role==='manager'?'<button onclick="openClientM('+cl.id+')" style="background:rgba(255,255,255,.2);border:none;border-radius:6px;color:#fff;cursor:pointer;padding:4px 8px;font-size:.72rem" title="Редактировать">✏️</button>':'')
       +(isDir&&receivable>0?'<div style="background:rgba(255,255,255,.15);border-radius:8px;padding:6px 10px;text-align:right;flex-shrink:0">'
         +'<div style="font-size:.6rem;color:rgba(255,255,255,.7)">Долг</div>'
         +'<div style="font-size:.82rem;font-weight:700;color:#fca5a5">'+fmt(receivable)+'</div>'
@@ -2018,8 +2045,12 @@ function pgClients(){
     +'<div class="cc" style="flex:1;min-width:140px;padding:16px;text-align:center"><div style="font-size:1.4rem;font-weight:800;color:var(--ac)">'+clients.length+'</div><div style="font-size:.75rem;color:var(--mu)">клиентов</div></div>'
     +'<div class="cc" style="flex:1;min-width:140px;padding:16px;text-align:center"><div style="font-size:1.4rem;font-weight:800;color:var(--gr2)">'+fmt(totalRec)+'</div><div style="font-size:.75rem;color:var(--mu)">общий долг</div></div>'
     +'</div>':'';
+  var canAdd=USER.role==='director'||USER.role==='manager';
   return '<div class="ph"><div class="pt">Клиенты</div>'
-    +'<div style="font-size:.8rem;color:var(--mu)">'+clients.length+' клиентов</div></div>'
+    +'<div style="display:flex;align-items:center;gap:8px">'
+    +'<div style="font-size:.8rem;color:var(--mu)">'+clients.length+' клиентов</div>'
+    +(canAdd?btn('bp','+ Добавить клиента','openClientM()'):'')
+    +'</div></div>'
     +summary
     +'<input class="srch" id="clsrch" placeholder="🔍 Поиск по имени, контакту..." oninput="filterClients()">'
     +'<div id="clients-grid" class="kg" style="grid-template-columns:repeat(auto-fill,minmax(340px,1fr))">'+cards+'</div>';
@@ -2031,6 +2062,33 @@ function filterClients(){
     var c=cards[i];
     var match=!q||c.dataset.n.indexOf(q)>-1||c.dataset.fio.indexOf(q)>-1;
     c.style.display=match?'':'none';
+  }
+}
+function openClientM(editId){
+  var ed=null; if(editId) for(var i=0;i<DB.cps.length;i++) if(DB.cps[i].id===editId){ed=DB.cps[i];break;}
+  openModalRaw(editId?'✏️ Редактировать клиента':'Новый клиент',
+    '<div class="g2">'
+    +'<div class="fg"><label>Название / ФИО *</label><input id="cl-n" value="'+(ed?ed.n:'')+'" placeholder="Ахмедов Алишер или ООО Пример"/></div>'
+    +'<div class="fg"><label>Телефон</label><input id="cl-ph" type="tel" value="'+(ed&&ed.ph?ed.ph:'')+'" placeholder="+998 90 123 45 67"/></div>'
+    +'</div>'
+    +'<div class="fg"><label>Контактное лицо (ФИО)</label><input id="cl-f" value="'+(ed&&ed.fio?ed.fio:'')+'" placeholder="Иванов Иван"/></div>'
+    +'<div class="fg"><label>Примечание</label><input id="cl-nt" value="'+(ed&&ed.note?ed.note:'')+'" placeholder="Доп. информация..."/></div>'
+    +'<input type="hidden" id="cl-edit-id" value="'+(editId||'')+'">',
+    'saveClientM()');
+}
+function saveClientM(){
+  var n=(document.getElementById('cl-n')||{value:''}).value.trim();
+  if(!n){toast('Укажите название','error');return;}
+  var ph=(document.getElementById('cl-ph')||{value:''}).value||'';
+  var fio=(document.getElementById('cl-f')||{value:''}).value||'';
+  var note=(document.getElementById('cl-nt')||{value:''}).value||'';
+  var editId=+(document.getElementById('cl-edit-id')||{value:0}).value||0;
+  if(editId){
+    for(var i=0;i<DB.cps.length;i++) if(DB.cps[i].id===editId){DB.cps[i].n=n;DB.cps[i].org=n;DB.cps[i].fio=fio;DB.cps[i].ph=ph;DB.cps[i].note=note;break;}
+    saveDB();toast('Клиент обновлён','success');closeModal();rp();
+  } else {
+    DB.cps.push({id:nid(DB.cps),n:n,org:n,fio:fio,type:'client',ph:ph,note:note});
+    saveDB();toast('Клиент добавлен','success');closeModal();rp();
   }
 }
 
