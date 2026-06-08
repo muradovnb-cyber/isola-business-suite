@@ -1915,7 +1915,8 @@ function pgDir(){
       +'<div style="width:36px;height:36px;border-radius:50%;background:'+ri.c+';display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.76rem;color:#fff;overflow:hidden;flex-shrink:0">'+phHtml+'</div>'
       +'<div><div style="font-size:.83rem;font-weight:600">'+u.n+'</div><span class="bdg" style="background:'+ri.c+'20;color:'+ri.c+';font-size:.6rem">'+ri.l+'</span></div></div>'
       +(dp.n?'<div style="font-size:.7rem;color:var(--mu);margin-bottom:4px">'+dp.i+' '+dp.n+'</div>':'')
-      +'<a href="tel:'+(u.ph||'')+'" style="font-size:.75rem;color:var(--ac);font-weight:500">'+(u.ph||'—')+'</a>'
+      +(u.ph?'<a href="tel:'+u.ph+'" style="font-size:.75rem;color:var(--ac);font-weight:500;display:block">'+u.ph+'</a>':'<span style="font-size:.75rem;color:var(--mu)">—</span>')
+      +(u.tg?'<a href="https://t.me/'+u.tg.replace('@','')+'" target="_blank" style="font-size:.72rem;color:#0ea5e9;display:block;margin-top:2px">'+u.tg+'</a>':'')
       +'</div>';
   }
   return '<div class="ph"><div class="pt">Справочник сотрудников</div></div>'
@@ -2221,6 +2222,11 @@ function pgStaff(){
       +(u.ph?'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd);width:100%">'
         +'<span style="font-size:.8rem;color:var(--mu);width:80px;flex-shrink:0">📞 Телефон</span>'
         +'<a href="tel:'+u.ph+'" style="font-size:.82rem;color:var(--ac);font-weight:500">'+u.ph+'</a>'
+        +'</div>':'')
+      // Telegram
+      +(u.tg?'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd);width:100%">'
+        +'<span style="font-size:.8rem;color:var(--mu);width:80px;flex-shrink:0">✈️ Telegram</span>'
+        +'<a href="https://t.me/'+u.tg.replace('@','')+'" target="_blank" style="font-size:.82rem;color:#0ea5e9;font-weight:500">'+u.tg+'</a>'
         +'</div>':'')
       // Email
       +(u.e?'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd);width:100%">'
