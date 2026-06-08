@@ -665,7 +665,7 @@ function toast(msg,type){
 }
 
 // ── STATE ──
-var USER=null, PAGE='ceo', DETAIL=null, SUBTAB=0, CY=2025, CM=new Date().getMonth(), DF='all';
+var USER=null, PAGE='ceo', DETAIL=null, SUBTAB=0, CY=new Date().getFullYear(), CM=new Date().getMonth(), DF='all';
 
 // ══════════════════════════════════════════════════════
 // 🎨 UI AGENT — HTML BUILDERS (Safari-safe, no nested backticks)
@@ -798,7 +798,7 @@ function periodBtns(yrs,mos){
   return h+'</div>';
 }
 function allMonths(){ return [0,1,2,3,4,5,6,7,8,9,10,11]; }
-function allYears(){ var y=new Date().getFullYear(); var r=[]; for(var i=y-2;i<=y;i++) r.push(i); return r; }
+function allYears(){ return [new Date().getFullYear()]; }
 
 // ══════════════════════════════════════════════════════
 // LOGIN
