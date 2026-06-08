@@ -840,23 +840,23 @@ function getNavs(){
   if(dir){
     n.push({s:'👑 Руководство'},{id:'ceo',i:'🤖',l:'CEO Агент'},{id:'udash',i:'🌐',l:'Единый дашборд'},{id:'cashflow',i:'🏦',l:'Баланс счетов'});
     n.push({s:'💰 Финансы'},{id:'dash',i:'📊',l:'Дашборд'},{id:'pl',i:'📈',l:'P&L'},{id:'bal',i:'⚖️',l:'Баланс'},{id:'margin',i:'💹',l:'Маржинальность'});
-    n.push({s:'📦 Операции'},{id:'orders',i:'📦',l:'Заказы'},{id:'txs',i:'💳',l:'Транзакции'});
+    n.push({s:'📦 Операции'},{id:'orders',i:'📦',l:'Заказы'},{id:'txs',i:'💳',l:'Транзакции'},{id:'clients',i:'👥',l:'Клиенты'});
     n.push({s:'👥 HR'},{id:'crm',i:'🎯',l:'CRM Сделки'},{id:'asal',i:'💰',l:'Зарплата всех'});
     n.push({s:'⚙️ Данные'},{id:'cps',i:'🏢',l:'Контрагенты'},{id:'rates',i:'💱',l:'Курсы'},{id:'staff',i:'👤',l:'Сотрудники'},{id:'users',i:'⚙️',l:'Управление'},{id:'items',i:'📋',l:'Статьи расходов'});
   } else if(acc){
     n.push({s:'Финансы'},{id:'cashflow',i:'🏦',l:'Баланс счетов'},{id:'txs',i:'💳',l:'Транзакции'},{id:'orders',i:'📦',l:'Заказы'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'items',i:'📋',l:'Статьи расходов'},{id:'asal',i:'💰',l:'Зарплата'});
-    n.push({s:'Справочники'},{id:'cps',i:'🏢',l:'Контрагенты'});
+    n.push({s:'Справочники'},{id:'clients',i:'👥',l:'Клиенты'},{id:'cps',i:'🏢',l:'Контрагенты'});
   } else if(mgr){
-    n.push({s:'Продажи'},{id:'crm',i:'🎯',l:'CRM — Сделки'},{id:'orders',i:'📦',l:'Мои заказы'});
+    n.push({s:'Продажи'},{id:'crm',i:'🎯',l:'CRM — Сделки'},{id:'orders',i:'📦',l:'Мои заказы'},{id:'clients',i:'👥',l:'Клиенты'});
     n.push({s:'Личное'},{id:'profile',i:'👤',l:'Профиль'},{id:'sal',i:'💰',l:'Зарплата'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'dir',i:'📖',l:'Справочник'},{id:'rights',i:'📋',l:'Регламент'});
   } else {
-    n.push({s:'Работа'},{id:'orders',i:'📦',l:'Заказы'},{id:'petty',i:'💵',l:'Подотчёт'});
+    n.push({s:'Работа'},{id:'orders',i:'📦',l:'Заказы'},{id:'clients',i:'👥',l:'Клиенты'},{id:'petty',i:'💵',l:'Подотчёт'});
     if(r==='constructor'||r==='production') n.push({id:'sreqs',i:'🔧',l:'Заявки на услуги'});
     n.push({s:'Личное'},{id:'profile',i:'👤',l:'Профиль'},{id:'sal',i:'💰',l:'Зарплата'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'dir',i:'📖',l:'Справочник'},{id:'rights',i:'📋',l:'Регламент'},{id:'about',i:'🏢',l:'О компании'});
   }
   return n;
 }
-var PAGE_TITLES={'ceo':'CEO Агент','petty':'Подотчётные средства','items':'Статьи расходов','staff':'Сотрудники','cashflow':'Баланс счетов','udash':'Единый дашборд','dash':'Дашборд','pl':'P&L','bal':'Баланс','margin':'Маржинальность','orders':'Заказы','txs':'Транзакции','crm':'CRM — Сделки','asal':'Зарплата сотрудников','sal':'Моя зарплата','profile':'Профиль','dir':'Справочник','rights':'Регламент','about':'О компании','cps':'Контрагенты','rates':'Курсы','users':'Пользователи','sreqs':'Заявки на услуги'};
+var PAGE_TITLES={'ceo':'CEO Агент','petty':'Подотчётные средства','items':'Статьи расходов','staff':'Сотрудники','cashflow':'Баланс счетов','udash':'Единый дашборд','dash':'Дашборд','pl':'P&L','bal':'Баланс','margin':'Маржинальность','orders':'Заказы','txs':'Транзакции','crm':'CRM — Сделки','asal':'Зарплата сотрудников','sal':'Моя зарплата','profile':'Профиль','dir':'Справочник','rights':'Регламент','about':'О компании','cps':'Контрагенты','rates':'Курсы','users':'Пользователи','sreqs':'Заявки на услуги','clients':'Клиенты'};
 
 function appHTML(){
   var navs=getNavs(),ri=ROLES[USER.role]||{l:'',c:'#64748b'};
@@ -909,12 +909,12 @@ function pageHTML(){
   if(!USER) return '<div style="padding:32px;text-align:center;color:var(--mu)">Не авторизован</div>';
   // Allowed pages per role
   var allowed={
-    director: ['ceo','udash','dash','pl','bal','margin','orders','txs','petty','cashflow','items','staff','crm','asal','sal','profile','dir','rights','about','cps','rates','users','sreqs'],
-    accountant:['cashflow','txs','orders','petty','items','asal','sal','profile','about','cps'],
-    supply:    ['orders','petty','sal','profile','about','sreqs'],
-    manager:   ['crm','orders','sal','profile','about','petty'],
-    constructor:['orders','petty','sal','profile','about','sreqs'],
-    production: ['orders','petty','sal','profile','about','sreqs'],
+    director: ['ceo','udash','dash','pl','bal','margin','orders','txs','petty','cashflow','items','staff','crm','asal','sal','profile','dir','rights','about','cps','rates','users','sreqs','clients'],
+    accountant:['cashflow','txs','orders','petty','items','asal','sal','profile','about','cps','clients'],
+    supply:    ['orders','petty','sal','profile','about','sreqs','clients'],
+    manager:   ['crm','orders','sal','profile','about','petty','clients'],
+    constructor:['orders','petty','sal','profile','about','sreqs','clients'],
+    production: ['orders','petty','sal','profile','about','sreqs','clients'],
     brigadier:  []
   };
   var role=USER.role||'supply';
@@ -931,7 +931,7 @@ function pageHTML(){
     ceo:pgCEO,udash:pgUDash,dash:pgDash,pl:pgPL,bal:pgBal,margin:pgMargin,
     orders:pgOrders,txs:pgTxs,petty:pgPetty,cashflow:pgCashflow,items:pgItems,staff:pgStaff,crm:pgCRM,asal:pgASal,sal:pgSal,
     profile:pgProfile,dir:pgDir,rights:pgRights,about:pgAbout,
-    cps:pgCPs,rates:pgRates,users:pgUsers,sreqs:pgSreqs,
+    cps:pgCPs,rates:pgRates,users:pgUsers,sreqs:pgSreqs,clients:pgClients,
   };
   return (map[PAGE]||pgCEO)();
 }
@@ -1900,6 +1900,96 @@ function pgAbout(){
 // ══════════════════════════════════════════════════════
 // PAGE: CONTRACTORS
 // ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
+// PAGE: CLIENTS — Клиенты (покупатели)
+// ══════════════════════════════════════════════════════
+function pgClients(){
+  var isDir=USER.role==='director'||USER.role==='accountant';
+  var clients=DB.cps.filter(function(c){return c.type==='client';});
+  var totalRec=0;
+  var cards='';
+  for(var i=0;i<clients.length;i++){
+    var cl=clients[i];
+    // Find orders for this client
+    var orders=DB.orders.filter(function(o){return o.cpid===cl.id;});
+    var totalSum=0,totalPaid=0,openOrders=0;
+    for(var j=0;j<orders.length;j++){
+      if(orders[j].status==='cancelled') continue;
+      totalSum+=orders[j].uzs||orders[j].total||0;
+      totalPaid+=orders[j].paid||0;
+      if(orders[j].status!=='closed') openOrders++;
+    }
+    var receivable=totalSum-totalPaid;
+    if(receivable<0) receivable=0;
+    totalRec+=receivable;
+    var recColor=receivable>0?'color:#ef4444;font-weight:700':'color:var(--gr2);font-weight:700';
+    var orderRows='';
+    for(var k=0;k<orders.length;k++){
+      var o=orders[k]; if(o.status==='cancelled') continue;
+      var oSum=o.uzs||o.total||0;
+      var oPaid=o.paid||0;
+      var oPct=oSum>0?Math.round(oPaid/oSum*100):0;
+      var sColor={'active':'var(--ac)','closed':'var(--gr2)','new':'var(--mu)'}[o.status]||'var(--mu)';
+      var sLabel={'active':'В работе','closed':'Закрыт','new':'Новый'}[o.status]||o.status;
+      orderRows+='<tr>'
+        +'<td style="font-size:.8rem"><b>'+(o.title||o.name||'Заказ #'+o.id)+'</b></td>'
+        +'<td style="font-size:.78rem;color:'+sColor+'">'+sLabel+'</td>'
+        +'<td style="font-size:.78rem">'+fmt(oSum)+'</td>'
+        +'<td style="font-size:.78rem"><div style="background:#e2e8f0;border-radius:4px;height:6px;width:70px;display:inline-block;vertical-align:middle"><div style="background:var(--gr2);border-radius:4px;height:6px;width:'+oPct+'%"></div></div> <span>'+oPct+'%</span></td>'
+        +'<td style="font-size:.78rem;'+(oSum-oPaid>0?'color:#ef4444':'color:var(--gr2)')+'">'+fmt(Math.max(0,oSum-oPaid))+'</td>'
+        +'</tr>';
+    }
+    cards+='<div class="cc" style="padding:0;overflow:hidden" data-n="'+cl.n.toLowerCase()+'" data-fio="'+(cl.fio||'').toLowerCase()+'">'
+      +'<div style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);padding:16px 20px;display:flex;align-items:center;gap:12px">'
+      +'<div style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:800;color:#fff;flex-shrink:0">'+inits(cl.n)+'</div>'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-weight:800;color:#fff;font-size:.95rem">'+cl.n+'</div>'
+      +(cl.fio?'<div style="font-size:.72rem;color:rgba(255,255,255,.7);margin-top:2px">'+cl.fio+'</div>':'')
+      +'</div>'
+      +(isDir&&receivable>0?'<div style="background:rgba(255,255,255,.15);border-radius:8px;padding:6px 10px;text-align:right;flex-shrink:0">'
+        +'<div style="font-size:.6rem;color:rgba(255,255,255,.7)">Долг</div>'
+        +'<div style="font-size:.82rem;font-weight:700;color:#fca5a5">'+fmt(receivable)+'</div>'
+        +'</div>':'')
+      +'</div>'
+      +'<div style="padding:14px 20px">'
+      +(cl.ph?'<div style="font-size:.8rem;color:var(--mu);margin-bottom:10px">📞 <a href="tel:'+cl.ph+'" style="color:var(--ac)">'+cl.ph+'</a></div>':'')
+      +'<div style="display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap">'
+      +'<div style="text-align:center"><div style="font-size:1.1rem;font-weight:800;color:var(--ac)">'+orders.filter(function(o){return o.status!=='cancelled';}).length+'</div><div style="font-size:.65rem;color:var(--mu)">заказов</div></div>'
+      +'<div style="text-align:center"><div style="font-size:1.1rem;font-weight:800;color:var(--gr2)">'+fmt(totalSum)+'</div><div style="font-size:.65rem;color:var(--mu)">сумма</div></div>'
+      +(isDir?'<div style="text-align:center"><div style="font-size:1.1rem;font-weight:800;'+(receivable>0?'color:#ef4444':'color:var(--gr2)')+'">'+fmt(receivable)+'</div><div style="font-size:.65rem;color:var(--mu)">долг</div></div>':'')
+      +'</div>'
+      +(orderRows?'<div class="tw" style="margin-top:4px"><table style="width:100%;font-size:.75rem"><thead><tr>'
+        +'<th style="text-align:left;padding:4px 6px;color:var(--mu)">Заказ</th>'
+        +'<th style="text-align:left;padding:4px 6px;color:var(--mu)">Статус</th>'
+        +'<th style="text-align:left;padding:4px 6px;color:var(--mu)">Сумма</th>'
+        +'<th style="text-align:left;padding:4px 6px;color:var(--mu)">Оплата</th>'
+        +(isDir?'<th style="text-align:left;padding:4px 6px;color:var(--mu)">Остаток</th>':'')
+        +'</tr></thead><tbody>'+orderRows+'</tbody></table></div>'
+        :'<div style="font-size:.8rem;color:var(--mu);text-align:center;padding:8px 0">Нет заказов</div>')
+      +'</div>'
+      +'</div>';
+  }
+  if(!cards) cards='<div style="text-align:center;padding:48px;color:var(--mu)"><div style="font-size:2rem;margin-bottom:8px">👥</div><div>Клиентов пока нет</div><div style="font-size:.8rem;margin-top:6px">Добавьте клиентов в разделе «Контрагенты»</div></div>';
+  var summary=isDir?'<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px">'
+    +'<div class="cc" style="flex:1;min-width:140px;padding:16px;text-align:center"><div style="font-size:1.4rem;font-weight:800;color:var(--ac)">'+clients.length+'</div><div style="font-size:.75rem;color:var(--mu)">клиентов</div></div>'
+    +'<div class="cc" style="flex:1;min-width:140px;padding:16px;text-align:center"><div style="font-size:1.4rem;font-weight:800;color:var(--gr2)">'+fmt(totalRec)+'</div><div style="font-size:.75rem;color:var(--mu)">общий долг</div></div>'
+    +'</div>':'';
+  return '<div class="ph"><div class="pt">Клиенты</div>'
+    +'<div style="font-size:.8rem;color:var(--mu)">'+clients.length+' клиентов</div></div>'
+    +summary
+    +'<input class="srch" id="clsrch" placeholder="🔍 Поиск по имени, контакту..." oninput="filterClients()">'
+    +'<div id="clients-grid" class="kg" style="grid-template-columns:repeat(auto-fill,minmax(340px,1fr))">'+cards+'</div>';
+}
+function filterClients(){
+  var q=((document.getElementById('clsrch')||{}).value||'').toLowerCase().trim();
+  var cards=document.querySelectorAll('#clients-grid>[data-n]');
+  for(var i=0;i<cards.length;i++){
+    var c=cards[i];
+    var match=!q||c.dataset.n.indexOf(q)>-1||c.dataset.fio.indexOf(q)>-1;
+    c.style.display=match?'':'none';
+  }
+}
+
 function pgCPs(){
   var showS=USER.role==='director'||USER.role==='accountant'||USER.role==='supply';
   var rows='';
