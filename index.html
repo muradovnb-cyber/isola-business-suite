@@ -2017,7 +2017,8 @@ function pgClients(){
       +'<div style="font-weight:800;color:#fff;font-size:.95rem">'+cl.n+'</div>'
       +(cl.fio?'<div style="font-size:.72rem;color:rgba(255,255,255,.7);margin-top:2px">'+cl.fio+'</div>':'')
       +'</div>'
-      +(isDir||USER.role==='manager'?'<button onclick="openClientM('+cl.id+')" style="background:rgba(255,255,255,.2);border:none;border-radius:6px;color:#fff;cursor:pointer;padding:4px 8px;font-size:.72rem" title="Редактировать">✏️</button>':'')
+      +(isDir||USER.role==='manager'?'<button onclick="openClientM('+cl.id+')" style="background:rgba(255,255,255,.2);border:none;border-radius:6px;color:#fff;cursor:pointer;padding:4px 8px;font-size:.72rem" title="Редактировать">✏️</button>':''
+      +(isDir?'<button onclick="deleteClient('+cl.id+',\''+cl.n+'\')" style="background:rgba(239,68,68,.3);border:none;border-radius:6px;color:#fff;cursor:pointer;padding:4px 8px;font-size:.72rem;margin-left:4px" title="Удалить">🗑️</button>':''))
       +(isDir&&receivable>0?'<div style="background:rgba(255,255,255,.15);border-radius:8px;padding:6px 10px;text-align:right;flex-shrink:0">'
         +'<div style="font-size:.6rem;color:rgba(255,255,255,.7)">Долг</div>'
         +'<div style="font-size:.82rem;font-weight:700;color:#fca5a5">'+fmt(receivable)+'</div>'
@@ -2076,6 +2077,20 @@ function openClientM(editId){
     +'<div class="fg"><label>Примечание</label><input id="cl-nt" value="'+(ed&&ed.note?ed.note:'')+'" placeholder="Доп. информация..."/></div>'
     +'<input type="hidden" id="cl-edit-id" value="'+(editId||'')+'">',
     'saveClientM()');
+}
+function deleteClient(id, name){
+  openModalRaw('🗑️ Удалить клиента',
+    '<div style="text-align:center;padding:8px 0">'
+    +'<div style="font-size:2rem;margin-bottom:12px">⚠️</div>'
+    +'<div style="font-size:.95rem;font-weight:700;margin-bottom:8px">Вы точно хотите удалить клиента?</div>'
+    +'<div style="font-size:.9rem;color:var(--ac);font-weight:600;margin-bottom:12px">«'+name+'»</div>'
+    +'<div style="font-size:.8rem;color:var(--mu)">Все заказы и транзакции этого клиента останутся в системе, но связь с клиентом будет потеряна.</div>'
+    +'</div>',
+    'confirmDeleteClient('+id+')', 'Отмена', '🗑️ Удалить');
+}
+function confirmDeleteClient(id){
+  DB.cps=DB.cps.filter(function(c){return c.id!==id;});
+  saveDB();closeModal();toast('Клиент удалён','success');rp();
 }
 function saveClientM(){
   var n=(document.getElementById('cl-n')||{value:''}).value.trim();
