@@ -1908,13 +1908,32 @@ function pgCPs(){
     var tb={client:'bg-b',supplier:'bg-g'}[c.type]||'bg-gr';
     var tl={client:'Клиент',supplier:'Поставщик'}[c.type]||c.type;
     var debt=debtCP(c.id);
-    rows+='<tr><td><b>'+c.n+'</b></td><td style="font-size:.74rem;color:var(--mu)">'+(c.fio||'—')+'</td>'
+    rows+='<tr class="cp-row" data-n="'+c.n.toLowerCase()+'" data-fio="'+(c.fio||'').toLowerCase()+'" data-note="'+(c.note||'').toLowerCase()+'"><td><b>'+c.n+'</b></td><td style="font-size:.74rem;color:var(--mu)">'+(c.fio||'—')+'</td>'
       +'<td>'+bdg(tb,tl)+'</td><td>'+(c.ph||'—')+'</td>'
       +(showS?'<td class="'+(debt>0?'an':'')+'">'+fmt(debt)+'</td>':'')
       +'</tr>';
   }
   return '<div class="ph"><div class="pt">Контрагенты</div>'+btn('bp','+ Добавить','openCpM()')+'</div>'
-    +'<div class="tc"><div class="tw"><table><thead><tr><th>Название</th><th>ФИО</th><th>Тип</th><th>Телефон</th>'+(showS?'<th>Долг</th>':'')+'</tr></thead><tbody>'+(rows||'<tr class="er"><td colspan="5">Нет</td></tr>')+'</tbody></table></div></div>';
+    +'<input class="srch" id="cpsrch" placeholder="🔍 Поиск по названию, контакту..." oninput="filterCPs()">'
+    +'<div class="tc"><div class="tw"><table><thead><tr><th>Название</th><th>ФИО</th><th>Тип</th><th>Телефон</th>'+(showS?'<th>Долг</th>':'')+'</tr></thead><tbody id="cps-tbody">'+(rows||'<tr class="er"><td colspan="5">Нет</td></tr>')+'</tbody></table></div></div>';
+}
+function filterCPs(){
+  var q=((document.getElementById('cpsrch')||{}).value||'').toLowerCase().trim();
+  var rows=document.querySelectorAll('.cp-row');
+  var found=0;
+  for(var i=0;i<rows.length;i++){
+    var r=rows[i];
+    var match=!q||r.dataset.n.indexOf(q)>-1||r.dataset.fio.indexOf(q)>-1||r.dataset.note.indexOf(q)>-1;
+    r.style.display=match?'':'none';
+    if(match) found++;
+  }
+  var tb=document.getElementById('cps-tbody');
+  var noRes=document.getElementById('cps-nores');
+  if(!found&&q){
+    if(!noRes){var tr=document.createElement('tr');tr.id='cps-nores';tr.className='er';tr.innerHTML='<td colspan="5">Ничего не найдено</td>';if(tb)tb.appendChild(tr);}
+  } else {
+    if(noRes) noRes.remove();
+  }
 }
 function openCpM(){
   openModalRaw('Новый контрагент',
@@ -2040,7 +2059,10 @@ function pgStaff(){
       +'</div>';
   }
   return '<div class="ph"><div class="pt">Сотрудники</div>'
+    +'<div style="display:flex;align-items:center;gap:8px">'
     +'<div style="font-size:.8rem;color:var(--mu)">'+DB.users.length+' чел.</div>'
+    +btn('bp','+ Добавить','openUserM()')
+    +'</div>'
     +'</div>'
     +'<div class="kg" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">'+cards+'</div>';
 }
