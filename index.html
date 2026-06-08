@@ -1191,8 +1191,19 @@ function pgOrders(){
     +'<div class="fg"><label>Название *</label><input id="on-t" placeholder="Кухонный гарнитур..."/></div>'
     +'<div class="fg"><label>Клиент *</label><select id="on-c"><option value="">— выберите —</option>'+optList(DB.cps.filter(function(c){return c.type==='client';}),function(c){return c.id;},function(c){return c.n;})+'</select></div>'
     +'<div class="fg"><label>Менеджер</label><select id="on-m"><option value="">— нет —</option>'+optList(DB.users.filter(function(u){return u.role==='manager';}),function(u){return u.id;},function(u){return u.n;})+'</select></div>'
-    +'<div class="fg"><label>Сумма (UZS)</label><input type="number" id="on-u" placeholder="0"/></div>'
-    +'<div class="fg"><label>Сумма (USD)</label><input type="number" id="on-d" placeholder="0"/></div>'
+    +'<div class="fg"><label>Позиции (состав заказа)</label>'
+    +'<div id="on-pos-list" style="margin-bottom:6px"></div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
+    +'<input id="on-pos-name" placeholder="Название (Кухня, Гардероб...)" style="flex:2;min-width:120px;border:1px solid var(--bd);border-radius:6px;padding:6px 8px;font-size:.82rem"/>'
+    +'<input id="on-pos-qty" type="number" placeholder="Кол-во" style="flex:0 0 70px;border:1px solid var(--bd);border-radius:6px;padding:6px 8px;font-size:.82rem" value="1"/>'
+    +'<input id="on-pos-price" type="number" placeholder="Цена UZS" style="flex:1;min-width:100px;border:1px solid var(--bd);border-radius:6px;padding:6px 8px;font-size:.82rem" oninput="calcOrderTotal()"/>'
+    +'<button type="button" onclick="addOrderPos()" style="background:var(--ac);color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:.82rem">+ Добавить</button>'
+    +'</div>'
+    +'</div>'
+    +'<div class="g2">'
+    +'<div class="fg"><label>Итого (UZS) — авто из позиций</label><input type="number" id="on-u" placeholder="0" oninput="syncOrderUSD()"/></div>'
+    +'<div class="fg"><label>Итого (USD)</label><input type="number" id="on-d" placeholder="0"/></div>'
+    +'</div>'
     +'<div class="fg"><label>Примечание</label><input id="on-n"/></div>'
     +'</div>';
 }
@@ -1206,11 +1217,84 @@ function filterOrders(){
   var rows=''; for(var i=0;i<ords.length;i++) rows+=ordRow(ords[i]);
   wrap.innerHTML='<div class="tc"><div class="tw"><table><thead><tr><th>№</th><th>Название</th><th>Клиент</th><th>Сумма</th><th>Расходы</th><th>Оплата</th><th>Статус</th><th>Менеджер</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
 }
+// ── ПОЗИЦИИ ЗАКАЗА ──────────────────────────────────────────────────
+var _orderPositions = [];
+function addOrderPos(){
+  var name=(document.getElementById('on-pos-name')||{value:''}).value.trim();
+  var qty=+(document.getElementById('on-pos-qty')||{value:1}).value||1;
+  var price=+(document.getElementById('on-pos-price')||{value:0}).value||0;
+  if(!name){toast('Введите название позиции','error');return;}
+  _orderPositions.push({id:Date.now(),name:name,qty:qty,price:price,total:qty*price});
+  document.getElementById('on-pos-name').value='';
+  document.getElementById('on-pos-qty').value='1';
+  document.getElementById('on-pos-price').value='';
+  renderOrderPosList();
+  calcOrderTotal();
+}
+function removeOrderPos(id){
+  _orderPositions=_orderPositions.filter(function(p){return p.id!==id;});
+  renderOrderPosList();calcOrderTotal();
+}
+function renderOrderPosList(){
+  var el=document.getElementById('on-pos-list'); if(!el) return;
+  if(!_orderPositions.length){el.innerHTML='';return;}
+  var h='<div style="background:#f8fafc;border-radius:8px;overflow:hidden;margin-bottom:6px">'
+    +'<table style="width:100%;font-size:.78rem;border-collapse:collapse">'
+    +'<thead><tr style="background:#e2e8f0"><th style="padding:5px 8px;text-align:left">Позиция</th><th style="padding:5px 8px">Кол-во</th><th style="padding:5px 8px">Цена</th><th style="padding:5px 8px">Итого</th><th></th></tr></thead><tbody>';
+  var total=0;
+  for(var i=0;i<_orderPositions.length;i++){
+    var p=_orderPositions[i];
+    total+=p.total;
+    h+='<tr style="border-top:1px solid #e2e8f0"><td style="padding:5px 8px">'+p.name+'</td>'
+      +'<td style="padding:5px 8px;text-align:center">'+p.qty+'</td>'
+      +'<td style="padding:5px 8px;text-align:right">'+fmt(p.price)+'</td>'
+      +'<td style="padding:5px 8px;text-align:right;font-weight:600;color:var(--ac)">'+fmt(p.total)+'</td>'
+      +'<td style="padding:5px 8px"><button onclick="removeOrderPos('+p.id+')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:.85rem">✕</button></td></tr>';
+  }
+  h+='<tr style="background:#f1f5f9;border-top:2px solid #cbd5e1"><td colspan="3" style="padding:6px 8px;font-weight:700">ИТОГО</td><td style="padding:6px 8px;text-align:right;font-weight:800;color:var(--gr2)">'+fmt(total)+'</td><td></td></tr>';
+  h+='</tbody></table></div>';
+  el.innerHTML=h;
+}
+function calcOrderTotal(){
+  var total=0; for(var i=0;i<_orderPositions.length;i++) total+=_orderPositions[i].total;
+  var el=document.getElementById('on-u'); if(el&&total>0) el.value=total;
+  syncOrderUSD();
+}
+function syncOrderUSD(){
+  var uzs=+(document.getElementById('on-u')||{value:0}).value||0;
+  var rate=getRate(today());
+  var el=document.getElementById('on-d'); if(el&&uzs>0) el.value=Math.round(uzs/rate);
+}
+function openEditPositions(oid){
+  var o=ordGet(oid); if(!o) return;
+  _orderPositions=(o.positions||[]).map(function(p){return Object.assign({},p);});
+  openModalRaw('📋 Позиции заказа #'+oid,
+    '<div class="fg">'
+    +'<div id="on-pos-list" style="margin-bottom:8px"></div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
+    +'<input id="on-pos-name" placeholder="Название позиции" style="flex:2;min-width:100px;border:1px solid var(--bd);border-radius:6px;padding:6px 8px;font-size:.82rem"/>'
+    +'<input id="on-pos-qty" type="number" placeholder="Кол-во" style="flex:0 0 65px;border:1px solid var(--bd);border-radius:6px;padding:6px 8px;font-size:.82rem" value="1"/>'
+    +'<input id="on-pos-price" type="number" placeholder="Цена UZS" style="flex:1;min-width:90px;border:1px solid var(--bd);border-radius:6px;padding:6px 8px;font-size:.82rem"/>'
+    +'<button type="button" onclick="addOrderPos()" style="background:var(--ac);color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:.82rem">+</button>'
+    +'</div></div>',
+    'saveEditPositions('+oid+')');
+  renderOrderPosList();
+}
+function saveEditPositions(oid){
+  var o=ordGet(oid); if(!o) return;
+  o.positions=_orderPositions.slice();
+  var total=0; for(var i=0;i<o.positions.length;i++) total+=o.positions[i].total;
+  if(total>0){o.uzs=total;o.usd=Math.round(total/getRate(today()));}
+  _orderPositions=[];
+  saveDB();closeModal();toast('Позиции сохранены','success');rp();
+}
 function saveOrderNew(){
   var t=mVal('on-t').trim();
   var c=mNum('on-c');
   if(!t||!c){toast('Заполните обязательные поля','error');return;}
-  DB.orders.push({id:nid(DB.orders),title:t,cid:c,uzs:mNum('on-u'),usd:mNum('on-d'),status:'active',created:today(),closed:null,note:mVal('on-n'),mid:mNum('on-m')||null,ca:false,cc:false,did:null});
+  var positions=_orderPositions.slice();
+  _orderPositions=[];
+  DB.orders.push({id:nid(DB.orders),title:t,cid:c,uzs:mNum('on-u'),usd:mNum('on-d'),status:'active',created:today(),closed:null,note:mVal('on-n'),mid:mNum('on-m')||null,ca:false,cc:false,did:null,positions:positions,photos:[]});
   saveDB();toast('Заказ создан','success');closeModal();rp();
 }
 
@@ -1269,8 +1353,49 @@ function pgOrderDetail(id){
     +'<div class="fg"><label>Примечание</label><input id="sr-n" placeholder="Размеры, материал..."/></div>'
     +btn('bp','Отправить заявку','saveSR('+id+')')
     +'</div>':'';
+  // Positions block
+  var posBlock='';
+  if(o.positions&&o.positions.length){
+    var posRows=''; var posTotal=0;
+    for(var i=0;i<o.positions.length;i++){
+      var p=o.positions[i]; posTotal+=p.total;
+      posRows+='<tr><td style="padding:6px 10px">'+(i+1)+'</td><td style="padding:6px 10px">'+p.name+'</td><td style="padding:6px 10px;text-align:center">'+p.qty+'</td><td style="padding:6px 10px;text-align:right">'+fmt(p.price)+' сум</td><td style="padding:6px 10px;text-align:right;font-weight:700;color:var(--ac)">'+fmt(p.total)+' сум</td></tr>';
+    }
+    posBlock='<div class="cc" style="margin-bottom:12px"><div class="ch" style="display:flex;justify-content:space-between;align-items:center"><div class="ct">📋 Состав заказа</div>'
+      +(canStatus?'<div style="display:flex;gap:6px">'+btn('bs bsm','✏️ Редактировать','openEditPositions('+id+')')+btn('bs bsm','🖨️ PDF договор','printContract('+id+')')+'</div>':'')
+      +'</div>'
+      +'<div class="tw"><table style="width:100%;font-size:.82rem;border-collapse:collapse"><thead><tr style="background:#f8fafc"><th style="padding:6px 10px;text-align:left">№</th><th style="padding:6px 10px;text-align:left">Позиция</th><th style="padding:6px 10px">Кол-во</th><th style="padding:6px 10px;text-align:right">Цена</th><th style="padding:6px 10px;text-align:right">Сумма</th></tr></thead><tbody>'+posRows+'<tr style="background:#f1f5f9;border-top:2px solid #cbd5e1"><td colspan="4" style="padding:8px 10px;font-weight:700">ИТОГО ПО ДОГОВОРУ</td><td style="padding:8px 10px;text-align:right;font-weight:800;font-size:.9rem;color:var(--gr2)">'+fmt(posTotal)+' сум</td></tr></tbody></table></div>'
+      +'</div>';
+  } else if(canStatus){
+    posBlock='<div style="margin-bottom:12px;display:flex;gap:8px">'
+      +btn('bs','📋 Добавить позиции','openEditPositions('+id+')')
+      +btn('bs','🖨️ PDF договор','printContract('+id+')')
+      +'</div>';
+  }
+  // Photos block
+  var photosHtml='';
+  if(o.photos&&o.photos.length){
+    var ph='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">';
+    for(var i=0;i<o.photos.length;i++){
+      ph+='<div style="position:relative">'
+        +'<img src="'+o.photos[i]+'" style="width:80px;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--bd)" onclick="window.open(\''+o.photos[i]+'\',\'_blank\')">'
+        +(canStatus?'<button onclick="removeOrderPhoto('+id+','+i+')" style="position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;font-size:.6rem;line-height:18px;text-align:center">✕</button>':'')
+        +'</div>';
+    }
+    ph+='</div>';
+    photosHtml=ph;
+  }
+  var photoBlock=canStatus?'<div class="cc" style="margin-bottom:12px"><div class="ch"><div class="ct">📸 Фото / Файлы</div></div>'
+    +photosHtml
+    +'<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;background:var(--bd);padding:6px 12px;border-radius:8px;font-size:.8rem;margin-top:8px">'
+    +'<span>📎 Прикрепить фото</span>'
+    +'<input type="file" accept="image/*" multiple onchange="uploadOrderPhotos('+id+',this)" style="display:none"/>'
+    +'</label>'
+    +'</div>':'';
+
   return '<button class="bk" onclick="DETAIL=null;rp()">← Все заказы</button>'
     +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap"><h2 style="font-size:.96rem;font-weight:700">#'+o.id+' '+o.title+'</h2>'+bdg(o.status==='active'?'bg-g':o.status==='closed'?'bg-b':'bg-gr',SL[o.status])+'</div>'
+    +posBlock+photoBlock
     +'<div class="kg">'
     +kpi('bl','Договор',fmt(o.uzs),fmt(o.usd)+' USD')
     +kpi('gn','Получено',fmt(inc),pct+'%')
@@ -1329,6 +1454,85 @@ function saveSR(oid){
 function takeSR(id){
   for(var i=0;i<DB.sreqs.length;i++) if(DB.sreqs[i].id===id){DB.sreqs[i].status='taken';break;}
   saveDB();toast('Принято','success');rp();
+}
+
+// ── ФОТО К ЗАКАЗУ ────────────────────────────────────────────────────
+function uploadOrderPhotos(oid, input){
+  var o=ordGet(oid); if(!o) return;
+  if(!o.photos) o.photos=[];
+  var files=input.files; if(!files.length) return;
+  var toRead=files.length, done=0;
+  for(var i=0;i<files.length;i++){
+    (function(file){
+      var reader=new FileReader();
+      reader.onload=function(e){
+        o.photos.push(e.target.result);
+        done++;
+        if(done===toRead){saveDB();toast('Фото добавлено','success');rp();}
+      };
+      reader.readAsDataURL(file);
+    })(files[i]);
+  }
+}
+function removeOrderPhoto(oid, idx){
+  var o=ordGet(oid); if(!o||!o.photos) return;
+  o.photos.splice(idx,1);
+  saveDB();toast('Фото удалено','success');rp();
+}
+
+// ── PDF ДОГОВОР ───────────────────────────────────────────────────────
+function printContract(oid){
+  var o=ordGet(oid); if(!o) return;
+  var cp=cpGet(o.cid)||{n:'—',ph:'—'};
+  var mn=userGet(o.mid)||{n:'ISOLA'};
+  var positions=o.positions||[];
+  var posRows=''; var total=0;
+  for(var i=0;i<positions.length;i++){
+    var p=positions[i]; total+=p.total;
+    posRows+='<tr><td>'+(i+1)+'</td><td>'+p.name+'</td><td style="text-align:center">'+p.qty+' шт</td><td style="text-align:right">'+fmt(p.price)+' сум</td><td style="text-align:right;font-weight:700">'+fmt(p.total)+' сум</td></tr>';
+  }
+  if(!posRows) posRows='<tr><td colspan="5" style="text-align:center;color:#999">Позиции не указаны</td></tr>';
+  var advance=Math.round(total*0.5);
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Договор #'+oid+' — '+o.title+'</title>'
+    +'<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:12px;color:#222;padding:30px}'
+    +'.header{text-align:center;margin-bottom:24px}.header h1{font-size:18px;font-weight:bold}.header p{color:#666;margin-top:4px}'
+    +'.contract-no{font-size:13px;font-weight:bold;margin-bottom:20px}'
+    +'.parties{display:flex;gap:40px;margin-bottom:20px}.party{flex:1;border:1px solid #ddd;border-radius:6px;padding:12px}'
+    +'.party h3{font-size:11px;text-transform:uppercase;color:#666;margin-bottom:8px}'
+    +'.party p{margin-bottom:4px;font-size:12px}'
+    +'table{width:100%;border-collapse:collapse;margin-bottom:16px}'
+    +'th{background:#f5f5f5;padding:8px;text-align:left;border:1px solid #ddd;font-size:11px}'
+    +'td{padding:8px;border:1px solid #ddd;font-size:12px}'
+    +'.total-row{font-weight:bold;background:#f9f9f9}'
+    +'.section{margin-bottom:16px}.section h3{font-size:12px;font-weight:bold;margin-bottom:6px;border-bottom:1px solid #eee;padding-bottom:4px}'
+    +'.sign{display:flex;gap:40px;margin-top:32px}.sign-box{flex:1;border-top:1px solid #333;padding-top:8px;font-size:11px}'
+    +'@media print{body{padding:15px}}</style></head><body>'
+    +'<div class="header"><h1>🏢 ISOLA Business Suite</h1><p>Производство мебели и корпусных изделий</p></div>'
+    +'<div class="contract-no">ДОГОВОР № ISOLA-'+oid+'-'+new Date().getFullYear()+' &nbsp;&nbsp; от '+fmtD(o.created||today())+' г.</div>'
+    +'<div class="parties">'
+    +'<div class="party"><h3>Исполнитель</h3><p><b>ISOLA</b></p><p>Производство мебели</p><p>Тел: +998 99 800 88 99</p><p>Менеджер: '+mn.n+'</p></div>'
+    +'<div class="party"><h3>Заказчик</h3><p><b>'+cp.n+'</b></p>'+(cp.fio?'<p>'+cp.fio+'</p>':'')+'<p>Тел: '+(cp.ph||'—')+'</p></div>'
+    +'</div>'
+    +'<div class="section"><h3>ПРЕДМЕТ ДОГОВОРА</h3>'
+    +'<p>Исполнитель обязуется изготовить и смонтировать мебель согласно следующей спецификации:</p></div>'
+    +'<table><thead><tr><th style="width:30px">№</th><th>Наименование</th><th style="width:70px;text-align:center">Кол-во</th><th style="width:100px;text-align:right">Цена</th><th style="width:120px;text-align:right">Сумма</th></tr></thead><tbody>'
+    +posRows
+    +'<tr class="total-row"><td colspan="4" style="text-align:right;font-size:13px">ИТОГО:</td><td style="text-align:right;font-size:14px;color:#1a6b3a">'+fmt(total)+' сум</td></tr>'
+    +'<tr class="total-row"><td colspan="4" style="text-align:right">Аванс 50%:</td><td style="text-align:right">'+fmt(advance)+' сум</td></tr>'
+    +'<tr class="total-row"><td colspan="4" style="text-align:right">Остаток:</td><td style="text-align:right">'+fmt(total-advance)+' сум</td></tr>'
+    +'</tbody></table>'
+    +'<div class="section"><h3>УСЛОВИЯ</h3>'
+    +'<p>1. Срок изготовления: согласовывается отдельно.</p>'
+    +'<p>2. Аванс 50% вносится при подписании договора. Остаток — при сдаче.</p>'
+    +'<p>3. Гарантия: 12 месяцев на фурнитуру и механизмы.</p>'
+    +'<p>4. Изменения в проект вносятся до начала производства.</p></div>'
+    +'<div class="sign">'
+    +'<div class="sign-box"><p><b>ИСПОЛНИТЕЛЬ</b></p><br><p>ISOLA / '+mn.n+'</p><br><br><p>Подпись: ________________</p></div>'
+    +'<div class="sign-box"><p><b>ЗАКАЗЧИК</b></p><br><p>'+cp.n+'</p><br><br><p>Подпись: ________________</p></div>'
+    +'</div></body></html>';
+  var w=window.open('','_blank','width=800,height=900');
+  w.document.write(html);w.document.close();
+  setTimeout(function(){w.print();},500);
 }
 
 // ══════════════════════════════════════════════════════
