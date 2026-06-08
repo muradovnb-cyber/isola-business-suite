@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ISOLA — Инструкции для сотрудников</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f1f5f9;color:#1e293b;min-height:100vh}
+  .hero{background:linear-gradient(135deg,#1e293b 0%,#334155 100%);color:#fff;padding:48px 24px 40px;text-align:center}
+  .hero h1{font-size:2rem;font-weight:800;margin-bottom:8px}
+  .hero p{color:#94a3b8;font-size:1rem}
+  .tabs{display:flex;gap:0;overflow-x:auto;background:#fff;border-bottom:2px solid #e2e8f0;padding:0 24px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+  .tab{padding:14px 20px;cursor:pointer;font-size:.85rem;font-weight:600;color:#64748b;border-bottom:3px solid transparent;white-space:nowrap;transition:all .2s;margin-bottom:-2px}
+  .tab.active{color:var(--c);border-bottom-color:var(--c)}
+  .tab:hover{color:var(--c)}
+  .content{display:none;max-width:860px;margin:0 auto;padding:32px 16px}
+  .content.active{display:block}
+  .role-header{display:flex;align-items:center;gap:16px;padding:28px;border-radius:16px;margin-bottom:24px;color:#fff}
+  .role-avatar{width:60px;height:60px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:1.8rem;flex-shrink:0}
+  .role-title{font-size:1.4rem;font-weight:800}
+  .role-sub{font-size:.85rem;opacity:.8;margin-top:4px}
+  .login-box{background:#fff;border-radius:12px;padding:20px 24px;margin-bottom:24px;border:1px solid #e2e8f0;display:flex;gap:24px;flex-wrap:wrap;align-items:center}
+  .login-box .label{font-size:.72rem;color:#94a3b8;text-transform:uppercase;font-weight:600;margin-bottom:4px}
+  .login-box .val{font-size:.95rem;font-weight:700;font-family:monospace;color:#1e293b}
+  .login-box .url{color:#3b82f6;text-decoration:none}
+  .login-box .url:hover{text-decoration:underline}
+  .section{background:#fff;border-radius:12px;padding:20px 24px;margin-bottom:16px;border:1px solid #e2e8f0}
+  .section h3{font-size:.8rem;text-transform:uppercase;font-weight:700;color:#94a3b8;letter-spacing:.05em;margin-bottom:14px}
+  .menu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
+  .menu-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#f8fafc;border-radius:8px;font-size:.85rem}
+  .menu-item .ico{font-size:1.1rem;width:28px;text-align:center;flex-shrink:0}
+  .menu-item .name{font-weight:500;color:#334155}
+  .steps{list-style:none;counter-reset:step}
+  .steps li{counter-increment:step;display:flex;gap:14px;padding:12px 0;border-bottom:1px solid #f1f5f9}
+  .steps li:last-child{border-bottom:none}
+  .steps li::before{content:counter(step);background:var(--c);color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0;margin-top:1px}
+  .steps li .text{font-size:.88rem;color:#475569;line-height:1.5}
+  .steps li .text strong{color:#1e293b}
+  .tip{background:#f0f9ff;border-left:3px solid #3b82f6;border-radius:0 8px 8px 0;padding:12px 16px;font-size:.83rem;color:#1e40af;margin-top:12px}
+  .tip b{display:block;margin-bottom:4px}
+  .warn{background:#fff7ed;border-left:3px solid #f97316;border-radius:0 8px 8px 0;padding:12px 16px;font-size:.83rem;color:#9a3412;margin-top:12px}
+  .badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:600}
+  .badge.green{background:#dcfce7;color:#166534}
+  .badge.blue{background:#dbeafe;color:#1e40af}
+  .badge.orange{background:#fff7ed;color:#9a3412}
+  .badge.red{background:#fef2f2;color:#991b1b}
+  .perms{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:600px){.g2{grid-template-columns:1fr}.menu-grid{grid-template-columns:1fr 1fr}}
+  .section-group{margin-bottom:6px;font-size:.72rem;font-weight:700;color:#94a3b8;text-transform:uppercase;padding:8px 0 4px}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>📋 ISOLA Business Suite</h1>
+  <p>Руководство пользователя · Версия 2.0 · <a href="https://isola-business-suite-production.up.railway.app" style="color:#60a5fa">isola-business-suite-production.up.railway.app</a></p>
+</div>
+
+<div class="tabs">
+  <div class="tab active" style="--c:#f59e0b" onclick="show('director')">👑 Директор</div>
+  <div class="tab" style="--c:#3b82f6" onclick="show('accountant')">💼 Бухгалтер</div>
+  <div class="tab" style="--c:#8b5cf6" onclick="show('manager')">📊 Менеджер</div>
+  <div class="tab" style="--c:#22c55e" onclick="show('supply')">🏭 Снабженец</div>
+  <div class="tab" style="--c:#06b6d4" onclick="show('constructor')">📐 Конструктор</div>
+  <div class="tab" style="--c:#ef4444" onclick="show('production')">🔨 Производство</div>
+</div>
+
+<!-- ====== ДИРЕКТОР ====== -->
+<div id="director" class="content active">
+  <div class="role-header" style="background:linear-gradient(135deg,#f59e0b,#d97706)">
+    <div class="role-avatar">👑</div>
+    <div>
+      <div class="role-title">Директор</div>
+      <div class="role-sub">Мурадов Нуриддин · Полный доступ ко всей системе</div>
+    </div>
+  </div>
+  <div class="login-box">
+    <div><div class="label">Email</div><div class="val">director@isola.uz</div></div>
+    <div><div class="label">Пароль</div><div class="val">ваш пароль</div></div>
+    <div><div class="label">Ссылка</div><div class="val"><a class="url" href="https://isola-business-suite-production.up.railway.app" target="_blank">Открыть приложение →</a></div></div>
+  </div>
+  <div class="section">
+    <h3>Доступные разделы</h3>
+    <div class="section-group">👑 Руководство</div>
+    <div class="menu-grid">
+      <div class="menu-item"><span class="ico">🤖</span><span class="name">CEO Агент</span></div>
+      <div class="menu-item"><span class="ico">🌐</span><span class="name">Единый дашборд</span></div>
+      <div class="menu-item"><span class="ico">🏦</span><span class="name">Баланс счетов</span></div>
+    </div>
+    <div class="section-group">💰 Финансы</div>
+    <div class="menu-grid">
+      <div class="menu-item"><span class="ico">📊</span><span class="name">Дашборд</span></div>
+      <div class="menu-item"><span class="ico">📈</span><span class="name">P&L</span></div>
+      <div class="menu-item"><span class="ico">⚖️</span><span class="name">Баланс</span></div>
+      <div class="menu-item"><span class="ico">💹</span><span class="name">Маржинальность</span></div>
+    </div>
+    <div class="section-group">📦 Операции</div>
+    <div class="menu-grid">
+      <div class="menu-item"><span class="ico">📦</span><span class="name">Заказы</span></div>
+      <div class="menu-item"><span class="ico">💳</span><span class="name">Транзакции</span></div>
+    </div>
+    <div class="section-group">👥 HR</div>
+    <div class="menu-grid">
+      <div class="menu-item"><span class="ico">🎯</span><span class="name">CRM Сделки</span></div>
+      <div class="menu-item"><span class="ico">💰</span><span class="name">Зарплата всех</span></div>
+    </div>
+    <div class="section-group">⚙️ Данные</div>
+    <div class="menu-grid">
+      <div class="menu-item"><span class="ico">🏢</span><span class="name">Контрагенты</span></div>
+      <div class="menu-item"><span class="ico">💱</span><span class="name">Курсы валют</span></div>
+      <div class="menu-item"><span class="ico">👤</span><span class="name">Сотрудники</span></div>
+      <div class="menu-item"><span class="ico">⚙️</span><span class="name">Управление</span></div>
+      <div class="menu-item"><span class="ico">📋</span><span class="name">Статьи расходов</span></div>
+    </div>
+  </div>
+  <div class="section">
+    <h3>Как создать заказ</h3>
+    <ol class="steps">
+      <li><span class="text"><strong>Заказы → + Новый заказ</strong> в правом верхнем углу</span></li>
+      <li><span class="text">Введите название (например: <strong>«Кухня Ахмедов»</strong>), выберите клиента</span></li>
+      <li><span class="text">Укажите сумму договора и ответственного менеджера</span></li>
+      <li><span class="text">Нажмите <strong>Сохранить</strong> — заказ появится в списке</span></li>
+    </ol>
+  </div>
+  <div class="section">
+    <h3>Как смотреть финансы</h3>
+    <ol class="steps">
+      <li><span class="text"><strong>Баланс счетов</strong> — реальные остатки: касса, банк, долги</span></li>
+      <li><span class="text"><strong>P&L</strong> — доходы и расходы по месяцам, маржа</span></li>
+      <li><span class="text"><strong>Маржинальность</strong> — прибыльность каждого заказа</span></li>
+    </ol>
+    <div class="tip"><b>💡 Telegram-бот (@isolainbot)</b>Пишите в Telegram: «касса», «отчет», «смета Бухара» — бот ответит за секунды с реальными данными.</div>
+  </div>
+  <div class="section">
+    <h3>Управление сотрудниками</h3>
+    <ol class="steps">
+      <li><span class="text"><strong>Сотрудники</strong> — карточки всех сотрудников, подотчётные суммы</span></li>
+      <li><span class="text">Нажмите <strong>✏️ Изменить</strong> на карточке — редактируйте данные, оклад, %</span></li>
+      <li><span class="text">Нажмите <strong>🔑 Пароль</strong> — смените пароль для входа</span></li>
+      <li><span class="text"><strong>Управление</strong> — создание новых пользователей</span></li>
+    </ol>
+  </div>
+</div>
+
+<!-- ====== БУХГАЛТЕР ====== -->
+<div id="accountant" class="content">
+  <div class="role-header" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)">
+    <div class="role-avatar">💼</div>
+    <div>
+      <div class="role-title">Бухгалтер</div>
+      <div class="role-sub">Адхам Джалолов · Финансы, транзакции, зарплаты</div>
+    </div>
+  </div>
+  <div class="login-box">
+    <div><div class="label">Email</div><div class="val">buh@isola.uz</div></div>
+    <div><div class="label">Пароль</div><div class="val">ваш пароль</div></div>
+    <div><div class="label">Ссылка</div><div class="val"><a class="url" href="https://isola-business-suite-production.up.railway.app" target="_blank">Открыть приложение →</a></div></div>
+  </div>
+  <div class="section">
+    <h3>Доступные разделы</h3>
+    <div class="section-group">Финансы</div>
+    <div class="menu-grid">
+      <div class="menu-item"><span class="ico">🏦</span><span class="name">Баланс счетов</span></div>
+      <div class="menu-item"><span class="ico">💳</span><span class="name">Транзакции</span></div>
+      <div class="menu-item"><span class="ico">📦</span><span class="name">Заказы</span></div>
+      <div class="menu-item"><span class="ico">💵</span><span class="name">Подотчёт</span></div>
+      <div class="menu-item"><span class="ico">📋</span><span class="name">Статьи расходов</span></div>
+      <div class="menu-item"><span class="ico">💰</span><span class="name">Зарплата</span></div>
+    </div>
+    <div class="section-group">Справочники</div>
+    <div class="menu-grid">
+      <div class="menu-item"><span class="ico">🏢</span><span class="name">Контрагенты</span></div>
+    </div>
+  </div>
+  <div class="section">
+    <h3>Как добавить расход</h3>
+    <ol class="steps">
+      <li><span class="text">Перейдите в <strong>Транзакции → + Добавить расход</strong></span></li>
+      <li><span class="text">Выберите дату, счёт (<strong>Касса / Банк / Долг</strong>) и валюту</span></li>
+      <li><span class="text">Выберите статью расхода и контрагента из списка</span></li>
+      <li><span class="text">Привяжите к заказу если это расход по конкретному проекту</span></li>
+      <li><span class="text">Нажмите <strong>Сохранить</strong></span></li>
+    </ol>
+    <div class="tip"><b>💡 Быстрее через Telegram</b>Напишите в группу «Расходы ISOLA»: «купил у BLUM 500к» — бот запишет автоматически.</div>
+  </div>
+  <div class="section">
+    <h3>Как начислить зарплату</h3>
+    <ol class="steps">
+      <li><span class="text"><strong>Зарплата → + Начислить</strong></span></li>
+      <li><span class="text">Выберите сотрудника, месяц и год</span></li>
+      <li><span class="text">Проверьте сумму (система считает автоматически по окладу и %)</span></li>
+      <li><span class="text">Нажмите <strong>Начислить</strong> — запись появится в списке</span></li>
+      <li><span class="text">При выплате — нажмите <strong>Отметить оплаченным</strong></span></li>
+    </ol>
+  </div>
+  <div class="section">
+    <h3>Подотчётные средства</h3>
+    <ol class="steps">
+      <li><span class="text"><strong>Подотчёт</strong> — список всех выданных средств и их статус</span></li>
+      <li><span class="text">Статус <span class="badge orange">открыт</span> — средства ещё не отчитаны</span></li>
+      <li><span class="text">Статус <span class="badge green">отчитан</span> — сотрудник предоставил подтверждение</span></li>
+      <li><span class="text">Статус <span class="badge blue">закрыт</span> — проверено и закрыто</span></li>
+    </ol>
+  </div>
+</div>
+
+<!-- ====== МЕНЕДЖЕР ====== -->
+<div id="manager" class="content">
+  <div class="role-header" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">
+    <div class="role-avatar">📊</div>
+    <div>
+      <div class="role-title">Менеджер продаж</div>
+      <div class="role-sub">Абдурауф Шарипов · CRM, заказы, зарплата</div>
+    </div>
+  </div>
+  <div class="login-box">
+    <div><div class="label">Email</div><div class="val">manager@isola.uz</div></div>
+    <div><div class="label">Пароль</div><div class="val">ваш пароль</div></div>
+    <div><div class="label">Ссылка</div><div class="val"><a class="url" href="https://isola-business-suite-production.up.railway.app" target="_blank">Открыть приложение →</a></div></div>
+  </div>
+  <div class="section">
+    <h3>Доступные разделы</h3>
+    <div class="section-group">Продажи</div>
+    <div class="menu-grid">
+      <div class="menu-item"><span class="ico">🎯</span><span class="name">CRM — Сделки</span></div>
+      <div class="menu-item"><span class="ico">📦</span><span class="name">Мои заказы</span></div>
+    </div>
+    <div class="section-group">Личное</div>
+    <div class="menu-grid">
+      <div class="menu-item"><span class="ico">👤</span><span class="name">Профиль</span></div>
+      <div class="menu-item"><span class="ico">💰</span><span class="name">Зарплата</span></div>
+      <div class="menu-item"><span class="ico">💵</span><span class="name">Подотчёт</span></div>
+      <div class="menu-item"><span class="ico">📖</span><span class="name">Справочник</span></div>
+      <div class="menu-item"><span class="ico">📋</span><span class="name">Регламент</span></div>
+    </div>
+  </div>
+  <div class="section">
+    <h3>Как работать с CRM</h3>
+    <ol class="steps">
+      <li><span class="text"><strong>CRM — Сделки → + Новая сделка</strong></span></li>
+      <li><span class="text">Введите название сделки, выберите клиента из базы</span></li>
+      <li><span class="text">Укажите предполагаемую сумму и стадию: <span class="badge blue">Переговоры</span></span></li>
+      <li><span class="text">По мере продвижения — меняйте стадию на <span class="badge green">Договор</span> или <span class="badge orange">Закрыта</span></span></li>
+    </ol>
+  </div>
+  <div class="section">
+    <h3>Как создать заказ из сделки</h3>
+    <ol class="steps">
+      <li><span class="text">Когда сделка выигранна — перейдите в <strong>Мои заказы → + Новый заказ</strong></span></li>
+      <li><span class="text">Привяжите к клиенту, укажите сумму договора</span></li>
+      <li><span class="text">Следите за прогресс-баром оплаты — зелёный = клиент оплатил полностью</span></li>
+    </ol>
+    <div class="tip"><b>💡 Комиссия</b>При закрытии заказа система автоматически рассчитает вашу комиссию по % от суммы.</div>
+  </div>
+</div>
+
+<!-- ====== СНАБЖЕНЕЦ ====== -->
+<div id="supply" class="content">
+  <div class="role-header" style="background:linear-gradient(135deg,#22c55e,#15803d)">
+    <div class="role-avatar">🏭</div>
+    <div>
+      <div class="role-title">Снабженец</div>
+      <div class="role-sub">Илхом Худайназаров · Заказы, закупки, подотчёт</div>
+    </div>
+  </div>
+  <div class="login-box">
+    <div><div class="label">Email</div><div class="val">snab@isola.uz</div></div>
+    <div><div class="label">Пароль</div><div class="val">ваш пароль</div></div>
+    <div><div class="label">Ссылка</div><div class="val"><a class="url" href="https://isola-business-suite-production.up.railway.app" target="_blank">Открыть приложение →</a></div></div>
+  </div>
+  <div class="section">
+    <h3>Доступные разделы</h3>
+    <div class="menu-grid">
+      <div class="menu-item"><span class="ico">📦</span><span class="name">Заказы</span></div>
+      <div class="menu-item"><span class="ico">💵</span><span class="name">Подотчёт</span></div>
+      <div class="menu-item"><span class="ico">👤</span><span class="name">Профиль</span></div>
+      <div class="menu-item"><span class="ico">💰</span><span class="name">Зарплата</span></div>
+      <div class="menu-item"><span class="ico">📖</span><span class="name">Справочник</span></div>
+    </div>
+  </div>
+  <div class="section">
+    <h3>Как записать расход по заказу</h3>
+    <ol class="steps">
+      <li><span class="text"><strong>Заказы</strong> → нажмите на нужный заказ</span></li>
+      <li><span class="text">В карточке заказа найдите блок <strong>«Добавить расход»</strong></span></li>
+      <li><span class="text">Выберите дату, счёт (Касса/Банк/Долг) и статью расхода</span></li>
+      <li><span class="text">Укажите поставщика и сумму — нажмите <strong>Сохранить</strong></span></li>
+    </ol>
+    <div class="tip"><b>💡 Ещё проще — через Telegram</b>Напишите в группу «Расходы»: <strong>«купил у BLUM 500к для Ахмедов»</strong> — бот запишет сам и привяжет к нужному заказу.</div>
+  </div>
+  <div class="section">
+    <h3>Подотчётные средства</h3>
+    <ol class="steps">
+      <li><span class="text">Раздел <strong>Подотчёт</strong> — видите все выданные вам средства</span></li>
+      <li><span class="text">После расхода — добавьте запись с подтверждением (чек, фото)</span></li>
+      <li><span class="text">Нераспределённый остаток показывается в шапке карточки</span></li>
+    </ol>
+    <div class="warn">⚠️ Не забывайте отчитываться по подотчётным суммам в конце поездки/закупки</div>
+  </div>
+</div>
+
+<!-- ====== КОНСТРУКТОР ====== -->
+<div id="constructor" class="content">
+  <div class="role-header" style="background:linear-gradient(135deg,#06b6d4,#0891b2)">
+    <div class="role-avatar">📐</div>
+    <div>
+      <div class="role-title">Конструктор</div>
+      <div class="role-sub">Афруз Хамидов · Заказы, заявки на услуги</div>
+    </div>
+  </div>
+  <div class="login-box">
+    <div><div class="label">Email</div><div class="val">konstr@isola.uz</div></div>
+    <div><div class="label">Пароль</div><div class="val">ваш пароль</div></div>
+    <div><div class="label">Ссылка</div><div class="val"><a class="url" href="https://isola-business-suite-production.up.railway.app" target="_blank">Открыть приложение →</a></div></div>
+  </div>
+  <div class="section">
+    <h3>Доступные разделы</h3>
+    <div class="menu-grid">
+      <div class="menu-item"><span class="ico">📦</span><span class="name">Заказы</span></div>
+      <div class="menu-item"><span class="ico">🔧</span><span class="name">Заявки на услуги</span></div>
+      <div class="menu-item"><span class="ico">💵</span><span class="name">Подотчёт</span></div>
+      <div class="menu-item"><span class="ico">👤</span><span class="name">Профиль</span></div>
+      <div class="menu-item"><span class="ico">💰</span><span class="name">Зарплата</span></div>
+      <div class="menu-item"><span class="ico">📖</span><span class="name">Справочник</span></div>
+    </div>
+  </div>
+  <div class="section">
+    <h3>Как работать с заказами</h3>
+    <ol class="steps">
+      <li><span class="text">Раздел <strong>Заказы</strong> — видите все активные проекты</span></li>
+      <li><span class="text">Откройте заказ → ознакомьтесь с ТЗ и параметрами</span></li>
+      <li><span class="text">При необходимости добавьте расход на материалы или услуги</span></li>
+    </ol>
+  </div>
+  <div class="section">
+    <h3>Заявки на услуги</h3>
+    <ol class="steps">
+      <li><span class="text"><strong>Заявки на услуги → + Новая заявка</strong></span></li>
+      <li><span class="text">Выберите тип услуги (монтаж, сварка, покраска и т.д.)</span></li>
+      <li><span class="text">Привяжите к заказу и укажите желаемый срок выполнения</span></li>
+      <li><span class="text">Заявка уйдёт руководителю производства на согласование</span></li>
+    </ol>
+  </div>
+</div>
+
+<!-- ====== ПРОИЗВОДСТВО ====== -->
+<div id="production" class="content">
+  <div class="role-header" style="background:linear-gradient(135deg,#ef4444,#b91c1c)">
+    <div class="role-avatar">🔨</div>
+    <div>
+      <div class="role-title">Начальник производства</div>
+      <div class="role-sub">Нодир Халилов · Заказы, заявки, подотчёт</div>
+    </div>
+  </div>
+  <div class="login-box">
+    <div><div class="label">Email</div><div class="val">prod@isola.uz</div></div>
+    <div><div class="label">Пароль</div><div class="val">ваш пароль</div></div>
+    <div><div class="label">Ссылка</div><div class="val"><a class="url" href="https://isola-business-suite-production.up.railway.app" target="_blank">Открыть приложение →</a></div></div>
+  </div>
+  <div class="section">
+    <h3>Доступные разделы</h3>
+    <div class="menu-grid">
+      <div class="menu-item"><span class="ico">📦</span><span class="name">Заказы</span></div>
+      <div class="menu-item"><span class="ico">🔧</span><span class="name">Заявки на услуги</span></div>
+      <div class="menu-item"><span class="ico">💵</span><span class="name">Подотчёт</span></div>
+      <div class="menu-item"><span class="ico">👤</span><span class="name">Профиль</span></div>
+      <div class="menu-item"><span class="ico">💰</span><span class="name">Зарплата</span></div>
+      <div class="menu-item"><span class="ico">📖</span><span class="name">Справочник</span></div>
+    </div>
+  </div>
+  <div class="section">
+    <h3>Как вести заказы на производстве</h3>
+    <ol class="steps">
+      <li><span class="text">Раздел <strong>Заказы</strong> — список всех активных проектов</span></li>
+      <li><span class="text">Откройте заказ → добавляйте расходы по мере работы (материалы, услуги)</span></li>
+      <li><span class="text">Следите за статусом — меняйте на <strong>В работе → Готов</strong></span></li>
+    </ol>
+    <div class="tip"><b>💡 Записывайте расходы сразу</b>Проще всего написать в Telegram-группу: «купил краску 150к для Бухара» — бот всё запишет.</div>
+  </div>
+  <div class="section">
+    <h3>Заявки на услуги</h3>
+    <ol class="steps">
+      <li><span class="text"><strong>Заявки на услуги</strong> — список всех заявок от конструкторов</span></li>
+      <li><span class="text">Просматривайте детали: тип работы, заказ, срок</span></li>
+      <li><span class="text">Назначайте бригадиров и контролируйте выполнение</span></li>
+      <li><span class="text">Меняйте статус заявки: <span class="badge blue">Новая</span> → <span class="badge orange">В работе</span> → <span class="badge green">Выполнена</span></span></li>
+    </ol>
+  </div>
+  <div class="section">
+    <h3>Подотчётные средства</h3>
+    <ol class="steps">
+      <li><span class="text">Раздел <strong>Подотчёт</strong> — ваши выданные средства</span></li>
+      <li><span class="text">После поездки или закупки — добавьте расходы с чеками</span></li>
+      <li><span class="text">Закройте подотчёт когда все суммы отчитаны</span></li>
+    </ol>
+    <div class="warn">⚠️ Открытые подотчёты видны директору — отчитывайтесь своевременно</div>
+  </div>
+</div>
+
+<script>
+function show(id){
+  document.querySelectorAll('.content').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(e=>e.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

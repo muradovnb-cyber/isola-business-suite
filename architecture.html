@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ISOLA — Структура системы</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;padding-bottom:60px}
+.hero{padding:48px 24px 32px;text-align:center}
+.hero h1{font-size:2.2rem;font-weight:900;background:linear-gradient(135deg,#60a5fa,#a78bfa,#34d399);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero p{color:#64748b;margin-top:8px;font-size:.95rem}
+.wrap{max-width:1100px;margin:0 auto;padding:0 16px}
+
+/* LAYERS */
+.layer{margin-bottom:40px}
+.layer-title{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.layer-title .num{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:800;flex-shrink:0}
+.layer-title h2{font-size:1rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em}
+
+/* CARDS */
+.cards{display:grid;gap:12px}
+.cards.col2{grid-template-columns:repeat(2,1fr)}
+.cards.col3{grid-template-columns:repeat(3,1fr)}
+.cards.col4{grid-template-columns:repeat(4,1fr)}
+.cards.col6{grid-template-columns:repeat(6,1fr)}
+@media(max-width:900px){.cards.col4,.cards.col6{grid-template-columns:repeat(3,1fr)}.cards.col3{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.cards.col2,.cards.col3,.cards.col4,.cards.col6{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:400px){.cards.col2,.cards.col3,.cards.col4,.cards.col6{grid-template-columns:1fr}}
+
+.card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:18px;transition:transform .2s,border-color .2s}
+.card:hover{transform:translateY(-2px);border-color:#475569}
+.card .icon{font-size:1.8rem;margin-bottom:10px}
+.card h3{font-size:.9rem;font-weight:700;color:#f1f5f9;margin-bottom:6px}
+.card p{font-size:.78rem;color:#64748b;line-height:1.5}
+.card .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:10px}
+.tag{padding:2px 8px;border-radius:20px;font-size:.68rem;font-weight:600}
+
+/* FLOW */
+.flow{display:flex;align-items:flex-start;gap:0;overflow-x:auto;padding-bottom:8px}
+.flow-step{flex-shrink:0;text-align:center}
+.flow-box{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px 18px;font-size:.8rem;font-weight:600;color:#e2e8f0;min-width:120px}
+.flow-arrow{display:flex;align-items:center;padding:0 6px;color:#475569;font-size:1.2rem;flex-shrink:0;padding-top:14px}
+.flow-sub{font-size:.68rem;color:#64748b;margin-top:6px;text-align:center}
+
+/* ROLES TABLE */
+.roles-table{width:100%;border-collapse:collapse;background:#1e293b;border-radius:14px;overflow:hidden;border:1px solid #334155}
+.roles-table th{background:#0f172a;padding:12px 16px;font-size:.72rem;text-transform:uppercase;color:#64748b;font-weight:700;text-align:left;letter-spacing:.05em}
+.roles-table td{padding:12px 16px;border-top:1px solid #334155;font-size:.82rem;vertical-align:middle}
+.roles-table tr:hover td{background:#263447}
+.check{color:#4ade80;font-size:.95rem}
+.cross{color:#334155;font-size:.95rem}
+.partial{color:#fbbf24;font-size:.95rem}
+
+/* CONNECTOR */
+.connector{text-align:center;color:#334155;font-size:1.5rem;margin:8px 0}
+
+/* BOT FLOW */
+.bot-flow{background:#1e293b;border:1px solid #334155;border-radius:16px;padding:24px;margin-bottom:16px}
+.bot-flow h3{font-size:.82rem;color:#94a3b8;text-transform:uppercase;font-weight:700;margin-bottom:16px;letter-spacing:.05em}
+.bf-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.bf-box{padding:8px 14px;border-radius:8px;font-size:.8rem;font-weight:600;flex-shrink:0}
+.bf-arr{color:#475569;flex-shrink:0}
+.bf-note{font-size:.73rem;color:#64748b;flex:1;min-width:120px}
+.divider{height:1px;background:#1e293b;margin:32px 0;position:relative}
+.divider::after{content:attr(data-label);position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#0f172a;padding:0 12px;font-size:.72rem;color:#475569;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="hero">
+  <h1>🏗️ ISOLA System Architecture</h1>
+  <p>Полная структура бизнес-экосистемы · isola-business-suite-production.up.railway.app</p>
+</div>
+
+<div class="wrap">
+
+  <!-- LAYER 1: ENTRY POINTS -->
+  <div class="layer">
+    <div class="layer-title">
+      <div class="num" style="background:#3b82f6;color:#fff">1</div>
+      <h2>Точки входа</h2>
+    </div>
+    <div class="cards col3">
+      <div class="card">
+        <div class="icon">📱</div>
+        <h3>Веб-приложение (PWA)</h3>
+        <p>Открывается в браузере на телефоне или ПК. Устанавливается на главный экран как приложение.</p>
+        <div class="tags">
+          <span class="tag" style="background:#1d4ed820;color:#60a5fa">Safari / Chrome</span>
+          <span class="tag" style="background:#16534420;color:#4ade80">PWA</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="icon">🤖</div>
+        <h3>Telegram Бот (@isolainbot)</h3>
+        <p>Запись расходов голосом. Доступен в личке и в группе. Директор — полный доступ. Сотрудники — только расходы.</p>
+        <div class="tags">
+          <span class="tag" style="background:#1d4ed820;color:#60a5fa">@isolainbot</span>
+          <span class="tag" style="background:#7c3aed20;color:#a78bfa">AI</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="icon">💬</div>
+        <h3>Telegram Группа</h3>
+        <p>Рабочая группа команды. Сотрудники пишут расходы в свободной форме — бот читает и вносит в базу.</p>
+        <div class="tags">
+          <span class="tag" style="background:#16534420;color:#4ade80">Авто-запись</span>
+          <span class="tag" style="background:#7c3aed20;color:#a78bfa">NLP</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LAYER 2: AI AGENTS -->
+  <div class="layer">
+    <div class="layer-title">
+      <div class="num" style="background:#8b5cf6;color:#fff">2</div>
+      <h2>AI-Агенты (n8n + Claude)</h2>
+    </div>
+    <div class="cards col3">
+      <div class="card">
+        <div class="icon">💼</div>
+        <h3>Бухгалтер</h3>
+        <p>Парсит сообщения о расходах и доходах. Находит поставщика в базе. Привязывает к заказу. Записывает в ISOLA API.</p>
+        <div class="tags">
+          <span class="tag" style="background:#16534420;color:#4ade80">POST /api/expense</span>
+          <span class="tag" style="background:#16534420;color:#4ade80">POST /api/income</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="icon">💵</div>
+        <h3>Кассир</h3>
+        <p>Только для директора. Читает реальные транзакции и считает остатки по кассе и банку. Утренний брифинг в 8:00.</p>
+        <div class="tags">
+          <span class="tag" style="background:#1d4ed820;color:#60a5fa">GET /api/data</span>
+          <span class="tag" style="background:#92400e20;color:#fbbf24">Только директор</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="icon">🧮</div>
+        <h3>Сметчик</h3>
+        <p>Считает реальную себестоимость заказа из базы. Маржа %, план/факт, топ статей. Предупреждает если маржа &lt;20%.</p>
+        <div class="tags">
+          <span class="tag" style="background:#1d4ed820;color:#60a5fa">GET /api/data</span>
+          <span class="tag" style="background:#92400e20;color:#fbbf24">Только директор</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="icon">📊</div>
+        <h3>Аналитик</h3>
+        <p>P&L из реальных данных. Тренды, аномалии, прогноз. Еженедельный отчёт по понедельникам в 9:00.</p>
+        <div class="tags">
+          <span class="tag" style="background:#1d4ed820;color:#60a5fa">GET /api/data</span>
+          <span class="tag" style="background:#92400e20;color:#fbbf24">Только директор</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="icon">🧪</div>
+        <h3>QA Мониторинг</h3>
+        <p>Каждые 5 минут проверяет доступность сервера. При падении — мгновенный алерт директору в Telegram.</p>
+        <div class="tags">
+          <span class="tag" style="background:#1d4ed820;color:#60a5fa">GET /api/health</span>
+          <span class="tag" style="background:#16534420;color:#4ade80">Авто каждые 5 мин</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="icon">🧠</div>
+        <h3>Мастер-агент</h3>
+        <p>Отвечает на свободные вопросы директора. Навигирует между командами. Помнит контекст разговора.</p>
+        <div class="tags">
+          <span class="tag" style="background:#7c3aed20;color:#a78bfa">Claude 4.6</span>
+          <span class="tag" style="background:#92400e20;color:#fbbf24">Только директор</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LAYER 3: APP MODULES -->
+  <div class="layer">
+    <div class="layer-title">
+      <div class="num" style="background:#22c55e;color:#fff">3</div>
+      <h2>Модули приложения</h2>
+    </div>
+    <div class="cards col4">
+      <div class="card">
+        <div class="icon">📦</div>
+        <h3>Заказы</h3>
+        <p>Договора с клиентами. Статус, сумма, прогресс оплаты. Привязка всех расходов.</p>
+      </div>
+      <div class="card">
+        <div class="icon">💳</div>
+        <h3>Транзакции</h3>
+        <p>Все расходы и доходы компании. Привязка к заказу, поставщику, статье.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🎯</div>
+        <h3>CRM Сделки</h3>
+        <p>Воронка продаж. Стадии сделки от переговоров до закрытия.</p>
+      </div>
+      <div class="card">
+        <div class="icon">💵</div>
+        <h3>Подотчёт</h3>
+        <p>Выданные сотрудникам средства. Статус отчитано/открыто/закрыто.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🏦</div>
+        <h3>Баланс счетов</h3>
+        <p>Остатки касса/банк. P&L по месяцам. Дебиторы и кредиторы.</p>
+      </div>
+      <div class="card">
+        <div class="icon">💰</div>
+        <h3>Зарплата</h3>
+        <p>Начисление и выплата. Фиксированная + % от заказов/сделок.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🔧</div>
+        <h3>Заявки на услуги</h3>
+        <p>Конструктор → Производство. Монтаж, покраска, сварка по заказам.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🏢</div>
+        <h3>Контрагенты</h3>
+        <p>База поставщиков и клиентов. Долги по каждому. Поиск по названию.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- LAYER 4: ROLES -->
+  <div class="layer">
+    <div class="layer-title">
+      <div class="num" style="background:#f59e0b;color:#fff">4</div>
+      <h2>Матрица доступа по ролям</h2>
+    </div>
+    <div style="overflow-x:auto">
+    <table class="roles-table">
+      <thead>
+        <tr>
+          <th>Раздел</th>
+          <th>👑 Директор</th>
+          <th>💼 Бухгалтер</th>
+          <th>📊 Менеджер</th>
+          <th>🏭 Снабженец</th>
+          <th>📐 Конструктор</th>
+          <th>🔨 Производство</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>🤖 CEO Агент</td><td class="check">✓</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
+        <tr><td>🌐 Единый дашборд</td><td class="check">✓</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
+        <tr><td>🏦 Баланс счетов</td><td class="check">✓</td><td class="check">✓</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
+        <tr><td>📊 Дашборд / P&L</td><td class="check">✓</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
+        <tr><td>💹 Маржинальность</td><td class="check">✓</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
+        <tr><td>📦 Заказы</td><td class="check">✓ все</td><td class="check">✓ все</td><td class="partial">✓ свои</td><td class="check">✓ все</td><td class="check">✓ все</td><td class="check">✓ все</td></tr>
+        <tr><td>💳 Транзакции</td><td class="check">✓</td><td class="check">✓</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
+        <tr><td>🎯 CRM Сделки</td><td class="check">✓ все</td><td class="cross">—</td><td class="partial">✓ свои</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
+        <tr><td>💰 Зарплата всех</td><td class="check">✓</td><td class="check">✓</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
+        <tr><td>💰 Моя зарплата</td><td class="cross">—</td><td class="cross">—</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+        <tr><td>💵 Подотчёт</td><td class="check">✓ все</td><td class="check">✓ все</td><td class="partial">✓ свой</td><td class="partial">✓ свой</td><td class="partial">✓ свой</td><td class="partial">✓ свой</td></tr>
+        <tr><td>🔧 Заявки на услуги</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="check">✓</td><td class="check">✓</td></tr>
+        <tr><td>🏢 Контрагенты</td><td class="check">✓ + долги</td><td class="check">✓ + долги</td><td class="cross">—</td><td class="check">✓ + долги</td><td class="cross">—</td><td class="cross">—</td></tr>
+        <tr><td>👤 Сотрудники</td><td class="check">✓</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
+        <tr><td>⚙️ Управление</td><td class="check">✓</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
+        <tr><td>💱 Курсы валют</td><td class="check">✓</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div style="display:flex;gap:16px;margin-top:12px;font-size:.75rem;color:#64748b;flex-wrap:wrap">
+      <span><span class="check">✓</span> Полный доступ</span>
+      <span><span class="partial">✓</span> Частичный (только своё)</span>
+      <span><span class="cross">—</span> Нет доступа</span>
+    </div>
+  </div>
+
+  <!-- LAYER 5: BOT FLOW -->
+  <div class="layer">
+    <div class="layer-title">
+      <div class="num" style="background:#06b6d4;color:#fff">5</div>
+      <h2>Логика Telegram-бота</h2>
+    </div>
+    <div class="bot-flow">
+      <h3>Обработка сообщения</h3>
+      <div class="bf-row">
+        <div class="bf-box" style="background:#1e40af20;color:#60a5fa">📨 Сообщение</div>
+        <div class="bf-arr">→</div>
+        <div class="bf-box" style="background:#16534420;color:#4ade80">🔍 Парсинг</div>
+        <div class="bf-arr">→</div>
+        <div class="bf-box" style="background:#92400e20;color:#fbbf24">👤 Кто написал?</div>
+      </div>
+      <div style="margin-left:24px;border-left:2px solid #334155;padding-left:20px;margin-top:4px">
+        <div class="bf-row" style="margin-top:10px">
+          <div class="bf-box" style="background:#f59e0b20;color:#fbbf24">👑 Директор</div>
+          <div class="bf-arr">→</div>
+          <div class="bf-note">Полный доступ: касса, смета, отчёт, статус, расходы, мастер</div>
+        </div>
+        <div class="bf-row" style="margin-top:8px">
+          <div class="bf-box" style="background:#16534420;color:#4ade80">👷 Сотрудник</div>
+          <div class="bf-arr">→</div>
+          <div class="bf-note">Только если содержит ключевые слова расхода/дохода</div>
+        </div>
+        <div class="bf-row" style="margin-top:8px">
+          <div class="bf-box" style="background:#7f1d1d20;color:#f87171">🚫 Чужой</div>
+          <div class="bf-arr">→</div>
+          <div class="bf-note">🔒 «Бот только для сотрудников ISOLA»</div>
+        </div>
+      </div>
+    </div>
+    <div class="bot-flow">
+      <h3>Маршрутизация команд директора</h3>
+      <div class="cards col3" style="gap:8px">
+        <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:14px">
+          <div style="font-size:.8rem;color:#94a3b8;margin-bottom:8px">🔑 Ключевые слова</div>
+          <div style="font-size:.82rem;color:#e2e8f0;line-height:1.8">
+            купил / заплатил / оплатил / потратил / пришло / поступило / получили / под отчет
+          </div>
+          <div style="margin-top:8px;font-size:.75rem;color:#4ade80">→ 💼 Агент Бухгалтер</div>
+        </div>
+        <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:14px">
+          <div style="font-size:.8rem;color:#94a3b8;margin-bottom:8px">🔑 Ключевые слова</div>
+          <div style="font-size:.82rem;color:#e2e8f0;line-height:1.8">касса</div>
+          <div style="font-size:.82rem;color:#e2e8f0;line-height:1.8">смета [заказ]</div>
+          <div style="font-size:.82rem;color:#e2e8f0;line-height:1.8">отчет</div>
+          <div style="font-size:.82rem;color:#e2e8f0;line-height:1.8">статус</div>
+          <div style="margin-top:8px;font-size:.75rem;color:#60a5fa">→ 💵🧮📊🧪 Агенты</div>
+        </div>
+        <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:14px">
+          <div style="font-size:.8rem;color:#94a3b8;margin-bottom:8px">🔑 Всё остальное</div>
+          <div style="font-size:.82rem;color:#e2e8f0;line-height:1.8">Свободный вопрос, помощь, что угодно</div>
+          <div style="margin-top:8px;font-size:.75rem;color:#a78bfa">→ 🧠 Мастер-агент</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LAYER 6: TECH STACK -->
+  <div class="layer">
+    <div class="layer-title">
+      <div class="num" style="background:#ef4444;color:#fff">6</div>
+      <h2>Технический стек</h2>
+    </div>
+    <div class="cards col4">
+      <div class="card">
+        <div class="icon">🟢</div>
+        <h3>Node.js + Express</h3>
+        <p>Бэкенд. REST API. Хранение данных в JSON-файле. Деплой на Railway.</p>
+        <div class="tags"><span class="tag" style="background:#16534420;color:#4ade80">Railway</span></div>
+      </div>
+      <div class="card">
+        <div class="icon">⚡</div>
+        <h3>Vanilla JS (PWA)</h3>
+        <p>Фронтенд — чистый JavaScript без фреймворков. Один файл index.html. Работает офлайн.</p>
+        <div class="tags"><span class="tag" style="background:#1d4ed820;color:#60a5fa">PWA</span></div>
+      </div>
+      <div class="card">
+        <div class="icon">🔄</div>
+        <h3>n8n</h3>
+        <p>Оркестрация AI-агентов. Воркфлоу "finnapp ISOLA". Telegram webhook, расписания.</p>
+        <div class="tags"><span class="tag" style="background:#7c3aed20;color:#a78bfa">nuriddinai.app.n8n.cloud</span></div>
+      </div>
+      <div class="card">
+        <div class="icon">🤖</div>
+        <h3>Claude Sonnet 4.6</h3>
+        <p>Языковая модель для всех агентов. Понимает русский, узбекский. Память разговора.</p>
+        <div class="tags"><span class="tag" style="background:#7c3aed20;color:#a78bfa">Anthropic</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="text-align:center;padding:32px;color:#334155;font-size:.8rem">
+  ISOLA Business Suite · <a href="https://isola-business-suite-production.up.railway.app" style="color:#60a5fa">isola-business-suite-production.up.railway.app</a> · GitHub: muradovnb-cyber
+</div>
+
+</body>
+</html>
