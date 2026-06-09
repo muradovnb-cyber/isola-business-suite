@@ -1190,7 +1190,10 @@ function pgOrders(){
     +'<div id="m-order-new" style="display:none">'
     +'<div class="fg"><label>Название *</label><input id="on-t" placeholder="Кухонный гарнитур..."/></div>'
     +'<div class="fg"><label>Клиент *</label><select id="on-c"><option value="">— выберите —</option>'+optList(DB.cps.filter(function(c){return c.type==='client';}),function(c){return c.id;},function(c){return c.n;})+'</select></div>'
+    +'<div class="g2">'
     +'<div class="fg"><label>Менеджер</label><select id="on-m"><option value="">— нет —</option>'+optList(DB.users.filter(function(u){return u.role==='manager';}),function(u){return u.id;},function(u){return u.n;})+'</select></div>'
+    +'<div class="fg"><label>Дедлайн сдачи</label><input type="date" id="on-dl" value="'+new Date(Date.now()+7*24*60*60*1000).toISOString().split("T")[0]+'"/></div>'
+    +'</div>'
     +'<div class="fg"><label>Позиции (состав заказа)</label>'
     +'<div id="on-pos-list" style="margin-bottom:6px"></div>'
     +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
@@ -1294,7 +1297,8 @@ function saveOrderNew(){
   if(!t||!c){toast('Заполните обязательные поля','error');return;}
   var positions=_orderPositions.slice();
   _orderPositions=[];
-  DB.orders.push({id:nid(DB.orders),title:t,cid:c,uzs:mNum('on-u'),usd:mNum('on-d'),status:'active',created:today(),closed:null,note:mVal('on-n'),mid:mNum('on-m')||null,ca:false,cc:false,did:null,positions:positions,photos:[]});
+  var deadline=(document.getElementById('on-dl')||{value:''}).value||null;
+  DB.orders.push({id:nid(DB.orders),title:t,cid:c,uzs:mNum('on-u'),usd:mNum('on-d'),status:'active',created:today(),closed:null,note:mVal('on-n'),mid:mNum('on-m')||null,ca:false,cc:false,did:null,positions:positions,photos:[],deadline:deadline,comments:[]});
   saveDB();toast('Заказ создан','success');closeModal();rp();
 }
 
@@ -1393,8 +1397,66 @@ function pgOrderDetail(id){
     +'</label>'
     +'</div>':'';
 
+  // Дедлайн и менеджер KPI
+  var deadline=o.deadline||null;
+  var dlColor='#64748b', dlText='—';
+  if(deadline){
+    var dlDate=new Date(deadline+'T00:00:00');
+    var todayDate=new Date(today()+'T00:00:00');
+    var daysLeft=Math.ceil((dlDate-todayDate)/(1000*60*60*24));
+    if(daysLeft<0){dlColor='#ef4444';dlText='просрочен на '+Math.abs(daysLeft)+' дн';}
+    else if(daysLeft<3){dlColor='#f97316';dlText=daysLeft+' дн осталось';}
+    else if(daysLeft<7){dlColor='#eab308';dlText=daysLeft+' дн осталось';}
+    else{dlColor='#22c55e';dlText=daysLeft+' дн осталось';}
+  }
+  var dlBlock='<div class="cc" style="margin-bottom:12px;display:flex;align-items:center;gap:12px;padding:12px;background:'+dlColor+'20;border-radius:8px;border-left:3px solid '+dlColor+'">'
+    +'<div style="flex:1"><div style="font-size:.75rem;color:#64748b;text-transform:uppercase;font-weight:700">📅 Дедлайн</div>'
+    +(deadline?'<div style="font-size:.95rem;font-weight:700;color:'+dlColor+'">'+fmtD(deadline)+' — '+dlText+'</div>':'<div style="color:#94a3b8">Не указан</div>')
+    +'</div>'
+    +(canStatus?'<button onclick="editDeadline('+id+')" style="background:none;border:none;cursor:pointer;color:#64748b;padding:4px 8px">✏️</button>':'')
+    +'</div>';
+
+  // KPI Менеджера
+  var kpiBlock='';
+  if(mn&&mn.role==='manager'){
+    var allManagerOrders=DB.orders.filter(function(mo){return mo.mid===mn.id&&mo.created.split('-')[0]===new Date().getFullYear().toString();});
+    var totalRevenue=0, closedRevenue=0;
+    for(var i=0;i<allManagerOrders.length;i++){
+      var mo=allManagerOrders[i];
+      totalRevenue+=mo.uzs||0;
+      if(mo.status==='closed') closedRevenue+=mo.uzs||0;
+    }
+    var kpiPct=totalRevenue>0?Math.round(closedRevenue/totalRevenue*100):0;
+    kpiBlock='<div class="cc" style="margin-bottom:12px"><div class="ch"><div class="ct">📊 KPI Менеджера: '+mn.n+'</div></div>'
+      +'<div style="display:flex;gap:8px;margin-bottom:8px">'
+      +kpi('bl','План год',fmt(totalRevenue),'UZS')
+      +kpi(kpiPct>=80?'gn':'or','Выполнено',fmt(closedRevenue),kpiPct+'%')
+      +'</div></div>';
+  }
+
+  // Комментарии
+  var comments=o.comments||[];
+  var cmtRows=''; for(var i=comments.length-1;i>=0;i--){
+    var c=comments[i], by=userGet(c.by);
+    cmtRows+='<div style="margin-bottom:8px;padding:8px;background:#f8fafc;border-radius:6px;border-left:2px solid var(--ac)">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">'
+      +'<div style="font-size:.75rem;font-weight:700;color:#1e293b">'+(by?by.n:'—')+'</div>'
+      +(canStatus&&i===comments.length-1?'<button onclick="delComment('+id+','+i+')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:.8rem;padding:0">✕</button>':'')
+      +'</div>'
+      +'<div style="font-size:.8rem;color:#475569">'+c.text+'</div>'
+      +'<div style="font-size:.7rem;color:#94a3b8;margin-top:4px">'+fmtD(c.date)+' '+c.time+'</div>'
+      +'</div>';
+  }
+  var cmtForm=canStatus?'<div style="margin-top:8px;display:flex;gap:6px">'
+    +'<input id="cmt-'+id+'" placeholder="Добавить заметку..." style="flex:1;border:1px solid var(--bd);border-radius:6px;padding:6px 8px;font-size:.8rem"/>'
+    +btn('bp bsm','Отправить','addComment('+id+')')
+    +'</div>':'';
+  var cmtBlock='<div class="cc" style="margin-bottom:12px"><div class="ch"><div class="ct">💬 Заметки ('+comments.length+')</div></div>'
+    +cmtRows+cmtForm+'</div>';
+
   return '<button class="bk" onclick="DETAIL=null;rp()">← Все заказы</button>'
     +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap"><h2 style="font-size:.96rem;font-weight:700">#'+o.id+' '+o.title+'</h2>'+bdg(o.status==='active'?'bg-g':o.status==='closed'?'bg-b':'bg-gr',SL[o.status])+'</div>'
+    +dlBlock+kpiBlock+cmtBlock
     +posBlock+photoBlock
     +'<div class="kg">'
     +kpi('bl','Договор',fmt(o.uzs),fmt(o.usd)+' USD')
@@ -1454,6 +1516,59 @@ function saveSR(oid){
 function takeSR(id){
   for(var i=0;i<DB.sreqs.length;i++) if(DB.sreqs[i].id===id){DB.sreqs[i].status='taken';break;}
   saveDB();toast('Принято','success');rp();
+}
+
+// ── ДЕДЛАЙН И КОММЕНТАРИИ ────────────────────────────────────────────
+function editDeadline(oid){
+  var o=ordGet(oid); if(!o) return;
+  openModalRaw('📅 Дедлайн заказа #'+oid,
+    '<div class="fg"><label>Дата сдачи</label><input type="date" id="edl-'+oid+'" value="'+(o.deadline||'')+'" style="font-size:1rem"/></div>',
+    'saveDeadline('+oid+')');
+}
+function saveDeadline(oid){
+  var o=ordGet(oid); if(!o) return;
+  o.deadline=(document.getElementById('edl-'+oid)||{value:''}).value||null;
+  saveDB();closeModal();toast('Дедлайн обновлён','success');rp();
+}
+function addComment(oid){
+  var o=ordGet(oid); if(!o) return;
+  if(!o.comments) o.comments=[];
+  var txt=(document.getElementById('cmt-'+oid)||{value:''}).value.trim();
+  if(!txt){toast('Напишите заметку','error');return;}
+  var now=new Date();
+  o.comments.push({by:USER.id,text:txt,date:today(),time:now.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})});
+  document.getElementById('cmt-'+oid).value='';
+  saveDB();toast('Заметка добавлена','success');rp();
+}
+function delComment(oid,idx){
+  var o=ordGet(oid); if(!o||!o.comments) return;
+  o.comments.splice(idx,1);
+  saveDB();toast('Заметка удалена','success');rp();
+}
+
+// ── МУЛЬТИВАЛЮТНОСТЬ ─────────────────────────────────────────────────
+function getRate(dateStr){
+  // Получи курс на дату из rates
+  if(!DB.rates||!DB.rates.length) return 12850; // fallback
+  dateStr=dateStr||today();
+  var r=null;
+  for(var i=DB.rates.length-1;i>=0;i--){
+    if(DB.rates[i].date<=dateStr){r=DB.rates[i];break;}
+  }
+  return r?r.rate:12850;
+}
+function syncCurrency(uzsFld,usdFld){
+  // Синхронизируй обе валюты через текущий курс
+  var uzs=+(document.getElementById(uzsFld)||{value:0}).value||0;
+  var usd=+(document.getElementById(usdFld)||{value:0}).value||0;
+  var rate=getRate(today());
+  if(uzs>0){
+    var calcUsd=Math.round(uzs/rate);
+    var usdEl=document.getElementById(usdFld); if(usdEl) usdEl.value=calcUsd;
+  } else if(usd>0){
+    var calcUzs=usd*rate;
+    var uzsEl=document.getElementById(uzsFld); if(uzsEl) uzsEl.value=Math.round(calcUzs);
+  }
 }
 
 // ── ФОТО К ЗАКАЗУ ────────────────────────────────────────────────────
