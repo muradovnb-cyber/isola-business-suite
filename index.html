@@ -1246,16 +1246,23 @@ function filterOrders(){
 // ── ПОЗИЦИИ ЗАКАЗА ──────────────────────────────────────────────────
 var _orderPositions = [];
 function addOrderPos(){
-  var name=(document.getElementById('on-pos-name')||{value:''}).value.trim();
-  var qty=+(document.getElementById('on-pos-qty')||{value:1}).value||1;
-  var price=+(document.getElementById('on-pos-price')||{value:0}).value||0;
+  var nameEl=document.getElementById('on-pos-name');
+  var qtyEl=document.getElementById('on-pos-qty');
+  var priceEl=document.getElementById('on-pos-price');
+  if(!nameEl||!qtyEl||!priceEl){toast('Форма не загрузилась','error');return;}
+  var name=(nameEl.value||'').trim();
+  var qty=+(qtyEl.value||1);
+  var price=+(priceEl.value||0);
   if(!name){toast('Введите название позиции','error');return;}
+  if(qty<=0||price<=0){toast('Кол-во и цена должны быть больше 0','error');return;}
   _orderPositions.push({id:Date.now(),name:name,qty:qty,price:price,total:qty*price});
-  document.getElementById('on-pos-name').value='';
-  document.getElementById('on-pos-qty').value='1';
-  document.getElementById('on-pos-price').value='';
+  nameEl.value='';
+  qtyEl.value='1';
+  priceEl.value='';
   renderOrderPosList();
   calcOrderTotal();
+  calcPosSum();
+  toast('Позиция "'+name+'" добавлена','success');
 }
 function removeOrderPos(id){
   _orderPositions=_orderPositions.filter(function(p){return p.id!==id;});
