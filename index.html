@@ -1206,17 +1206,28 @@ function pgOrders(){
     +'<div class="fg"><label>Менеджер</label><select id="on-m"><option value="">— нет —</option>'+optList(DB.users.filter(function(u){return u.role==='manager';}),function(u){return u.id;},function(u){return u.n;})+'</select></div>'
     +'<div class="fg"><label>Дедлайн сдачи</label><input type="date" id="on-dl" value="'+new Date(Date.now()+7*24*60*60*1000).toISOString().split("T")[0]+'"/></div>'
     +'</div>'
-    +'<div class="fg"><label>Позиции (состав заказа)</label>'
-    +'<div id="on-pos-list" style="margin-bottom:6px"></div>'
-    +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
-    +'<input id="on-pos-name" placeholder="Название (Кухня, Гардероб...)" style="flex:2;min-width:120px;border:1px solid var(--bd);border-radius:6px;padding:6px 8px;font-size:.82rem"/>'
-    +'<input id="on-pos-qty" type="number" placeholder="Кол-во" style="flex:0 0 70px;border:1px solid var(--bd);border-radius:6px;padding:6px 8px;font-size:.82rem" value="1"/>'
-    +'<input id="on-pos-price" type="number" placeholder="Цена UZS" style="flex:1;min-width:100px;border:1px solid var(--bd);border-radius:6px;padding:6px 8px;font-size:.82rem" oninput="calcOrderTotal()"/>'
-    +'<button type="button" onclick="addOrderPos()" style="background:var(--ac);color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:.82rem">+ Добавить</button>'
+    +'<div class="fg"><label>Позиции (состав заказа) — с калькулятором</label>'
+    +'<div id="on-pos-list" style="margin-bottom:12px"></div>'
+    +'<div style="background:#f8fafc;border-radius:8px;padding:12px;margin-bottom:12px">'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">'
+    +'<input id="on-pos-name" placeholder="Название позиции" style="flex:2;min-width:120px;border:1px solid var(--bd);border-radius:6px;padding:6px 8px;font-size:.82rem"/>'
+    +'<input id="on-pos-qty" type="number" placeholder="Кол-во" style="flex:0 0 70px;border:1px solid var(--bd);border-radius:6px;padding:6px 8px;font-size:.82rem" value="1" oninput="calcPosSum()"/>'
+    +'<input id="on-pos-price" type="number" placeholder="Цена за 1 шт" style="flex:1;min-width:100px;border:1px solid var(--bd);border-radius:6px;padding:6px 8px;font-size:.82rem" oninput="calcPosSum()"/>'
+    +'<button type="button" onclick="addOrderPos()" style="background:var(--gr);color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:.82rem;font-weight:600">✓ Добавить</button>'
     +'</div>'
+    +'<div style="display:flex;gap:8px;font-size:.8rem;padding:8px;background:#fff;border-radius:6px;border:1px solid var(--bd)">'
+    +'<div style="flex:1">Кол-во: <span id="on-pos-qty-show">1</span></div>'
+    +'<div style="flex:1">× Цена: <span id="on-pos-price-show">0</span> сум</div>'
+    +'<div style="flex:1;font-weight:700;color:var(--ac)">= Сумма: <span id="on-pos-sum-show">0</span> сум</div>'
+    +'</div>'
+    +'</div>'
+    +'</div>'
+    +'<div class="cc" style="background:#f0f9ff;border:2px solid var(--ac);margin-bottom:12px;padding:12px;border-radius:8px">'
+    +'<div style="font-size:.9rem;font-weight:700;color:var(--ac);margin-bottom:6px">📊 ИТОГО ПО ЗАКАЗУ</div>'
+    +'<div style="font-size:1.2rem;font-weight:800;color:var(--ac)">Сумма: <span id="on-final-sum">0 сум</span></div>'
     +'</div>'
     +'<div class="g2">'
-    +'<div class="fg"><label>Итого (UZS) — авто из позиций</label><input type="number" id="on-u" placeholder="0" oninput="syncOrderUSD()"/></div>'
+    +'<div class="fg"><label>Итого (UZS)</label><input type="number" id="on-u" placeholder="0" oninput="syncOrderUSD()"/></div>'
     +'<div class="fg"><label>Итого (USD)</label><input type="number" id="on-d" placeholder="0"/></div>'
     +'</div>'
     +'<div class="fg"><label>Примечание</label><input id="on-n"/></div>'
@@ -1270,9 +1281,19 @@ function renderOrderPosList(){
   h+='</tbody></table></div>';
   el.innerHTML=h;
 }
+function calcPosSum(){
+  // Live калькулятор при вводе кол-ва и цены
+  var qty=+(document.getElementById('on-pos-qty')||{value:1}).value||1;
+  var price=+(document.getElementById('on-pos-price')||{value:0}).value||0;
+  var sum=qty*price;
+  document.getElementById('on-pos-qty-show').textContent=fmt(qty);
+  document.getElementById('on-pos-price-show').textContent=fmt(price);
+  document.getElementById('on-pos-sum-show').textContent=fmt(sum);
+}
 function calcOrderTotal(){
   var total=0; for(var i=0;i<_orderPositions.length;i++) total+=_orderPositions[i].total;
   var el=document.getElementById('on-u'); if(el&&total>0) el.value=total;
+  document.getElementById('on-final-sum').textContent=fmt(total)+' сум';
   syncOrderUSD();
 }
 function syncOrderUSD(){
