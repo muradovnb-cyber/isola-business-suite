@@ -782,7 +782,7 @@ function dealCard(d){
     :'';
   var phStr=d.ph?'<div style="font-size:.72rem;color:var(--ac);margin-top:3px">📞 <a href="tel:'+d.ph+'" style="color:var(--ac)">'+d.ph+'</a></div>':'';
   var noteStr=d.note?'<div style="font-size:.72rem;color:var(--mu);margin-top:3px">💬 '+d.note+'</div>':'';
-  return '<div class="deal">'
+  return '<div class="deal" draggable="true" data-deal-id="'+d.id+'" ondragstart="dragStartDeal(event)" ondragend="dragEndDeal(event)" style="cursor:grab;user-select:none">'
     +'<div class="deal-t"><div><div class="deal-cl">'+d.cl+empStr+editBtn+'</div>'+(d.ds?'<div class="deal-d">'+d.ds+'</div>':'')+phStr+noteStr+'</div>'
     +'<div class="deal-a">'+fmt(d.amt)+' сум</div></div>'
     +'<div class="deal-m">'+bdg(st.c,st.i+' '+st.l)+'<span style="font-size:.72rem;color:var(--mu)">'+d.date+'</span>'+commStr+'</div>'
@@ -2072,7 +2072,7 @@ function pgCRM(){
     var col=cols[c];
     var colAmt=0; for(var d=0;d<col.deals.length;d++) colAmt+=col.deals[d].amt;
     var colCards=''; for(var d=0;d<col.deals.length;d++) colCards+=dealCard(col.deals[d]);
-    kanban+='<div style="flex:0 0 280px;background:#f8fafc;border-radius:12px;padding:12px">'
+    kanban+='<div class="crm-col" data-col-status="'+col.id+'" ondragover="dragOverCol(event)" ondrop="dropDeal(event)" style="flex:0 0 280px;background:#f8fafc;border-radius:12px;padding:12px;min-height:400px">'
       +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
       +'<div style="font-weight:700;font-size:.85rem;color:'+col.color+'">'+col.icon+' '+col.label+'</div>'
       +'<div style="display:flex;align-items:center;gap:6px">'
@@ -2115,6 +2115,29 @@ function updDeal(id,status){
     toast('🎉 Сделка выиграна! Заказ создан.','success');
   } else toast('Статус обновлён','success');
   saveDB();rp();
+}
+
+var draggedDealId=null;
+function dragStartDeal(e){
+  draggedDealId=e.target.closest('[data-deal-id]').getAttribute('data-deal-id');
+  e.dataTransfer.effectAllowed='move';
+  e.target.closest('.deal').style.opacity='0.5';
+}
+function dragEndDeal(e){
+  e.target.closest('.deal').style.opacity='1';
+  draggedDealId=null;
+}
+function dragOverCol(e){
+  e.preventDefault();
+  e.dataTransfer.dropEffect='move';
+  e.currentTarget.style.background='#e8f5e9';
+}
+function dropDeal(e){
+  e.preventDefault();
+  e.currentTarget.style.background='#f8fafc';
+  if(!draggedDealId) return;
+  var newStatus=e.currentTarget.getAttribute('data-col-status');
+  updDeal(+draggedDealId,newStatus);
 }
 function openDealM(editId){
   var curYr=new Date().getFullYear();
