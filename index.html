@@ -1283,12 +1283,17 @@ function renderOrderPosList(){
 }
 function calcPosSum(){
   // Live калькулятор при вводе кол-ва и цены
-  var qty=+(document.getElementById('on-pos-qty')||{value:1}).value||1;
-  var price=+(document.getElementById('on-pos-price')||{value:0}).value||0;
+  var qtyEl=document.getElementById('on-pos-qty');
+  var priceEl=document.getElementById('on-pos-price');
+  var qty=qtyEl?(+qtyEl.value||0):0;
+  var price=priceEl?(+priceEl.value||0):0;
   var sum=qty*price;
-  document.getElementById('on-pos-qty-show').textContent=fmt(qty);
-  document.getElementById('on-pos-price-show').textContent=fmt(price);
-  document.getElementById('on-pos-sum-show').textContent=fmt(sum);
+  var qtyShow=document.getElementById('on-pos-qty-show');
+  var priceShow=document.getElementById('on-pos-price-show');
+  var sumShow=document.getElementById('on-pos-sum-show');
+  if(qtyShow) qtyShow.textContent=fmt(qty);
+  if(priceShow) priceShow.textContent=fmt(price);
+  if(sumShow) sumShow.textContent=fmt(sum);
 }
 function calcOrderTotal(){
   var total=0; for(var i=0;i<_orderPositions.length;i++) total+=_orderPositions[i].total;
