@@ -1246,9 +1246,9 @@ function filterOrders(){
 // ── ПОЗИЦИИ ЗАКАЗА ──────────────────────────────────────────────────
 var _orderPositions = [];
 function addOrderPos(){
-  var nameEl=document.getElementById('on-pos-name');
-  var qtyEl=document.getElementById('on-pos-qty');
-  var priceEl=document.getElementById('on-pos-price');
+  var nameEl=mEl('on-pos-name');
+  var qtyEl=mEl('on-pos-qty');
+  var priceEl=mEl('on-pos-price');
   if(!nameEl||!qtyEl||!priceEl){toast('Форма не загрузилась','error');return;}
   var name=(nameEl.value||'').trim();
   var qty=+(qtyEl.value||1);
@@ -1290,28 +1290,28 @@ function renderOrderPosList(){
 }
 function calcPosSum(){
   // Live калькулятор при вводе кол-ва и цены
-  var qtyEl=document.getElementById('on-pos-qty');
-  var priceEl=document.getElementById('on-pos-price');
+  var qtyEl=mEl('on-pos-qty');
+  var priceEl=mEl('on-pos-price');
   var qty=qtyEl?(+qtyEl.value||0):0;
   var price=priceEl?(+priceEl.value||0):0;
   var sum=qty*price;
-  var qtyShow=document.getElementById('on-pos-qty-show');
-  var priceShow=document.getElementById('on-pos-price-show');
-  var sumShow=document.getElementById('on-pos-sum-show');
+  var qtyShow=mEl('on-pos-qty-show');
+  var priceShow=mEl('on-pos-price-show');
+  var sumShow=mEl('on-pos-sum-show');
   if(qtyShow) qtyShow.textContent=fmt(qty);
   if(priceShow) priceShow.textContent=fmt(price);
   if(sumShow) sumShow.textContent=fmt(sum);
 }
 function calcOrderTotal(){
   var total=0; for(var i=0;i<_orderPositions.length;i++) total+=_orderPositions[i].total;
-  var el=document.getElementById('on-u'); if(el&&total>0) el.value=total;
-  document.getElementById('on-final-sum').textContent=fmt(total)+' сум';
+  var el=mEl('on-u'); if(el&&total>0) el.value=total;
+  var finalSum=mEl('on-final-sum'); if(finalSum) finalSum.textContent=fmt(total)+' сум';
   syncOrderUSD();
 }
 function syncOrderUSD(){
-  var uzs=+(document.getElementById('on-u')||{value:0}).value||0;
+  var uzs=+(mEl('on-u')||{value:0}).value||0;
   var rate=getRate(today());
-  var el=document.getElementById('on-d'); if(el&&uzs>0) el.value=Math.round(uzs/rate);
+  var el=mEl('on-d'); if(el&&uzs>0) el.value=Math.round(uzs/rate);
 }
 function openEditPositions(oid){
   var o=ordGet(oid); if(!o) return;
@@ -1351,7 +1351,7 @@ function saveOrderNew(){
   if(!t||!c){toast('Заполните обязательные поля','error');return;}
   var positions=_orderPositions.slice();
   _orderPositions=[];
-  var deadline=(document.getElementById('on-dl')||{value:''}).value||null;
+  var deadline=(mEl('on-dl')||{value:''}).value||null;
   DB.orders.push({id:nid(DB.orders),title:t,cid:c,uzs:mNum('on-u'),usd:mNum('on-d'),status:'active',created:today(),closed:null,note:mVal('on-n'),mid:mNum('on-m')||null,ca:false,cc:false,did:null,positions:positions,photos:[],deadline:deadline,comments:[]});
   saveDB();toast('Заказ создан','success');closeModal();rp();
 }
