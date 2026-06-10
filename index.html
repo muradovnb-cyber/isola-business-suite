@@ -747,9 +747,11 @@ function ordRow(o){
   }
   var pct=o.uzs>0?Math.min(100,Math.round(inc/o.uzs*100)):0;
   var stCls=o.status==='active'?'bg-g':o.status==='closed'?'bg-b':'bg-gr';
+  var canEdit=USER.role==='manager'&&o.mid===USER.id;
+  var editBtn=canEdit?'<button onclick="editOrderBasics('+o.id+')" style="background:none;border:none;color:var(--mu);cursor:pointer;font-size:.7rem;padding:0;margin-left:4px;text-decoration:underline">✎</button>':'';
   return '<tr>'
     +'<td><b>#'+o.id+'</b></td>'
-    +'<td><button style="background:none;border:none;color:var(--ac);cursor:pointer;font-weight:600;font-size:.79rem;text-align:left;padding:0" onclick="DETAIL='+o.id+';rp()">'+o.title+'</button></td>'
+    +'<td><button style="background:none;border:none;color:var(--ac);cursor:pointer;font-weight:600;font-size:.79rem;text-align:left;padding:0" onclick="DETAIL='+o.id+';rp()">'+o.title+'</button>'+editBtn+'</td>'
     +'<td>'+(cp?cp.n:'—')+'</td>'
     +'<td>'+fmt(o.uzs)+'</td>'
     +'<td>'+fmt(dir)+'</td>'
@@ -1354,6 +1356,29 @@ function saveOrderNew(){
   var deadline=(mEl('on-dl')||{value:''}).value||null;
   DB.orders.push({id:nid(DB.orders),title:t,cid:c,uzs:mNum('on-u'),usd:mNum('on-d'),status:'active',created:today(),closed:null,note:mVal('on-n'),mid:mNum('on-m')||null,ca:false,cc:false,did:null,positions:positions,photos:[],deadline:deadline,comments:[]});
   saveDB();toast('Заказ создан','success');closeModal();rp();
+}
+
+function editOrderBasics(oid){
+  var o=ordGet(oid); if(!o) return;
+  if(USER.role!=='manager'||o.mid!==USER.id){toast('Нет доступа','error');return;}
+  var cp=cpGet(o.cid);
+  openModalRaw('✎ Редактировать заказ #'+oid,
+    '<div class="fg"><label>Название *</label><input id="eob-t" value="'+(o.title||'')+'"/></div>'
+    +'<div class="fg"><label>Клиент *</label><select id="eob-c"><option value="">— выберите —</option>'+optList(DB.cps.filter(function(c){return c.type==='client';}),function(c){return c.id;},function(c){return c.n;})+'</select></div>'
+    +'<div class="fg"><label>Дедлайн сдачи</label><input type="date" id="eob-dl" value="'+(o.deadline||'')+'" style="width:100%"/></div>',
+    'saveOrderBasics('+oid+')','Отмена','Сохранить');
+  mEl('eob-c').value=o.cid;
+}
+
+function saveOrderBasics(oid){
+  var o=ordGet(oid); if(!o) return;
+  var t=mVal('eob-t').trim();
+  var c=mNum('eob-c');
+  if(!t||!c){toast('Заполните обязательные поля','error');return;}
+  o.title=t;
+  o.cid=c;
+  o.deadline=(mEl('eob-dl')||{value:''}).value||null;
+  saveDB();toast('Заказ обновлён','success');closeModal();rp();
 }
 
 function pgOrderDetail(id){
