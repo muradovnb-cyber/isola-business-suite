@@ -506,6 +506,16 @@ var SEED = {
     {id:3,date:'2025-03-01',rate:12750},{id:4,date:'2025-04-01',rate:12800},
     {id:5,date:'2025-05-01',rate:12850},
   ],
+  // Склад: материалы и остатки
+  warehouse:[
+    {id:1,cat:'МДФ',name:'МДФ 18мм',unit:'м2',stock:500,minLvl:200,price:180000,supplier:11,lastBuy:'2025-05-01'},
+    {id:2,cat:'ДСП',name:'ДСП 16мм',unit:'м2',stock:300,minLvl:150,price:95000,supplier:11,lastBuy:'2025-05-02'},
+    {id:3,cat:'Фурнитура',name:'BLUM петля',unit:'шт',stock:150,minLvl:50,price:45000,supplier:10,lastBuy:'2025-04-28'},
+    {id:4,cat:'Фурнитура',name:'BLUM направляющая',unit:'шт',stock:200,minLvl:75,price:28000,supplier:10,lastBuy:'2025-04-25'},
+    {id:5,cat:'Краска',name:'Tikkurila эмаль',unit:'л',stock:45,minLvl:20,price:185000,supplier:47,lastBuy:'2025-04-30'},
+    {id:6,cat:'Стекло',name:'Стекло 4мм',unit:'м2',stock:120,minLvl:40,price:125000,supplier:51,lastBuy:'2025-04-15'},
+    {id:7,cat:'Кромка',name:'Кромка ПВХ',unit:'м',stock:800,minLvl:300,price:12000,supplier:73,lastBuy:'2025-05-03'},
+  ],
   orders:[],
   petty:[],
 };
@@ -845,23 +855,25 @@ function getNavs(){
   if(dir){
     n.push({s:'👑 Руководство'},{id:'ceo',i:'🤖',l:'CEO Агент'},{id:'udash',i:'🌐',l:'Единый дашборд'},{id:'cashflow',i:'🏦',l:'Баланс счетов'});
     n.push({s:'💰 Финансы'},{id:'dash',i:'📊',l:'Дашборд'},{id:'pl',i:'📈',l:'P&L'},{id:'bal',i:'⚖️',l:'Баланс'},{id:'margin',i:'💹',l:'Маржинальность'});
-    n.push({s:'📦 Операции'},{id:'orders',i:'📦',l:'Заказы'},{id:'txs',i:'💳',l:'Транзакции'},{id:'clients',i:'👥',l:'Клиенты'});
+    n.push({s:'📦 Операции'},{id:'orders',i:'📦',l:'Заказы'},{id:'warehouse',i:'🏭',l:'Склад'},{id:'txs',i:'💳',l:'Транзакции'},{id:'clients',i:'👥',l:'Клиенты'});
     n.push({s:'👥 HR'},{id:'crm',i:'🎯',l:'CRM Сделки'},{id:'asal',i:'💰',l:'Зарплата всех'});
     n.push({s:'⚙️ Данные'},{id:'cps',i:'🏢',l:'Контрагенты'},{id:'rates',i:'💱',l:'Курсы'},{id:'staff',i:'👤',l:'Сотрудники'},{id:'users',i:'⚙️',l:'Управление'},{id:'items',i:'📋',l:'Статьи расходов'});
   } else if(acc){
     n.push({s:'Финансы'},{id:'cashflow',i:'🏦',l:'Баланс счетов'},{id:'txs',i:'💳',l:'Транзакции'},{id:'orders',i:'📦',l:'Заказы'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'items',i:'📋',l:'Статьи расходов'},{id:'asal',i:'💰',l:'Зарплата'});
+    n.push({s:'Спецхран'},{id:'warehouse',i:'🏭',l:'Склад'});
     n.push({s:'Справочники'},{id:'clients',i:'👥',l:'Клиенты'},{id:'cps',i:'🏢',l:'Контрагенты'},{id:'dir',i:'📖',l:'Справочник'});
   } else if(mgr){
     n.push({s:'Продажи'},{id:'crm',i:'🎯',l:'CRM — Сделки'},{id:'orders',i:'📦',l:'Мои заказы'},{id:'clients',i:'👥',l:'Клиенты'});
+    n.push({s:'Спец'},{id:'warehouse',i:'🏭',l:'Склад'});
     n.push({s:'Личное'},{id:'profile',i:'👤',l:'Профиль'},{id:'sal',i:'💰',l:'Зарплата'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'dir',i:'📖',l:'Справочник'},{id:'rights',i:'📋',l:'Регламент'});
   } else {
-    n.push({s:'Работа'},{id:'orders',i:'📦',l:'Заказы'},{id:'clients',i:'👥',l:'Клиенты'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'dir',i:'📖',l:'Справочник'});
+    n.push({s:'Работа'},{id:'orders',i:'📦',l:'Заказы'},{id:'warehouse',i:'🏭',l:'Склад'},{id:'clients',i:'👥',l:'Клиенты'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'dir',i:'📖',l:'Справочник'});
     if(r==='constructor'||r==='production') n.push({id:'sreqs',i:'🔧',l:'Заявки на услуги'});
     n.push({s:'Личное'},{id:'profile',i:'👤',l:'Профиль'},{id:'sal',i:'💰',l:'Зарплата'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'dir',i:'📖',l:'Справочник'},{id:'rights',i:'📋',l:'Регламент'},{id:'about',i:'🏢',l:'О компании'});
   }
   return n;
 }
-var PAGE_TITLES={'ceo':'CEO Агент','petty':'Подотчётные средства','items':'Статьи расходов','staff':'Сотрудники','cashflow':'Баланс счетов','udash':'Единый дашборд','dash':'Дашборд','pl':'P&L','bal':'Баланс','margin':'Маржинальность','orders':'Заказы','txs':'Транзакции','crm':'CRM — Сделки','asal':'Зарплата сотрудников','sal':'Моя зарплата','profile':'Профиль','dir':'Справочник','rights':'Регламент','about':'О компании','cps':'Контрагенты','rates':'Курсы','users':'Пользователи','sreqs':'Заявки на услуги','clients':'Клиенты'};
+var PAGE_TITLES={'ceo':'CEO Агент','petty':'Подотчётные средства','items':'Статьи расходов','staff':'Сотрудники','cashflow':'Баланс счетов','udash':'Единый дашборд','dash':'Дашборд','pl':'P&L','bal':'Баланс','margin':'Маржинальность','orders':'Заказы','txs':'Транзакции','crm':'CRM — Сделки','asal':'Зарплата сотрудников','sal':'Моя зарплата','profile':'Профиль','dir':'Справочник','rights':'Регламент','about':'О компании','cps':'Контрагенты','rates':'Курсы','users':'Пользователи','sreqs':'Заявки на услуги','clients':'Клиенты','warehouse':'Склад'};
 
 function appHTML(){
   var navs=getNavs(),ri=ROLES[USER.role]||{l:'',c:'#64748b'};
@@ -914,12 +926,12 @@ function pageHTML(){
   if(!USER) return '<div style="padding:32px;text-align:center;color:var(--mu)">Не авторизован</div>';
   // Allowed pages per role
   var allowed={
-    director: ['ceo','udash','dash','pl','bal','margin','orders','txs','petty','cashflow','items','staff','crm','asal','sal','profile','about','cps','rates','users','sreqs','clients'],
-    accountant:['cashflow','txs','orders','petty','items','asal','sal','profile','about','cps','clients','dir','rights'],
-    supply:    ['orders','petty','sal','profile','about','sreqs','clients','dir','rights'],
-    manager:   ['crm','orders','sal','profile','about','petty','clients','dir','rights','cps'],
-    constructor:['orders','petty','sal','profile','about','sreqs','clients','dir','rights'],
-    production: ['orders','petty','sal','profile','about','sreqs','clients','dir','rights'],
+    director: ['ceo','udash','dash','pl','bal','margin','orders','txs','petty','cashflow','items','staff','crm','asal','sal','profile','about','cps','rates','users','sreqs','clients','warehouse'],
+    accountant:['cashflow','txs','orders','petty','items','asal','sal','profile','about','cps','clients','dir','rights','warehouse'],
+    supply:    ['orders','petty','sal','profile','about','sreqs','clients','dir','rights','warehouse'],
+    manager:   ['crm','orders','sal','profile','about','petty','clients','dir','rights','cps','warehouse'],
+    constructor:['orders','petty','sal','profile','about','sreqs','clients','dir','rights','warehouse'],
+    production: ['orders','petty','sal','profile','about','sreqs','clients','dir','rights','warehouse'],
     brigadier:  []
   };
   var role=USER.role||'supply';
@@ -934,7 +946,7 @@ function pageHTML(){
   }
   var map={
     ceo:pgCEO,udash:pgUDash,dash:pgDash,pl:pgPL,bal:pgBal,margin:pgMargin,
-    orders:pgOrders,txs:pgTxs,petty:pgPetty,cashflow:pgCashflow,items:pgItems,staff:pgStaff,crm:pgCRM,asal:pgASal,sal:pgSal,
+    orders:pgOrders,warehouse:pgWarehouse,txs:pgTxs,petty:pgPetty,cashflow:pgCashflow,items:pgItems,staff:pgStaff,crm:pgCRM,asal:pgASal,sal:pgSal,
     profile:pgProfile,dir:pgDir,rights:pgRights,about:pgAbout,
     cps:pgCPs,rates:pgRates,users:pgUsers,sreqs:pgSreqs,clients:pgClients,
   };
@@ -1648,6 +1660,119 @@ function printContract(oid){
   var w=window.open('','_blank','width=800,height=900');
   w.document.write(html);w.document.close();
   setTimeout(function(){w.print();},500);
+}
+
+// ══════════════════════════════════════════════════════
+// PAGE: WAREHOUSE — Склад (инвентаризация, остатки, аналитика)
+// ══════════════════════════════════════════════════════
+function pgWarehouse(){
+  var role=USER.role,canEdit=role==='director'||role==='supply'||role==='accountant';
+  var wh=DB.warehouse||[];
+  var cats={};
+
+  // Группировка по категориям
+  for(var i=0;i<wh.length;i++){
+    var cat=wh[i].cat;
+    if(!cats[cat]) cats[cat]=[];
+    cats[cat].push(wh[i]);
+  }
+
+  // Блок оповещений о низких остатках
+  var alerts='', critical=0;
+  for(var i=0;i<wh.length;i++){
+    if(wh[i].stock<wh[i].minLvl){
+      critical++;
+      alerts+='<div style="padding:8px;margin-bottom:6px;background:#fef2f2;border-left:3px solid #ef4444;border-radius:6px;font-size:.8rem">'
+        +'<div style="font-weight:700;color:#991b1b">⚠️ '+wh[i].name+'</div>'
+        +'<div style="color:#7f1d1d;margin-top:2px">Осталось '+wh[i].stock+' '+wh[i].unit+' (норма: '+wh[i].minLvl+')</div>'
+        +'</div>';
+    }
+  }
+  var alertBlock=critical>0?'<div class="cc" style="margin-bottom:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:9px">'
+    +'<div class="ch" style="color:#991b1b"><div class="ct">🚨 Критично низкие остатки ('+critical+')</div></div>'
+    +'<div style="padding:0 12px 12px">'+alerts+'</div></div>':'';
+
+  // Таблица инвентаризации
+  var rows='';
+  var catList=Object.keys(cats).sort();
+  for(var c=0;c<catList.length;c++){
+    var cat=catList[c];
+    var items=cats[cat];
+    rows+='<tr style="background:#f1f5f9"><td colspan="7" style="padding:8px 12px;font-weight:700;color:var(--ac);font-size:.85rem">'+cat+'</td></tr>';
+    for(var i=0;i<items.length;i++){
+      var it=items[i];
+      var isLow=it.stock<it.minLvl;
+      var sup=cpGet(it.supplier);
+      rows+='<tr style="'+(isLow?'background:#fef2f2':'')+'"><td style="padding:6px 8px;font-weight:600;color:#1e293b">'+it.name+'</td>'
+        +'<td style="padding:6px 8px;text-align:center">'+it.stock+' '+it.unit+'</td>'
+        +'<td style="padding:6px 8px;text-align:center;color:#64748b">'+it.minLvl+' '+it.unit+'</td>'
+        +'<td style="padding:6px 8px">'+(isLow?'<span style="color:#ef4444;font-weight:700">⚠️ НИЗКО</span>':'<span style="color:#22c55e">✓</span>')+'</td>'
+        +'<td style="padding:6px 8px;text-align:right">'+fmt(it.price)+' сум</td>'
+        +'<td style="padding:6px 8px;color:#64748b;font-size:.8rem">'+fmtD(it.lastBuy)+'</td>'
+        +'<td style="padding:6px 8px;text-align:center">'+(canEdit?'<button onclick="buyMaterial('+it.id+')" style="background:var(--gr);color:#fff;border:none;border-radius:4px;padding:3px 8px;font-size:.75rem;cursor:pointer">📦 Закупить</button>':'—')+'</td>'
+        +'</tr>';
+    }
+  }
+
+  // Статистика по расходам
+  var matExp=0, matCount=0;
+  for(var i=0;i<DB.txs.length;i++){
+    if(DB.txs[i].iid===1&&DB.txs[i].type==='expense'){
+      matExp+=DB.txs[i].uzs||0;
+      matCount++;
+    }
+  }
+
+  return '<div class="ph"><div class="pt">🏭 Склад</div></div>'
+    +alertBlock
+    +'<div class="g2" style="margin-bottom:12px">'
+    +kpi('bl','Материалов в учёте',String(wh.length),fmt(wh.reduce(function(s,m){return s+(m.stock*m.price/1000000);},0))+' млн сум')
+    +kpi(critical>0?'rd':'gn','Остатки на норме',String(wh.length-critical)+'/'+(wh.length),(100-Math.round(critical/wh.length*100))+'%')
+    +'</div>'
+    +(canEdit?'<div class="cc" style="margin-bottom:12px"><div class="ch"><div class="ct">📦 Быстрая закупка</div></div>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;padding:0 12px 12px">'
+      +'<select id="wh-mid" style="flex:1;min-width:150px;border:1px solid var(--bd);border-radius:6px;padding:6px 8px;font-size:.8rem"><option value="">— выберите материал —</option>'
+        +wh.map(function(m){return '<option value="'+m.id+'">'+m.name+'</option>';}).join('')
+      +'</select>'
+      +'<input id="wh-qty" type="number" placeholder="Кол-во" style="flex:0 0 80px;border:1px solid var(--bd);border-radius:6px;padding:6px 8px;font-size:.8rem" value="10"/>'
+      +btn('bp','Добавить','addWarestock()')
+      +'</div></div>':'')
+    +'<div class="cc"><div class="ch"><div class="ct">📊 Инвентаризация</div></div>'
+    +'<div class="tc"><div class="tw"><table style="width:100%;font-size:.8rem;border-collapse:collapse">'
+    +'<thead><tr style="background:#e2e8f0"><th style="padding:6px 8px;text-align:left">Материал</th><th style="padding:6px 8px">Текущий</th><th style="padding:6px 8px">Минимум</th><th style="padding:6px 8px">Статус</th><th style="padding:6px 8px">Цена</th><th style="padding:6px 8px">Последняя закупка</th><th></th></tr></thead><tbody>'
+    +rows
+    +'</tbody></table></div></div></div>';
+}
+function addWarestock(){
+  var mid=+(document.getElementById('wh-mid')||{value:0}).value||0;
+  var qty=+(document.getElementById('wh-qty')||{value:0}).value||0;
+  if(!mid||!qty){toast('Выберите материал и кол-во','error');return;}
+  var m=null;
+  for(var i=0;i<DB.warehouse.length;i++){
+    if(DB.warehouse[i].id===mid){m=DB.warehouse[i];break;}
+  }
+  if(!m) return;
+  m.stock+=qty;
+  m.lastBuy=today();
+  document.getElementById('wh-qty').value='10';
+  document.getElementById('wh-mid').value='';
+  saveDB();toast('Добавлено '+qty+' '+m.unit+' '+m.name,'success');rp();
+}
+function buyMaterial(mid){
+  var m=null;
+  for(var i=0;i<DB.warehouse.length;i++){
+    if(DB.warehouse[i].id===mid){m=DB.warehouse[i];break;}
+  }
+  if(!m) return;
+  var qty=prompt('Кол-во '+m.unit+' (текущий остаток: '+m.stock+')');
+  if(!qty) return;
+  qty=+qty||0;
+  if(qty<0){toast('Укажите положительное число','error');return;}
+  m.stock+=qty;
+  m.lastBuy=today();
+  // Создаём транзакцию расхода
+  DB.txs.push({id:nid(DB.txs),date:today(),type:'expense',acc:'petty',by:USER.id,uzs:Math.round(qty*m.price),iid:1,cpid:m.supplier,note:'Закупка '+m.name});
+  saveDB();toast('Закупка '+qty+' '+m.unit+' '+m.name,'success');rp();
 }
 
 // ══════════════════════════════════════════════════════
