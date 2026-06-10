@@ -1269,7 +1269,7 @@ function removeOrderPos(id){
   renderOrderPosList();calcOrderTotal();
 }
 function renderOrderPosList(){
-  var el=document.getElementById('on-pos-list'); if(!el) return;
+  var el=mEl('on-pos-list'); if(!el) return;
   if(!_orderPositions.length){el.innerHTML='';return;}
   var h='<div style="background:#f8fafc;border-radius:8px;overflow:hidden;margin-bottom:6px">'
     +'<table style="width:100%;font-size:.78rem;border-collapse:collapse">'
