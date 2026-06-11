@@ -1592,6 +1592,15 @@ function saveSR(oid){
   DB.sreqs.push({id:nid(DB.sreqs),oid:oid,iid:iid,by:USER.id,date:today(),note:(document.getElementById('sr-n')||{value:''}).value||'',status:'pending',desc:it?it.n:''});
   saveDB();toast('Заявка отправлена','success');SUBTAB=1;rp();
 }
+
+function saveSRNew(){
+  var iid=mNum('sr-i');
+  if(!iid){toast('Выберите услугу','error');return;}
+  var oid=mNum('sr-o')||null;
+  var it=itemGet(iid);
+  DB.sreqs.push({id:nid(DB.sreqs),oid:oid,iid:iid,by:USER.id,date:today(),note:mVal('sr-n')||'',status:'pending',desc:it?it.n:''});
+  saveDB();toast('Заявка создана','success');closeModal();rp();
+}
 function takeSR(id){
   for(var i=0;i<DB.sreqs.length;i++) if(DB.sreqs[i].id===id){DB.sreqs[i].status='taken';break;}
   saveDB();toast('Принято','success');rp();
@@ -3589,9 +3598,17 @@ function pgSreqs(){
     var actCell=role==='supply'&&r.status==='pending'?'<td>'+btn('bp bsm','Принять','takeSR('+r.id+')')+'</td>':'<td></td>';
     rows+='<tr><td>'+fmtD(r.date)+'</td><td>'+(w?w.n:'—')+'</td><td>'+(ord?'#'+ord.id+' '+ord.title.slice(0,15):'—')+'</td><td>'+(it?it.n:r.desc||'—')+'</td><td>'+(r.note||'—')+'</td><td>'+stBdg+'</td>'+actCell+'</tr>';
   }
-  return '<div class="ph"><div class="pt">Заявки на услуги</div></div>'
-    +'<div class="tc"><div class="tw"><table><thead><tr><th>Дата</th><th>От кого</th><th>Заказ</th><th>Услуга</th><th>Примечание</th><th>Статус</th><th></th></tr></thead><tbody>'+(rows||'<tr class="er"><td colspan="7">Нет заявок</td></tr>')+'</tbody></table></div></div>';
+  var canCreateSR=['manager','constructor','production','supply'].indexOf(role)>-1;
+  var addBtn=canCreateSR?btn('bp','+ Добавить заявку','openModal(\'sr-new\')'):'';
+  return '<div class="ph"><div class="pt">Заявки на услуги</div>'+addBtn+'</div>'
+    +'<div class="tc"><div class="tw"><table><thead><tr><th>Дата</th><th>От кого</th><th>Заказ</th><th>Услуга</th><th>Примечание</th><th>Статус</th><th></th></tr></thead><tbody>'+(rows||'<tr class="er"><td colspan="7">Нет заявок</td></tr>')+'</tbody></table></div></div>'
+    +'<div id="m-sr-new" style="display:none">'
+    +'<div class="fg"><label>Услуга *</label><select id="sr-i">'+optList(DB.items.filter(function(it){return it.cat==='service';}),function(it){return it.id;},function(it){return it.n;})+'</select></div>'
+    +'<div class="fg"><label>Заказ (необязательно)</label><select id="sr-o"><option value="">— без привязки —</option>'+optList(DB.orders.filter(function(o){return o.status==='active';}),function(o){return o.id;},function(o){return '#'+o.id+' '+o.title;})+'</select></div>'
+    +'<div class="fg"><label>Примечание</label><input id="sr-n" placeholder="Дополнительная информация..."/></div>'
+    +'</div>';
 }
+
 
 // ══════════════════════════════════════════════════════
 // MODALS
@@ -3599,6 +3616,7 @@ function pgSreqs(){
 var M_CFGS = {
   'order-new': {t:'Новый заказ',   s:'saveOrderNew()'},
   'tx-new':    {t:'Новый платёж',  s:'saveTxNew()'},
+  'sr-new':    {t:'Заявка на услугу', s:'saveSRNew()'},
 };
 function openModal(id){
   var cfg=M_CFGS[id]; if(!cfg) return;
