@@ -1915,7 +1915,7 @@ function pgTxs(){
 
     // ── ПРИХОД: контрагент = покупатели, тип поступления
     +'<div id="tn-income-fields" style="display:none">'
-    +'<div class="fg"><label>Покупатель / Клиент *</label><select id="tn-cp-in"><option value="">— выберите клиента —</option>'+clientOpts+'</select></div>'
+    +'<div class="fg"><label>Покупатель / Клиент *</label><select id="tn-cp-in" onchange="filterOrdersByClient()"><option value="">— выберите клиента —</option>'+clientOpts+'</select></div>'
     +'<div class="fg"><label>Тип поступления *</label><select id="tn-inc-cat"><option value="">— выберите —</option>'+incCatOpts+'</select></div>'
     +'<div class="fg"><label>Заказ (необязательно)</label><select id="tn-o-in"><option value="">— без привязки —</option>'+ordOpts+'</select></div>'
     +'<div id="tn-order-balance" style="display:none;background:#e8f5e9;border-radius:8px;padding:9px 12px;margin-top:4px;font-size:.8rem;color:#00875a"></div>'
@@ -1932,6 +1932,23 @@ function pgTxs(){
     +'</div>';
 }
 
+function filterOrdersByClient(){
+  var clientId=mNum('tn-cp-in');
+  var ordSelect=mEl('tn-o-in');
+  if(!ordSelect) return;
+  var filteredOrders=[];
+  if(clientId){
+    for(var i=0;i<DB.orders.length;i++){
+      var o=DB.orders[i];
+      if(o.cid===clientId&&o.status==='active') filteredOrders.push(o);
+    }
+  }
+  ordSelect.innerHTML='<option value="">— без привязки —</option>';
+  for(var i=0;i<filteredOrders.length;i++){
+    var o=filteredOrders[i];
+    ordSelect.innerHTML+='<option value="'+o.id+'">'+o.title+'</option>';
+  }
+}
 function txToggle(){
   var t=mVal('tn-t')||'expense';
   var inf=mEl('tn-income-fields');
