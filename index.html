@@ -1596,9 +1596,15 @@ function saveSR(oid){
 function saveSRNew(){
   var iid=mNum('sr-i');
   if(!iid){toast('Выберите услугу','error');return;}
+  var supplier=mVal('sr-supplier').trim();
+  if(!supplier){toast('Укажите поставщика','error');return;}
+  var amount=mNum('sr-amount');
+  var deadline=mVal('sr-deadline');
   var oid=mNum('sr-o')||null;
+  var pid=mNum('sr-pos')||null;
+  var team=mVal('sr-team').trim()||'';
   var it=itemGet(iid);
-  DB.sreqs.push({id:nid(DB.sreqs),oid:oid,iid:iid,by:USER.id,date:today(),note:mVal('sr-n')||'',status:'pending',desc:it?it.n:''});
+  DB.sreqs.push({id:nid(DB.sreqs),oid:oid,pid:pid,iid:iid,supplier:supplier,amount:amount,deadline:deadline,team:team,by:USER.id,date:today(),note:mVal('sr-n')||'',status:'pending',desc:it?it.n:''});
   saveDB();toast('Заявка создана','success');closeModal();rp();
 }
 function takeSR(id){
@@ -3605,7 +3611,14 @@ function pgSreqs(){
     +'<div class="tc"><div class="tw"><table><thead><tr><th>Дата</th><th>От кого</th><th>Заказ</th><th>Услуга</th><th>Примечание</th><th>Статус</th><th></th></tr></thead><tbody>'+(rows||'<tr class="er"><td colspan="7">Нет заявок</td></tr>')+'</tbody></table></div></div>'
     +'<div id="m-sr-new" style="display:none">'
     +'<div class="fg"><label>Услуга *</label><select id="sr-i">'+optList(DB.items.filter(function(it){return it.cat==='service';}),function(it){return it.id;},function(it){return it.n;})+'</select></div>'
+    +'<div class="fg"><label>Поставщик / Подрядчик *</label><input id="sr-supplier" placeholder="Кто оказывает услугу"/></div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    +'<div class="fg" style="flex:1;min-width:120px"><label>Сумма заявки</label><input type="number" id="sr-amount" placeholder="0"/></div>'
+    +'<div class="fg" style="flex:1;min-width:120px"><label>Сроки</label><input type="date" id="sr-deadline"/></div>'
+    +'</div>'
     +'<div class="fg"><label>Заказ (необязательно)</label><select id="sr-o"><option value="">— без привязки —</option>'+optList(DB.orders.filter(function(o){return o.status==='active';}),function(o){return o.id;},function(o){return '#'+o.id+' '+o.title;})+'</select></div>'
+    +'<div class="fg"><label>Позиция заказа</label><select id="sr-pos"><option value="">— не выбрана —</option></select></div>'
+    +'<div class="fg"><label>Ответственная бригада</label><input id="sr-team" placeholder="Название бригады"/></div>'
     +'<div class="fg"><label>Примечание</label><input id="sr-n" placeholder="Дополнительная информация..."/></div>'
     +'</div>';
 }
