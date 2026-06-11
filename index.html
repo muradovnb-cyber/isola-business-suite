@@ -3588,6 +3588,7 @@ function delPetty(id){
 // PAGE: SERVICE REQUESTS
 // ══════════════════════════════════════════════════════
 function pgSreqs(){
+  if(!DB.items||DB.items.length===0) DB.items=JSON.parse(JSON.stringify(ITEMS));
   var role=USER.role;
   var myReqs=role==='supply'?DB.sreqs:DB.sreqs.filter(function(r){return r.by===USER.id;});
   var sorted=[].concat(myReqs).sort(function(a,b){return b.id-a.id;});
