@@ -543,6 +543,7 @@ function initFromServer(){
         try{ localStorage.setItem('sd', JSON.stringify(DB)); }catch(e){}
         _lastSyncHash = calcHash(DB);
         if(USER){ var _mr=document.getElementById('mroot'); if(!_mr||!_mr.innerHTML.trim()) rp(); }
+        if(typeof _checkDeepLink === 'function') _checkDeepLink();
       } else {
         var local=localStorage.getItem('sd');
         if(local){
@@ -923,8 +924,25 @@ function mEl(id){
 }
 function mVal(id){ var e=mEl(id); return e?e.value:''; }
 function mNum(id){ var e=mEl(id); return e?+(e.value)||0:0; }
-function render(){ document.getElementById('app').innerHTML=USER?appHTML():loginHTML(); }
+function render(){ document.getElementById('app').innerHTML=USER?appHTML():loginHTML(); _checkDeepLink(); }
 function rp(){ var m=document.getElementById('mc');if(m) m.innerHTML=pageHTML(); }
+
+// Deep link from external apps: ?order=N → open order N when user is logged in.
+// Used by ISOLA Инструменты to link tool-requests back to the originating order.
+function _checkDeepLink(){
+  if(!USER || !DB || !DB.orders) return;
+  try{
+    var sp = new URLSearchParams(window.location.search);
+    var oid = parseInt(sp.get('order'), 10);
+    if(!oid) return;
+    var found = DB.orders.some(function(o){ return o.id === oid; });
+    if(!found){ toast && toast('Заказ #'+oid+' не найден', 'error'); }
+    else { PAGE='orders'; DETAIL=oid; SUBTAB=0; setTimeout(function(){ rp(); }, 50); }
+    // Clean URL so reload won't re-trigger
+    var url = window.location.pathname + window.location.hash;
+    window.history.replaceState({}, '', url);
+  } catch(e){ /* ignore */ }
+}
 
 function pageHTML(){
   if(!USER) return '<div style="padding:32px;text-align:center;color:var(--mu)">Не авторизован</div>';
