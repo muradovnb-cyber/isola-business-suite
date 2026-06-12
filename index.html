@@ -1887,7 +1887,7 @@ function pgTxs(){
   var rows=''; for(var i=0;i<sorted.length;i++) rows+=txRow(sorted[i]);
 
   var clientOpts=optList(DB.cps.filter(function(c){return c.type==='client';}),function(c){return c.id;},function(c){return c.n;});
-  var supplierOpts=optList(DB.cps,function(c){return c.id;},function(c){return '['+(c.type==='client'?'Покупатель':'Поставщик')+'] '+c.n;});
+  var supplierOpts=optList(DB.cps,function(c){return c.id;},function(c){return c.n;});
   var myItems=itemsFor(USER.role);
   // Build grouped item select HTML
   var genItems=myItems.filter(function(it){return it.cat==='gen';});
