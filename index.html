@@ -870,6 +870,7 @@ function getNavs(){
     n.push({s:'Личное'},{id:'profile',i:'👤',l:'Профиль'},{id:'sal',i:'💰',l:'Зарплата'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'dir',i:'📖',l:'Справочник'},{id:'rights',i:'📋',l:'Регламент'});
   } else {
     n.push({s:'Работа'},{id:'orders',i:'📦',l:'Заказы'},{id:'warehouse',i:'🏭',l:'Склад'},{id:'clients',i:'👥',l:'Клиенты'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'dir',i:'📖',l:'Справочник'});
+    if(r==='supply') n.push({id:'txs',i:'💳',l:'Транзакции'});
     if(r==='constructor'||r==='production') n.push({id:'sreqs',i:'🔧',l:'Заявки на услуги'});
     n.push({s:'Личное'},{id:'profile',i:'👤',l:'Профиль'},{id:'sal',i:'💰',l:'Зарплата'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'dir',i:'📖',l:'Справочник'},{id:'rights',i:'📋',l:'Регламент'},{id:'about',i:'🏢',l:'О компании'});
   }
@@ -930,7 +931,7 @@ function pageHTML(){
   var allowed={
     director: ['ceo','udash','dash','pl','bal','margin','orders','txs','petty','cashflow','items','staff','crm','asal','sal','profile','about','cps','rates','users','sreqs','clients','warehouse'],
     accountant:['cashflow','txs','orders','petty','items','asal','sal','profile','about','cps','clients','dir','rights','warehouse'],
-    supply:    ['orders','petty','sal','profile','about','sreqs','clients','dir','rights','warehouse'],
+    supply:    ['orders','txs','petty','sal','profile','about','sreqs','clients','dir','rights','warehouse'],
     manager:   ['crm','orders','sal','profile','about','petty','sreqs','clients','dir','rights','cps','warehouse'],
     constructor:['orders','petty','sal','profile','about','sreqs','clients','dir','rights','warehouse'],
     production: ['orders','petty','sal','profile','about','sreqs','clients','dir','rights','warehouse'],
