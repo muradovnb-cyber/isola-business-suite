@@ -1941,7 +1941,8 @@ function pgTxs(){
     +'<div id="tn-expense-fields">'
     +'<div class="fg"><label>Контрагент (поставщик)</label><select id="tn-cp"><option value="">— нет —</option>'+supplierOpts+'</select></div>'
     +'<div class="fg"><label>Статья расхода *</label><select id="tn-i"><option value="">— выберите —</option>'+itemOpts+'</select></div>'
-    +'<div class="fg"><label>Заказ (если расход по заказу)</label><select id="tn-o"><option value="">— общий расход —</option>'+ordOpts+'</select></div>'
+    +'<div class="fg"><label>Заказ (если расход по заказу)</label><select id="tn-o" onchange="filterOrderPositions()"><option value="">— общий расход —</option>'+ordOpts+'</select></div>'
+    +'<div class="fg"><label>Позиция заказа</label><select id="tn-pos"><option value="">— не выбрана —</option></select></div>'
     +'</div>'
 
     +'<div class="fg"><label>Примечание</label><input id="tn-n" placeholder="Дополнительная информация..."/></div>'
@@ -1963,6 +1964,22 @@ function filterOrdersByClient(){
   for(var i=0;i<filteredOrders.length;i++){
     var o=filteredOrders[i];
     ordSelect.innerHTML+='<option value="'+o.id+'">'+o.title+'</option>';
+  }
+}
+
+function filterOrderPositions(){
+  var ordId=mNum('tn-o');
+  var posSelect=mEl('tn-pos');
+  if(!posSelect) return;
+  posSelect.innerHTML='<option value="">— не выбрана —</option>';
+  if(ordId){
+    var ord=ordGet(ordId);
+    if(ord&&ord.positions){
+      for(var i=0;i<ord.positions.length;i++){
+        var p=ord.positions[i];
+        posSelect.innerHTML+='<option value="'+i+'">'+p.name+' ('+p.qty+'х '+fmt(p.price)+')</option>';
+      }
+    }
   }
 }
 function txToggle(){
