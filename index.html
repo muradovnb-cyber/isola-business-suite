@@ -1942,8 +1942,18 @@ function pgTxs(){
     +'<div id="tn-expense-fields">'
     +'<div class="fg"><label>Контрагент (поставщик)</label><select id="tn-cp"><option value="">— нет —</option>'+supplierOpts+'</select></div>'
     +'<div class="fg"><label>Статья расхода *</label><select id="tn-i"><option value="">— выберите —</option>'+itemOpts+'</select></div>'
-    +'<div class="fg"><label>Заказ (если расход по заказу)</label><select id="tn-o" onchange="filterOrderPositions()"><option value="">— общий расход —</option>'+ordOpts+'</select></div>'
+    +'<div class="fg"><label>Назначение расхода</label><select id="tn-purpose" onchange="txPurposeChange()"><option value="order">📦 По заказу</option><option value="warehouse">🏭 На склад</option><option value="master">👨‍🔧 Для мастера</option></select></div>'
+    +'<div id="tn-order-fields" style="display:block">'
+    +'<div class="fg"><label>Заказ</label><select id="tn-o" onchange="filterOrderPositions()"><option value="">— общий расход —</option>'+ordOpts+'</select></div>'
     +'<div class="fg"><label>Позиция заказа</label><select id="tn-pos"><option value="">— не выбрана —</option></select></div>'
+    +'</div>'
+    +'<div id="tn-warehouse-fields" style="display:none">'
+    +'<div class="fg"><label>Материал на склад</label><input id="tn-wh-mat" placeholder="Например: саморезы, крепежи..."/></div>'
+    +'<div class="fg"><label>Количество</label><input type="number" id="tn-wh-qty" placeholder="0"/></div>'
+    +'</div>'
+    +'<div id="tn-master-fields" style="display:none">'
+    +'<div class="fg"><label>Мастер / Бригадир</label><select id="tn-master"><option value="">— выберите —</option>'+optList(DB.users.filter(function(u){return u.dept==='production';}),function(u){return u.id;},function(u){return u.n;})+'</select></div>'
+    +'</div>'
     +'</div>'
 
     +'<div class="fg"><label>Примечание</label><input id="tn-n" placeholder="Дополнительная информация..."/></div>'
@@ -1982,6 +1992,16 @@ function filterOrderPositions(){
       }
     }
   }
+}
+
+function txPurposeChange(){
+  var purpose=mVal('tn-purpose')||'order';
+  var orderFields=mEl('tn-order-fields');
+  var warehouseFields=mEl('tn-warehouse-fields');
+  var masterFields=mEl('tn-master-fields');
+  if(orderFields) orderFields.style.display=purpose==='order'?'block':'none';
+  if(warehouseFields) warehouseFields.style.display=purpose==='warehouse'?'block':'none';
+  if(masterFields) masterFields.style.display=purpose==='master'?'block':'none';
 }
 function txToggle(){
   var t=mVal('tn-t')||'expense';
