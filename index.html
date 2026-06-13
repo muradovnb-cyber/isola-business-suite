@@ -2093,6 +2093,10 @@ function saveTxNew(){
     cpid=mNum('tn-cp')||null;
     iid=mNum('tn-i')||null;
     oid=mNum('tn-o')||null;
+    var purpose=mVal('tn-purpose')||'order';
+    var whMat=purpose==='warehouse'?mVal('tn-wh-mat'):'';
+    var whQty=purpose==='warehouse'?mNum('tn-wh-qty'):0;
+    if(purpose==='warehouse'&&(!whMat||!whQty)){toast('Укажите материал и количество','error');return;}
     // Спец. случай: обнал — запросить %, перекинуть в кассу, снять потери + % банка
     if(iid===33){
       var obnalPct=+(prompt('Процент за обнал (например 2.5):')||0);
@@ -2114,13 +2118,30 @@ function saveTxNew(){
       }
     }
     DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:acc,iid:iid,cpid:cpid,oid:oid,amt:amt,cur:cur,rate:rate,uzs:uzs,note:note,by:USER.id,debt:acc==='debt'});
+    // Пополнение склада при выборе "На склад"
+    if(purpose==='warehouse'&&whMat&&whQty){
+      if(!DB.warehouse) DB.warehouse=[];
+      var found=false;
+      for(var i=0;i<DB.warehouse.length;i++){
+        if(DB.warehouse[i].name&&DB.warehouse[i].name.toLowerCase()===whMat.toLowerCase()){
+          DB.warehouse[i].stock+=whQty;
+          DB.warehouse[i].lastBuy=date;
+          found=true;
+          break;
+        }
+      }
+      if(!found){
+        var newId=DB.warehouse.length>0?Math.max.apply(Math,DB.warehouse.map(function(w){return w.id;}))+1:1;
+        DB.warehouse.push({id:newId,cat:'Прочее',name:whMat,unit:'шт',stock:whQty,minLvl:0,price:Math.round(uzs/whQty),supplier:cpid||null,lastBuy:date});
+      }
+    }
     // Автоначисление % банка 0.1% при расходе с банка (безнал)
     if(acc==='bank'&&uzs>0&&iid!==13&&iid!==14){
       var bankFee=Math.round(uzs*0.002);
       if(bankFee>0) DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:'bank',iid:13,cpid:null,oid:oid,amt:bankFee,cur:'UZS',rate:1,uzs:bankFee,note:'% банка 0.2% от '+fmt(uzs),by:USER.id,debt:false});
     }
   }
-  saveDB();toast(type==='income'?'Поступление зафиксировано ✓':'Расход добавлен ✓'+(acc==='bank'&&uzs>0&&iid!==13&&iid!==14?' (+% банка)':''),'success');closeModal();rp();
+  saveDB();var msg=type==='income'?'Поступление зафиксировано ✓':'Расход добавлен ✓'+(acc==='bank'&&uzs>0&&iid!==13&&iid!==14?' (+% банка)':'');if(purpose==='warehouse'&&whMat) msg+=' → Склад пополнен';toast(msg,'success');closeModal();rp();
 }
 
 function filterTxs(){
