@@ -851,7 +851,7 @@ function loginHTML(){
     if(u) demos+='<div class="db" onclick="fillDemo(\''+u.e+'\')"><div>'+ri.l+'</div><div class="dr">'+u.n.split(' ')[0]+'</div></div>';
   }
   return '<div class="lw"><div class="lc">'
-    +'<div class="ll"><div class="li">🌳</div><div><div class="lt">ISOLA</div><div class="ls">Interior Solutions · Business Suite</div></div></div>'
+    +'<div class="ll"><div class="li" style="background:none;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center"><svg width="36" height="36" viewBox="0 0 120 150" xmlns="http://www.w3.org/2000/svg" style="margin-top:4px"><ellipse cx="60" cy="30" rx="27" ry="32" fill="#1b5e3f"/><ellipse cx="60" cy="50" rx="32" ry="30" fill="#1b5e3f"/><rect x="50" y="70" width="20" height="40" fill="#1b5e3f" rx="3"/><ellipse cx="60" cy="115" rx="27" ry="10" fill="#1b5e3f"/></svg></div><div><div class="lt">ISOLA</div><div class="ls">Interior Solutions</div></div></div>'
     +'<div class="fg"><label>Email</label><input id="le" type="email" value="director@isola.uz" onkeypress="if(event.key===\'Enter\')doLogin()"/></div>'
     +'<div class="fg"><label>Пароль</label><input id="lp" type="password" value="1234" onkeypress="if(event.key===\'Enter\')doLogin()"/></div>'
     +'<div id="lerr" style="color:#dc2626;font-size:.76rem;margin-bottom:6px;display:none"></div>'
@@ -917,7 +917,7 @@ function appHTML(){
   var photoHtml=USER.photo?'<img src="'+USER.photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">':inits(USER.n);
   return '<div class="shell">'
     +'<div class="side" id="sidebar">'
-    +'<div class="slg"><div class="logo-box"><div class="logo-icon">🌳</div><div class="logo-text"><div style="font-size:.9rem;font-weight:800;letter-spacing:-.3px">ISOLA</div><div style="font-size:.6rem;color:#94a3b8">Suite</div></div></div></div>'
+    +'<div class="slg"><div class="logo-box"><svg width="28" height="28" viewBox="0 0 120 150" xmlns="http://www.w3.org/2000/svg"><ellipse cx="60" cy="30" rx="27" ry="32" fill="#3b82f6"/><ellipse cx="60" cy="50" rx="32" ry="30" fill="#3b82f6"/><rect x="50" y="70" width="20" height="40" fill="#3b82f6" rx="3"/><ellipse cx="60" cy="115" rx="27" ry="10" fill="#3b82f6"/></svg><div class="logo-text"><div style="font-size:.9rem;font-weight:800;letter-spacing:-.3px">ISOLA</div><div style="font-size:.6rem;color:#94a3b8">Suite</div></div></div></div>'
     +'<nav>'+navH+'</nav>'
     +'<div class="sft">'
     +'<div class="av" style="background:'+ri.c+'">'+photoHtml+'</div>'
@@ -925,7 +925,7 @@ function appHTML(){
     +'<button class="lo" onclick="logout()">Выход</button>'
     +'</div></div>'
     +'<div class="body">'
-    +'<div class="top"><button class="mb" onclick="openSide()">☰</button><div class="ttl"><span class="ttl-icon">🌳</span>'+(PAGE_TITLES[PAGE]||PAGE)+'</div><div class="tdt">'+dateStr+'</div></div>'
+    +'<div class="top"><button class="mb" onclick="openSide()">☰</button><div class="ttl"><svg width="20" height="20" viewBox="0 0 120 150" xmlns="http://www.w3.org/2000/svg" style="margin-top:2px"><ellipse cx="60" cy="30" rx="27" ry="32" fill="#1b5e3f"/><ellipse cx="60" cy="50" rx="32" ry="30" fill="#1b5e3f"/><rect x="50" y="70" width="20" height="40" fill="#1b5e3f" rx="3"/><ellipse cx="60" cy="115" rx="27" ry="10" fill="#1b5e3f"/></svg>'+(PAGE_TITLES[PAGE]||PAGE)+'</div><div class="tdt">'+dateStr+'</div></div>'
     +'<div class="pg" id="mc">'+pageHTML()+'</div>'
     +'</div></div>';
 }
