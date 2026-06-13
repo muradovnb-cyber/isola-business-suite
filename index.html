@@ -77,6 +77,9 @@ a{text-decoration:none;}
 .slg{padding:13px 16px;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:9px;border-bottom:1px solid var(--dk4);}
 .slgi{width:30px;height:30px;background:var(--ac);border-radius:7px;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;font-size:.9rem;-webkit-flex-shrink:0;flex-shrink:0;}
 .slgt{font-weight:800;font-size:.88rem;color:#fff;letter-spacing:-.4px;}
+.logo-box{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:8px;padding:8px 0;}
+.logo-icon{font-size:2rem;line-height:1;}
+.logo-text{font-weight:700;font-size:.8rem;color:#fff;line-height:1.2;}
 .slgs{font-size:.58rem;color:#475569;margin-top:1px;}
 nav{-webkit-flex:1;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px 0;}
 .ng{padding:6px 13px 2px;font-size:.58rem;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.12em;}
@@ -95,7 +98,8 @@ nav{-webkit-flex:1;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;paddi
 /* ── BODY / TOPBAR ── */
 .body{-webkit-flex:1;flex:1;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;overflow:hidden;margin-left:var(--sb);}
 .top{height:var(--nav);background:#fff;border-bottom:1px solid var(--bd);display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;padding:0 18px;gap:10px;-webkit-flex-shrink:0;flex-shrink:0;position:-webkit-sticky;position:sticky;top:0;z-index:50;}
-.ttl{font-weight:600;font-size:.86rem;-webkit-flex:1;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ttl{font-weight:600;font-size:.86rem;-webkit-flex:1;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:8px;}
+.ttl-icon{font-size:1.2rem;-webkit-flex-shrink:0;flex-shrink:0;}
 .tdt{font-size:.72rem;color:var(--mu);white-space:nowrap;}
 .mb{display:none;background:none;border:none;font-size:1.2rem;color:var(--dk3);padding:4px 6px;}
 .pg{-webkit-flex:1;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px;}
@@ -847,7 +851,7 @@ function loginHTML(){
     if(u) demos+='<div class="db" onclick="fillDemo(\''+u.e+'\')"><div>'+ri.l+'</div><div class="dr">'+u.n.split(' ')[0]+'</div></div>';
   }
   return '<div class="lw"><div class="lc">'
-    +'<div class="ll"><div class="li">🏢</div><div><div class="lt">ISOLA Business Suite</div><div class="ls">FinApp + HR Portal · Единая экосистема</div></div></div>'
+    +'<div class="ll"><div class="li">🌳</div><div><div class="lt">ISOLA</div><div class="ls">Interior Solutions · Business Suite</div></div></div>'
     +'<div class="fg"><label>Email</label><input id="le" type="email" value="director@isola.uz" onkeypress="if(event.key===\'Enter\')doLogin()"/></div>'
     +'<div class="fg"><label>Пароль</label><input id="lp" type="password" value="1234" onkeypress="if(event.key===\'Enter\')doLogin()"/></div>'
     +'<div id="lerr" style="color:#dc2626;font-size:.76rem;margin-bottom:6px;display:none"></div>'
@@ -913,7 +917,7 @@ function appHTML(){
   var photoHtml=USER.photo?'<img src="'+USER.photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">':inits(USER.n);
   return '<div class="shell">'
     +'<div class="side" id="sidebar">'
-    +'<div class="slg"><div class="slgi">🏢</div><div><div class="slgt">ISOLA Suite</div><div class="slgs">Business Ecosystem</div></div></div>'
+    +'<div class="slg"><div class="logo-box"><div class="logo-icon">🌳</div><div class="logo-text"><div style="font-size:.9rem;font-weight:800;letter-spacing:-.3px">ISOLA</div><div style="font-size:.6rem;color:#94a3b8">Suite</div></div></div></div>'
     +'<nav>'+navH+'</nav>'
     +'<div class="sft">'
     +'<div class="av" style="background:'+ri.c+'">'+photoHtml+'</div>'
@@ -921,7 +925,7 @@ function appHTML(){
     +'<button class="lo" onclick="logout()">Выход</button>'
     +'</div></div>'
     +'<div class="body">'
-    +'<div class="top"><button class="mb" onclick="openSide()">☰</button><div class="ttl">'+(PAGE_TITLES[PAGE]||PAGE)+'</div><div class="tdt">'+dateStr+'</div></div>'
+    +'<div class="top"><button class="mb" onclick="openSide()">☰</button><div class="ttl"><span class="ttl-icon">🌳</span>'+(PAGE_TITLES[PAGE]||PAGE)+'</div><div class="tdt">'+dateStr+'</div></div>'
     +'<div class="pg" id="mc">'+pageHTML()+'</div>'
     +'</div></div>';
 }
