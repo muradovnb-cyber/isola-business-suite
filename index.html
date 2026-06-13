@@ -526,6 +526,14 @@ var VER='suite-v8';
 // DB starts from SEED, then server data loads async
 var DB = JSON.parse(JSON.stringify(SEED));
 
+// ── ЛОГИРОВАНИЕ ──
+function log(action,type,target,changes){
+  if(!DB.logs) DB.logs=[];
+  var entry={id:nid(DB.logs),date:today(),time:new Date().toLocaleTimeString('ru-RU'),by:USER?USER.id:0,byName:USER?USER.n:'System',action:action,type:type,target:target,changes:changes};
+  DB.logs.push(entry);
+  if(DB.logs.length>10000) DB.logs.splice(0,1000);
+}
+
 function getItems(){
   // DB.items takes priority (user-edited), fallback to hardcoded ITEMS
   return (DB.items && DB.items.length > 0) ? DB.items : ITEMS;
@@ -870,9 +878,9 @@ function getNavs(){
   var r=USER.role,dir=r==='director',acc=r==='accountant',mgr=r==='manager';
   var n=[];
   if(dir){
-    n.push({s:'👑 Руководство'},{id:'ceo',i:'🤖',l:'CEO Агент'},{id:'udash',i:'🌐',l:'Единый дашборд'},{id:'cashflow',i:'🏦',l:'Баланс счетов'});
+    n.push({s:'👑 Руководство'},{id:'ceo',i:'🤖',l:'CEO Агент'},{id:'udash',i:'🌐',l:'Единый дашборд'},{id:'cashflow',i:'🏦',l:'Баланс счетов'},{id:'logs',i:'🔐',l:'История изменений'});
     n.push({s:'💰 Финансы'},{id:'dash',i:'📊',l:'Дашборд'},{id:'pl',i:'📈',l:'P&L'},{id:'bal',i:'⚖️',l:'Баланс'},{id:'margin',i:'💹',l:'Маржинальность'});
-    n.push({s:'📦 Операции'},{id:'orders',i:'📦',l:'Заказы'},{id:'warehouse',i:'🏭',l:'Склад'},{id:'txs',i:'💳',l:'Транзакции'},{id:'clients',i:'👥',l:'Клиенты'});
+    n.push({s:'📦 Операции'},{id:'orders',i:'📦',l:'Заказы'},{id:'warehouse',i:'🏭',l:'Склад'},{id:'inventories',i:'📋',l:'Инвентаризации'},{id:'txs',i:'💳',l:'Транзакции'},{id:'clients',i:'👥',l:'Клиенты'});
     n.push({s:'👥 HR'},{id:'crm',i:'🎯',l:'CRM Сделки'},{id:'asal',i:'💰',l:'Зарплата всех'});
     n.push({s:'⚙️ Данные'},{id:'cps',i:'🏢',l:'Контрагенты'},{id:'rates',i:'💱',l:'Курсы'},{id:'staff',i:'👤',l:'Сотрудники'},{id:'users',i:'⚙️',l:'Управление'},{id:'items',i:'📋',l:'Статьи расходов'});
   } else if(acc){
@@ -891,7 +899,7 @@ function getNavs(){
   }
   return n;
 }
-var PAGE_TITLES={'ceo':'CEO Агент','petty':'Подотчётные средства','items':'Статьи расходов','staff':'Сотрудники','cashflow':'Баланс счетов','udash':'Единый дашборд','dash':'Дашборд','pl':'P&L','bal':'Баланс','margin':'Маржинальность','orders':'Заказы','txs':'Транзакции','crm':'CRM — Сделки','asal':'Зарплата сотрудников','sal':'Моя зарплата','profile':'Профиль','dir':'Справочник','rights':'Регламент','about':'О компании','cps':'Контрагенты','rates':'Курсы','users':'Пользователи','sreqs':'Заявки на услуги','clients':'Клиенты','warehouse':'Склад','inventories':'История инвентаризаций'};
+var PAGE_TITLES={'ceo':'CEO Агент','petty':'Подотчётные средства','items':'Статьи расходов','staff':'Сотрудники','cashflow':'Баланс счетов','udash':'Единый дашборд','dash':'Дашборд','pl':'P&L','bal':'Баланс','margin':'Маржинальность','orders':'Заказы','txs':'Транзакции','crm':'CRM — Сделки','asal':'Зарплата сотрудников','sal':'Моя зарплата','profile':'Профиль','dir':'Справочник','rights':'Регламент','about':'О компании','cps':'Контрагенты','rates':'Курсы','users':'Пользователи','sreqs':'Заявки на услуги','clients':'Клиенты','warehouse':'Склад','inventories':'История инвентаризаций','logs':'История изменений'};
 
 function appHTML(){
   var navs=getNavs(),ri=ROLES[USER.role]||{l:'',c:'#64748b'};
@@ -961,7 +969,7 @@ function pageHTML(){
   if(!USER) return '<div style="padding:32px;text-align:center;color:var(--mu)">Не авторизован</div>';
   // Allowed pages per role
   var allowed={
-    director: ['ceo','udash','dash','pl','bal','margin','orders','txs','petty','cashflow','items','staff','crm','asal','sal','profile','about','cps','rates','users','sreqs','clients','warehouse','inventories'],
+    director: ['ceo','udash','dash','pl','bal','margin','orders','txs','petty','cashflow','items','staff','crm','asal','sal','profile','about','cps','rates','users','sreqs','clients','warehouse','inventories','logs'],
     accountant:['cashflow','txs','orders','petty','items','asal','sal','profile','about','cps','clients','dir','rights','warehouse','inventories'],
     supply:    ['orders','txs','petty','sal','profile','about','sreqs','clients','dir','rights','warehouse','inventories'],
     manager:   ['crm','orders','sal','profile','about','petty','sreqs','clients','dir','rights','cps','warehouse'],
@@ -981,7 +989,7 @@ function pageHTML(){
   }
   var map={
     ceo:pgCEO,udash:pgUDash,dash:pgDash,pl:pgPL,bal:pgBal,margin:pgMargin,
-    orders:pgOrders,warehouse:pgWarehouse,inventories:pgInventories,txs:pgTxs,petty:pgPetty,cashflow:pgCashflow,items:pgItems,staff:pgStaff,crm:pgCRM,asal:pgASal,sal:pgSal,
+    orders:pgOrders,warehouse:pgWarehouse,inventories:pgInventories,logs:pgLogs,txs:pgTxs,petty:pgPetty,cashflow:pgCashflow,items:pgItems,staff:pgStaff,crm:pgCRM,asal:pgASal,sal:pgSal,
     profile:pgProfile,dir:pgDir,rights:pgRights,about:pgAbout,
     cps:pgCPs,rates:pgRates,users:pgUsers,sreqs:pgSreqs,clients:pgClients,
   };
@@ -1896,6 +1904,40 @@ function buyMaterial(mid){
   saveDB();toast('Закупка '+qty+' '+m.unit+' '+m.name,'success');rp();
 }
 
+// ── ЛОГИРОВАНИЕ (АУДИТ) ──────────────────────────────────────────────
+function pgLogs(){
+  var logs=DB.logs||[];
+  var role=USER.role;
+  if(role!=='director') return '<div class="ph"><div class="pt">🔐 История изменений</div></div><div class="cc" style="padding:20px;text-align:center;color:#ef4444">Доступ только для директора</div>';
+  var filtered=logs.slice().reverse();
+  var users={};
+  for(var i=0;i<DB.users.length;i++) users[DB.users[i].id]=DB.users[i].n;
+  var rows='';
+  for(var i=0;i<Math.min(filtered.length,500);i++){
+    var l=filtered[i];
+    var u=users[l.by]||'—';
+    var actionIcon={'create':'✓','update':'✎','delete':'✕','accept':'📋','warehouse':'📦','inventory':'📊'}[l.action]||'•';
+    var typeLabel={'order':'Заказ','tx':'Платёж','inventory':'Инвентура','warehouse':'Склад','user':'Пользователь','item':'Статья'}[l.type]||l.type;
+    rows+='<tr><td style="font-size:.75rem;color:var(--mu)">'+fmtD(l.date)+' '+l.time+'</td><td style="text-align:center">'+actionIcon+'</td><td style="text-align:center">'+typeLabel+'</td><td>'+l.target+'</td><td style="font-size:.75rem;color:var(--mu)">'+u+'</td><td style="text-align:center"><button class="btn bs bsm" onclick="showLogDetail('+l.id+')">📋</button></td></tr>';
+  }
+  var userOpts='<option value="">— все —</option>';
+  for(var i=0;i<DB.users.length;i++) userOpts+='<option value="'+DB.users[i].id+'">'+DB.users[i].n+'</option>';
+  return '<div class="ph"><div class="pt">🔐 История изменений</div></div><div class="cc" style="margin-bottom:12px"><div class="ch"><div class="ct">⚙️ Фильтры</div></div><div style="display:flex;gap:8px;flex-wrap:wrap;padding:0 12px 12px"><select id="log-filter-user" style="flex:1;min-width:150px;border:1px solid var(--bd);border-radius:6px;padding:6px 8px;font-size:.8rem">'+userOpts+'</select><input type="date" id="log-filter-date" style="flex:1;min-width:120px;border:1px solid var(--bd);border-radius:6px;padding:6px 8px;font-size:.8rem"/></div></div><div class="cc"><div class="ch"><div class="ct">📋 Последние изменения ('+Math.min(filtered.length,500)+' из '+logs.length+')</div></div><div class="tc" style="max-height:600px;overflow-y:auto"><div class="tw"><table style="font-size:.75rem"><thead><tr><th>Дата / Время</th><th>Действие</th><th>Тип</th><th>Объект</th><th>Пользователь</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div></div></div>';
+}
+function showLogDetail(logId){
+  var logs=DB.logs||[];
+  var log=null;
+  for(var i=0;i<logs.length;i++){if(logs[i].id===logId){log=logs[i];break;}}
+  if(!log) return;
+  var u=userGet(log.by);
+  var changesHtml='';
+  if(log.changes){
+    if(typeof log.changes==='string'){changesHtml=log.changes;}
+    else if(typeof log.changes==='object'){for(var key in log.changes){var val=log.changes[key];if(typeof val==='object'){changesHtml+='<div style="margin:4px 0"><strong>'+key+':</strong> <span style="color:#ef4444">−'+val.old+'</span> → <span style="color:#22c55e">+'+val.new+'</span></div>';}else{changesHtml+='<div style="margin:4px 0"><strong>'+key+':</strong> '+val+'</div>';}}}}
+  var html='<div style="padding:12px"><div style="font-size:.85rem;margin-bottom:12px"><div><strong>📅 Дата:</strong> '+fmtD(log.date)+' '+log.time+'</div><div><strong>👤 Пользователь:</strong> '+(u?u.n:'—')+'</div><div><strong>🎯 Действие:</strong> '+log.action+'</div><div><strong>📋 Тип:</strong> '+log.type+'</div><div><strong>🔗 Объект:</strong> '+log.target+'</div></div>'+(changesHtml?'<div style="background:#f1f5f9;border-radius:6px;padding:8px;margin-top:8px"><strong>📝 Изменения:</strong><div style="margin-top:6px;font-size:.8rem">'+changesHtml+'</div></div>':'')+'</div>';
+  openModalRaw('🔐 Деталь изменения',html,null,'Закрыть',null);
+}
+
 // ── ИНВЕНТАРИЗАЦИЯ ──────────────────────────────────────────────
 var INVENTORY_SESSION=null;
 function pgInventories(){
@@ -1979,6 +2021,7 @@ function saveInventory(){
     }
   }
   DB.inventories.push(summary);
+  log('inventory','inventory','Инвентуризация '+fmtD(INVENTORY_SESSION.date)+' ('+summary.items.length+' расхождений)',summary.items.length>0?summary.items.slice(0,3):'Без расхождений');
   saveDB();
   toast('Инвентаризация завершена ✓ Расхождений: '+summary.items.length,'success');
   closeModal();
@@ -2232,6 +2275,7 @@ function saveTxNew(){
       if(bankFee>0) DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:'bank',iid:13,cpid:null,oid:oid,amt:bankFee,cur:'UZS',rate:1,uzs:bankFee,note:'% банка 0.2% от '+fmt(uzs),by:USER.id,debt:false});
     }
   }
+  log('create','tx','Платёж '+fmt(uzs)+' ('+mVal('tn-t')+')','Статья: '+itemGet(iid)?.n+', Контрагент: '+(cpGet(cpid)?.n||'—')+', Назначение: '+purpose);
   saveDB();var msg=type==='income'?'Поступление зафиксировано ✓':'Расход добавлен ✓'+(acc==='bank'&&uzs>0&&iid!==13&&iid!==14?' (+% банка)':'');if(purpose==='warehouse'&&whMat) msg+=' → Склад пополнен';toast(msg,'success');closeModal();rp();
 }
 
