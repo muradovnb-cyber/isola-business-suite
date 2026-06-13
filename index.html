@@ -877,7 +877,7 @@ function getNavs(){
     n.push({s:'⚙️ Данные'},{id:'cps',i:'🏢',l:'Контрагенты'},{id:'rates',i:'💱',l:'Курсы'},{id:'staff',i:'👤',l:'Сотрудники'},{id:'users',i:'⚙️',l:'Управление'},{id:'items',i:'📋',l:'Статьи расходов'});
   } else if(acc){
     n.push({s:'Финансы'},{id:'cashflow',i:'🏦',l:'Баланс счетов'},{id:'txs',i:'💳',l:'Транзакции'},{id:'orders',i:'📦',l:'Заказы'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'items',i:'📋',l:'Статьи расходов'},{id:'asal',i:'💰',l:'Зарплата'});
-    n.push({s:'Спецхран'},{id:'warehouse',i:'🏭',l:'Склад'});
+    n.push({s:'Спецхран'},{id:'warehouse',i:'🏭',l:'Склад'},{id:'inventories',i:'📋',l:'Инвентаризации'});
     n.push({s:'Справочники'},{id:'clients',i:'👥',l:'Клиенты'},{id:'cps',i:'🏢',l:'Контрагенты'},{id:'dir',i:'📖',l:'Справочник'});
   } else if(mgr){
     n.push({s:'Продажи'},{id:'crm',i:'🎯',l:'CRM — Сделки'},{id:'orders',i:'📦',l:'Мои заказы'},{id:'clients',i:'👥',l:'Клиенты'});
@@ -885,13 +885,13 @@ function getNavs(){
     n.push({s:'Личное'},{id:'profile',i:'👤',l:'Профиль'},{id:'sal',i:'💰',l:'Зарплата'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'dir',i:'📖',l:'Справочник'},{id:'rights',i:'📋',l:'Регламент'});
   } else {
     n.push({s:'Работа'},{id:'orders',i:'📦',l:'Заказы'},{id:'warehouse',i:'🏭',l:'Склад'},{id:'clients',i:'👥',l:'Клиенты'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'dir',i:'📖',l:'Справочник'});
-    if(r==='supply') n.push({id:'txs',i:'💳',l:'Транзакции'});
+    if(r==='supply') n.push({id:'txs',i:'💳',l:'Транзакции'},{id:'inventories',i:'📋',l:'Инвентаризации'});
     if(r==='constructor'||r==='production') n.push({id:'sreqs',i:'🔧',l:'Заявки на услуги'});
     n.push({s:'Личное'},{id:'profile',i:'👤',l:'Профиль'},{id:'sal',i:'💰',l:'Зарплата'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'dir',i:'📖',l:'Справочник'},{id:'rights',i:'📋',l:'Регламент'},{id:'about',i:'🏢',l:'О компании'});
   }
   return n;
 }
-var PAGE_TITLES={'ceo':'CEO Агент','petty':'Подотчётные средства','items':'Статьи расходов','staff':'Сотрудники','cashflow':'Баланс счетов','udash':'Единый дашборд','dash':'Дашборд','pl':'P&L','bal':'Баланс','margin':'Маржинальность','orders':'Заказы','txs':'Транзакции','crm':'CRM — Сделки','asal':'Зарплата сотрудников','sal':'Моя зарплата','profile':'Профиль','dir':'Справочник','rights':'Регламент','about':'О компании','cps':'Контрагенты','rates':'Курсы','users':'Пользователи','sreqs':'Заявки на услуги','clients':'Клиенты','warehouse':'Склад'};
+var PAGE_TITLES={'ceo':'CEO Агент','petty':'Подотчётные средства','items':'Статьи расходов','staff':'Сотрудники','cashflow':'Баланс счетов','udash':'Единый дашборд','dash':'Дашборд','pl':'P&L','bal':'Баланс','margin':'Маржинальность','orders':'Заказы','txs':'Транзакции','crm':'CRM — Сделки','asal':'Зарплата сотрудников','sal':'Моя зарплата','profile':'Профиль','dir':'Справочник','rights':'Регламент','about':'О компании','cps':'Контрагенты','rates':'Курсы','users':'Пользователи','sreqs':'Заявки на услуги','clients':'Клиенты','warehouse':'Склад','inventories':'История инвентаризаций'};
 
 function appHTML(){
   var navs=getNavs(),ri=ROLES[USER.role]||{l:'',c:'#64748b'};
@@ -961,9 +961,9 @@ function pageHTML(){
   if(!USER) return '<div style="padding:32px;text-align:center;color:var(--mu)">Не авторизован</div>';
   // Allowed pages per role
   var allowed={
-    director: ['ceo','udash','dash','pl','bal','margin','orders','txs','petty','cashflow','items','staff','crm','asal','sal','profile','about','cps','rates','users','sreqs','clients','warehouse'],
-    accountant:['cashflow','txs','orders','petty','items','asal','sal','profile','about','cps','clients','dir','rights','warehouse'],
-    supply:    ['orders','txs','petty','sal','profile','about','sreqs','clients','dir','rights','warehouse'],
+    director: ['ceo','udash','dash','pl','bal','margin','orders','txs','petty','cashflow','items','staff','crm','asal','sal','profile','about','cps','rates','users','sreqs','clients','warehouse','inventories'],
+    accountant:['cashflow','txs','orders','petty','items','asal','sal','profile','about','cps','clients','dir','rights','warehouse','inventories'],
+    supply:    ['orders','txs','petty','sal','profile','about','sreqs','clients','dir','rights','warehouse','inventories'],
     manager:   ['crm','orders','sal','profile','about','petty','sreqs','clients','dir','rights','cps','warehouse'],
     constructor:['orders','petty','sal','profile','about','sreqs','clients','dir','rights','warehouse'],
     production: ['orders','petty','sal','profile','about','sreqs','clients','dir','rights','warehouse'],
@@ -981,7 +981,7 @@ function pageHTML(){
   }
   var map={
     ceo:pgCEO,udash:pgUDash,dash:pgDash,pl:pgPL,bal:pgBal,margin:pgMargin,
-    orders:pgOrders,warehouse:pgWarehouse,txs:pgTxs,petty:pgPetty,cashflow:pgCashflow,items:pgItems,staff:pgStaff,crm:pgCRM,asal:pgASal,sal:pgSal,
+    orders:pgOrders,warehouse:pgWarehouse,inventories:pgInventories,txs:pgTxs,petty:pgPetty,cashflow:pgCashflow,items:pgItems,staff:pgStaff,crm:pgCRM,asal:pgASal,sal:pgSal,
     profile:pgProfile,dir:pgDir,rights:pgRights,about:pgAbout,
     cps:pgCPs,rates:pgRates,users:pgUsers,sreqs:pgSreqs,clients:pgClients,
   };
@@ -1843,7 +1843,8 @@ function pgWarehouse(){
     }
   }
 
-  return '<div class="ph"><div class="pt">🏭 Склад</div></div>'
+  var invBtn=canEdit?btn('bs bsm','📋 Провести инвентаризацию',"openInventoryForm()"):'';
+  return '<div class="ph"><div class="pt">🏭 Склад</div>'+invBtn+'</div>'
     +alertBlock
     +'<div class="g2" style="margin-bottom:12px">'
     +kpi('bl','Материалов в учёте',String(wh.length),fmt(wh.reduce(function(s,m){return s+(m.stock*m.price/1000000);},0))+' млн сум')
@@ -1893,6 +1894,96 @@ function buyMaterial(mid){
   // Создаём транзакцию расхода
   DB.txs.push({id:nid(DB.txs),date:today(),type:'expense',acc:'petty',by:USER.id,uzs:Math.round(qty*m.price),iid:1,cpid:m.supplier,note:'Закупка '+m.name});
   saveDB();toast('Закупка '+qty+' '+m.unit+' '+m.name,'success');rp();
+}
+
+// ── ИНВЕНТАРИЗАЦИЯ ──────────────────────────────────────────────
+var INVENTORY_SESSION=null;
+function pgInventories(){
+  var inv=DB.inventories||[];
+  if(!inv.length) return '<div class="ph"><div class="pt">📋 История инвентаризаций</div></div><div class="cc" style="padding:20px;text-align:center;color:var(--mu)">Инвентаризации не проводились</div>';
+  var rows='';
+  for(var i=inv.length-1;i>=0;i--){
+    var rec=inv[i],u=userGet(rec.by);
+    var discrepancies=rec.items.length;
+    var maxDiff=discrepancies>0?Math.max.apply(Math,rec.items.map(function(it){return Math.abs(it.diff);})):0;
+    rows+='<tr><td>'+fmtD(rec.date)+'</td><td>'+(u?u.n:'—')+'</td><td style="text-align:center;font-weight:600">'+discrepancies+'</td><td style="text-align:center">'+(discrepancies>0?'<span style="color:#ef4444;font-weight:600">± '+maxDiff+'</span>':'<span style="color:#22c55e">✓ Норма</span>')+'</td><td style="text-align:center"><button class="btn bs bsm" onclick="showInventoryDetail('+i+')">📋</button></td></tr>';
+  }
+  return '<div class="ph"><div class="pt">📋 История инвентаризаций</div></div><div class="cc"><div class="ch"><div class="ct">Проведённые инвентаризации</div></div><div class="tc"><div class="tw"><table><thead><tr><th>Дата</th><th>Ответственный</th><th>Расхождений</th><th>Макс. разница</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div></div></div>';
+}
+function showInventoryDetail(idx){
+  var inv=DB.inventories||[];
+  if(!inv[idx]) return;
+  var rec=inv[idx],u=userGet(rec.by);
+  var rows='';
+  for(var i=0;i<rec.items.length;i++){
+    var it=rec.items[i];
+    var sign=it.diff>0?'+':'';
+    rows+='<tr style="'+(it.diff!==0?'background:#fff5f5':'')+'"><td>'+it.name+'</td><td style="text-align:center">'+it.accounting+'</td><td style="text-align:center;font-weight:600">'+it.actual+'</td><td style="text-align:center;font-weight:600;color:'+(it.diff>0?'#22c55e':it.diff<0?'#ef4444':'var(--mu)')+'">'+sign+it.diff+'</td></tr>';
+  }
+  var html='<div style="padding:12px"><div style="font-size:.85rem;margin-bottom:12px"><div><strong>Дата:</strong> '+fmtD(rec.date)+'</div><div><strong>Ответственный:</strong> '+(u?u.n:'—')+'</div><div><strong>Всего расхождений:</strong> '+rec.items.length+'</div></div><div class="tc"><div class="tw"><table style="width:100%;border-collapse:collapse"><thead><tr style="background:#f1f5f9"><th style="padding:6px;text-align:left">Материал</th><th style="padding:6px">Было</th><th style="padding:6px">Стало</th><th style="padding:6px">Разница</th></tr></thead><tbody>'+rows+'</tbody></table></div></div></div>';
+  openModalRaw('📋 Детали инвентаризации '+fmtD(rec.date),html,null,'Закрыть',null);
+}
+function openInventoryForm(){
+  var wh=DB.warehouse||[];
+  if(!wh.length){toast('Склад пуст','error');return;}
+  INVENTORY_SESSION={items:[],date:today(),startedAt:new Date()};
+  for(var i=0;i<wh.length;i++){
+    INVENTORY_SESSION.items.push({id:wh[i].id,name:wh[i].name,unit:wh[i].unit,accounting:wh[i].stock,actual:wh[i].stock,diff:0});
+  }
+  var rows='';
+  for(var i=0;i<INVENTORY_SESSION.items.length;i++){
+    var it=INVENTORY_SESSION.items[i];
+    rows+='<tr><td style="padding:8px;font-weight:600">'+it.name+'</td><td style="padding:8px;text-align:center"><span style="color:var(--mu)">'+it.accounting+' '+it.unit+'</span></td><td style="padding:8px;text-align:center"><input type="number" value="'+it.accounting+'" id="inv-'+i+'" style="width:80px;border:1px solid var(--bd);border-radius:4px;padding:4px;font-size:.8rem" oninput="updateInventoryDiff('+i+')"/></td><td style="padding:8px;text-align:center;font-weight:600"><span id="inv-diff-'+i+'" style="color:var(--mu)">0</span></td></tr>';
+  }
+  var html='<div class="cc"><div class="ch"><div class="ct">📋 Инвентаризация склада</div><div style="font-size:.7rem;color:var(--mu);margin-top:2px">'+today()+'</div></div><div style="padding:12px">'
+    +'<div class="tc"><div class="tw"><table style="width:100%;border-collapse:collapse"><thead><tr style="background:#f1f5f9"><th style="padding:8px;text-align:left;font-size:.75rem">Материал</th><th style="padding:8px;font-size:.75rem">Учётный остаток</th><th style="padding:8px;font-size:.75rem">Фактический</th><th style="padding:8px;font-size:.75rem">Разница</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>'
+    +'<div style="margin-top:12px;padding:8px;background:#fffbeb;border-radius:6px;border-left:3px solid #f59e0b">'
+    +'<div style="font-size:.8rem;color:#92400e"><strong>ℹ️ Инструкция:</strong> Введите фактическое кол-во для каждого материала. Система автоматически покажет разницу.</div>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;margin-top:12px">'
+    +btn('bp','✓ Завершить инвентаризацию','saveInventory()')
+    +btn('bs','✕ Отмена','closeModal();INVENTORY_SESSION=null')
+    +'</div>'
+    +'</div></div>';
+  mEl('mroot').innerHTML=html;
+  openModal('inventory');
+}
+function updateInventoryDiff(idx){
+  if(!INVENTORY_SESSION||!INVENTORY_SESSION.items[idx]) return;
+  var actual=+(document.getElementById('inv-'+idx)||{value:INVENTORY_SESSION.items[idx].accounting}).value||0;
+  var item=INVENTORY_SESSION.items[idx];
+  item.actual=actual;
+  item.diff=actual-item.accounting;
+  var diffEl=document.getElementById('inv-diff-'+idx);
+  if(diffEl){
+    var sign=item.diff>0?'+':item.diff<0?'−':'';
+    diffEl.textContent=sign+item.diff;
+    diffEl.style.color=item.diff>0?'#22c55e':item.diff<0?'#ef4444':'var(--mu)';
+  }
+}
+function saveInventory(){
+  if(!INVENTORY_SESSION||!INVENTORY_SESSION.items.length){toast('Нет данных инвентаризации','error');return;}
+  if(!DB.inventories) DB.inventories=[];
+  var summary={id:nid(DB.inventories||[]),date:INVENTORY_SESSION.date,by:USER.id,items:[],totalDiff:0};
+  for(var i=0;i<INVENTORY_SESSION.items.length;i++){
+    var it=INVENTORY_SESSION.items[i];
+    if(it.diff!==0){
+      summary.items.push({id:it.id,name:it.name,accounting:it.accounting,actual:it.actual,diff:it.diff});
+      summary.totalDiff+=Math.abs(it.diff);
+    }
+    for(var j=0;j<DB.warehouse.length;j++){
+      if(DB.warehouse[j].id===it.id){
+        DB.warehouse[j].stock=it.actual;
+        break;
+      }
+    }
+  }
+  DB.inventories.push(summary);
+  saveDB();
+  toast('Инвентаризация завершена ✓ Расхождений: '+summary.items.length,'success');
+  closeModal();
+  INVENTORY_SESSION=null;
+  rp();
 }
 
 // ══════════════════════════════════════════════════════
