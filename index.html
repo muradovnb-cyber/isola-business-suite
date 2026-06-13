@@ -745,14 +745,23 @@ function txRow(t){
     +'<td>'+delBtn+'</td>'
     +'</tr>';
 }
-function ordRow(o){
+function ordRow(o,role){
   var cp=cpGet(o.cid),mn=userGet(o.mid);
   var dir=0,inc=0;
   for(var i=0;i<DB.txs.length;i++){
     if(DB.txs[i].oid===o.id){if(DB.txs[i].type==='expense') dir+=DB.txs[i].uzs;else inc+=DB.txs[i].uzs;}
   }
-  var pct=o.uzs>0?Math.min(100,Math.round(inc/o.uzs*100)):0;
   var stCls=o.status==='active'?'bg-g':o.status==='closed'?'bg-b':'bg-gr';
+  if(role==='supply'){
+    return '<tr>'
+      +'<td><b>#'+o.id+'</b></td>'
+      +'<td><button style="background:none;border:none;color:var(--ac);cursor:pointer;font-weight:600;font-size:.79rem;text-align:left;padding:0" onclick="DETAIL='+o.id+';rp()">'+escapeHtml(o.title)+'</button></td>'
+      +'<td>'+escapeHtml(cp?cp.n:'—')+'</td>'
+      +'<td>'+fmt(dir)+'</td>'
+      +'<td>'+bdg(stCls,SL[o.status])+'</td>'
+      +'</tr>';
+  }
+  var pct=o.uzs>0?Math.min(100,Math.round(inc/o.uzs*100)):0;
   var canEdit=USER.role==='manager'&&o.mid===USER.id;
   var editBtn=canEdit?'<button onclick="editOrderBasics('+o.id+')" style="background:none;border:none;color:var(--mu);cursor:pointer;font-size:.7rem;padding:0;margin-left:4px;text-decoration:underline">✎</button>':'';
   return '<tr>'
@@ -1220,11 +1229,14 @@ function pgOrders(){
   if(DETAIL) return pgOrderDetail(DETAIL);
   var role=USER.role,canCreate=role==='director'||role==='manager';
   var ords=role==='manager'?DB.orders.filter(function(o){return o.mid===USER.id;}):DB.orders;
-  var rows=''; for(var i=0;i<ords.length;i++) rows+=ordRow(ords[i]);
+  var rows=''; for(var i=0;i<ords.length;i++) rows+=ordRow(ords[i],role);
   var newBtn=canCreate?btn('bp','+ Новый заказ',"openModal('order-new')"):'';
+  var isSupply=role==='supply';
+  var thead=isSupply?'<tr><th>№</th><th>Название</th><th>Клиент</th><th>Расходы</th><th>Статус</th></tr>':'<tr><th>№</th><th>Название</th><th>Клиент</th><th>Сумма</th><th>Расходы</th><th>Оплата</th><th>Статус</th><th>Менеджер</th></tr>';
+  var colspan=isSupply?5:8;
   return '<div class="ph"><div class="pt">Заказы</div>'+newBtn+'</div>'
     +'<input class="srch" id="osrch" placeholder="🔍 Поиск по заказу, клиенту..." oninput="filterOrders()">'
-    +'<div id="ord-wrap"><div class="tc"><div class="tw"><table><thead><tr><th>№</th><th>Название</th><th>Клиент</th><th>Сумма</th><th>Расходы</th><th>Оплата</th><th>Статус</th><th>Менеджер</th></tr></thead><tbody>'+(rows||'<tr class="er"><td colspan="8">Нет заказов</td></tr>')+'</tbody></table></div></div></div>'
+    +'<div id="ord-wrap"><div class="tc"><div class="tw"><table><thead>'+thead+'</thead><tbody>'+(rows||'<tr class="er"><td colspan="'+colspan+'">Нет заказов</td></tr>')+'</tbody></table></div></div></div>'
     +'<div id="m-order-new" style="display:none">'
     +'<div class="fg"><label>Название *</label><input id="on-t" placeholder="Кухонный гарнитур..."/></div>'
     +'<div class="fg"><label>Клиент *</label><select id="on-c"><option value="">— выберите —</option>'+optList(DB.cps.filter(function(c){return c.type==='client';}),function(c){return c.id;},function(c){return c.n;})+'</select></div>'
@@ -1266,8 +1278,10 @@ function filterOrders(){
   var ords=role==='manager'?DB.orders.filter(function(o){return o.mid===USER.id;}):DB.orders;
   if(q) ords=ords.filter(function(o){var cp=cpGet(o.cid);return o.title.toLowerCase().indexOf(q)>-1||(cp&&cp.n.toLowerCase().indexOf(q)>-1);});
   if(!ords.length){wrap.innerHTML='<div class="tc"><div style="padding:20px;text-align:center;color:var(--mu)">Ничего не найдено</div></div>';return;}
-  var rows=''; for(var i=0;i<ords.length;i++) rows+=ordRow(ords[i]);
-  wrap.innerHTML='<div class="tc"><div class="tw"><table><thead><tr><th>№</th><th>Название</th><th>Клиент</th><th>Сумма</th><th>Расходы</th><th>Оплата</th><th>Статус</th><th>Менеджер</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+  var rows=''; for(var i=0;i<ords.length;i++) rows+=ordRow(ords[i],role);
+  var isSupply=role==='supply';
+  var thead=isSupply?'<tr><th>№</th><th>Название</th><th>Клиент</th><th>Расходы</th><th>Статус</th></tr>':'<tr><th>№</th><th>Название</th><th>Клиент</th><th>Сумма</th><th>Расходы</th><th>Оплата</th><th>Статус</th><th>Менеджер</th></tr>';
+  wrap.innerHTML='<div class="tc"><div class="tw"><table><thead>'+thead+'</thead><tbody>'+rows+'</tbody></table></div></div>';
 }
 // ── ПОЗИЦИИ ЗАКАЗА ──────────────────────────────────────────────────
 var _orderPositions = [];
