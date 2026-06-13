@@ -566,8 +566,10 @@ function initFromServer(){
 }
 var API_KEY='ISOLA-2026-S3CR3T-K3Y';
 function saveDB(){
-  try{localStorage.setItem('sd',JSON.stringify(DB));}catch(e){}
-  fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':API_KEY},body:JSON.stringify(DB)}).catch(function(){});
+  var json=JSON.stringify(DB);
+  if(json.length>5*1024*1024){alert('⚠️ База данных переполнена (>5MB)!\nУдалите старые записи.');return;}
+  try{localStorage.setItem('sd',json);}catch(e){if(e.name==='QuotaExceededError') alert('💾 Память браузера переполнена!\nУдалите старые данные.');}
+  fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':API_KEY},body:json}).catch(function(){});
 }
 function nid(a){ var m=0; for(var i=0;i<a.length;i++) if(a[i].id>m) m=a[i].id; return m+1; }
 function fmt(n){ return new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(n||0); }
@@ -586,6 +588,7 @@ function getRate(d){
   return r||12850;
 }
 function inits(n){ return (n||'?').split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase(); }
+function escapeHtml(t){var m={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'};return String(t||'').replace(/[&<>"']/g,function(c){return m[c];});}
 function cpGet(id){ for(var i=0;i<DB.cps.length;i++) if(DB.cps[i].id===id) return DB.cps[i]; return null; }
 function userGet(id){ for(var i=0;i<DB.users.length;i++) if(DB.users[i].id===id) return DB.users[i]; return null; }
 function itemGet(id){ for(var i=0;i<ITEMS.length;i++) if(ITEMS[i].id===id) return ITEMS[i]; return null; }
@@ -644,9 +647,10 @@ function tenStr(sd){
   return mo+'мес.';
 }
 function itemsFor(role){
+  if(!DB.items||DB.items.length===0) DB.items=JSON.parse(JSON.stringify(ITEMS));
   var res=[];
-  for(var i=0;i<ITEMS.length;i++){
-    var it=ITEMS[i];
+  for(var i=0;i<DB.items.length;i++){
+    var it=DB.items[i];
     if(it.who==='all'||it.who===role||role==='director'||role==='accountant') res.push(it);
   }
   return res;
@@ -753,13 +757,13 @@ function ordRow(o){
   var editBtn=canEdit?'<button onclick="editOrderBasics('+o.id+')" style="background:none;border:none;color:var(--mu);cursor:pointer;font-size:.7rem;padding:0;margin-left:4px;text-decoration:underline">✎</button>':'';
   return '<tr>'
     +'<td><b>#'+o.id+'</b></td>'
-    +'<td><button style="background:none;border:none;color:var(--ac);cursor:pointer;font-weight:600;font-size:.79rem;text-align:left;padding:0" onclick="DETAIL='+o.id+';rp()">'+o.title+'</button>'+editBtn+'</td>'
-    +'<td>'+(cp?cp.n:'—')+'</td>'
+    +'<td><button style="background:none;border:none;color:var(--ac);cursor:pointer;font-weight:600;font-size:.79rem;text-align:left;padding:0" onclick="DETAIL='+o.id+';rp()">'+escapeHtml(o.title)+'</button>'+editBtn+'</td>'
+    +'<td>'+escapeHtml(cp?cp.n:'—')+'</td>'
     +'<td>'+fmt(o.uzs)+'</td>'
     +'<td>'+fmt(dir)+'</td>'
     +'<td><div style="display:flex;align-items:center;gap:4px"><div class="prg" style="width:55px"><div class="pf" style="width:'+pct+'%"></div></div><span style="font-size:.66rem;color:var(--mu)">'+pct+'%</span></div></td>'
     +'<td>'+bdg(stCls,SL[o.status])+'</td>'
-    +'<td style="font-size:.7rem;color:var(--mu)">'+(mn?mn.n:'—')+'</td>'
+    +'<td style="font-size:.7rem;color:var(--mu)">'+escapeHtml(mn?mn.n:'—')+'</td>'
     +'</tr>';
 }
 function dealCard(d){
@@ -767,7 +771,7 @@ function dealCard(d){
   var u=userGet(d.eid);
   var rate=(u&&u.comm)?u.comm:5;
   var comm=d.st==='won'?Math.round(d.amt*rate/100):0;
-  var empStr=USER.role==='director'&&u?' <span style="font-size:.73rem;color:var(--mu)">· '+u.n.split(' ')[0]+'</span>':'';
+  var empStr=USER.role==='director'&&u?' <span style="font-size:.73rem;color:var(--mu)">· '+escapeHtml(u.n.split(' ')[0])+'</span>':'';
   var linkStr=d.oid?'<div style="font-size:.7rem;color:var(--te);margin-top:5px">🔗 Связан с заказом #'+d.oid+'</div>':'';
   var commStr=comm?bdg('bg-p','💰 '+fmt(comm)+' сум'):'';
   var acts='';
