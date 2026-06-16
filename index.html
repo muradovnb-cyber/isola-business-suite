@@ -593,10 +593,10 @@ function mRng(y,m){
 }
 function inits(n){ return (n||'?').split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase(); }
 function escapeHtml(t){var m={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'};return String(t||'').replace(/[&<>"']/g,function(c){return m[c];});}
-function cpGet(id){ for(var i=0;i<DB.cps.length;i++) if(DB.cps[i].id===id) return DB.cps[i]; return null; }
-function userGet(id){ for(var i=0;i<DB.users.length;i++) if(DB.users[i].id===id) return DB.users[i]; return null; }
-function itemGet(id){ for(var i=0;i<ITEMS.length;i++) if(ITEMS[i].id===id) return ITEMS[i]; return null; }
-function ordGet(id){ for(var i=0;i<DB.orders.length;i++) if(DB.orders[i].id===id) return DB.orders[i]; return null; }
+function cpGet(id){ if(!id||!DB.cps) return null; for(var i=0;i<DB.cps.length;i++) if(DB.cps[i].id===id) return DB.cps[i]; return null; }
+function userGet(id){ if(!id||!DB.users) return null; for(var i=0;i<DB.users.length;i++) if(DB.users[i].id===id) return DB.users[i]; return null; }
+function itemGet(id){ if(!id||!ITEMS) return null; for(var i=0;i<ITEMS.length;i++) if(ITEMS[i].id===id) return ITEMS[i]; return null; }
+function ordGet(id){ if(!id||!DB.orders) return null; for(var i=0;i<DB.orders.length;i++) if(DB.orders[i].id===id) return DB.orders[i]; return null; }
 function smt(arr,type){ var s=0; for(var i=0;i<arr.length;i++) if(arr[i].type===type) s+=arr[i].amt; return s; }
 function balances(){
   var cash=0,bank=0,card=0;
