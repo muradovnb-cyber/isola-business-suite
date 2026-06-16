@@ -2680,7 +2680,9 @@ function changeMyPassword(){
   var n2=(document.getElementById('pw-rep')||{value:''}).value;
   if(!cur||!n1||!n2){toast('Заполните все поля','error');return;}
   if(USER.p!==cur){toast('Неверный текущий пароль','error');return;}
-  if(n1.length<4){toast('Минимум 4 символа','error');return;}
+  if(n1.length<8){toast('Минимум 8 символов','error');return;}
+  if(!/[0-9]/.test(n1)){toast('Пароль должен содержать цифры','error');return;}
+  if(!/[A-Za-z]/.test(n1)){toast('Пароль должен содержать буквы','error');return;}
   if(n1!==n2){toast('Пароли не совпадают','error');return;}
   USER.p=n1;
   for(var i=0;i<DB.users.length;i++) if(DB.users[i].id===USER.id){DB.users[i].p=n1;break;}
