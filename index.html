@@ -576,12 +576,11 @@ function initFromServer(){
       }catch(ex){}
     });
 }
-var API_KEY='ISOLA-2026-S3CR3T-K3Y';
 function saveDB(){
   var json=JSON.stringify(DB);
   if(json.length>5*1024*1024){alert('⚠️ База данных переполнена (>5MB)!\nУдалите старые записи.');return;}
   try{localStorage.setItem('sd',json);}catch(e){if(e.name==='QuotaExceededError') alert('💾 Память браузера переполнена!\nУдалите старые данные.');}
-  fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':API_KEY},body:json}).catch(function(){});
+  if(USER) fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+USER.token},body:json}).catch(function(){});
 }
 function nid(a){ var m=0; for(var i=0;i<a.length;i++) if(a[i].id>m) m=a[i].id; return m+1; }
 function fmt(n){ return new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(n||0); }
@@ -591,13 +590,6 @@ function mRng(y,m){
   var fd=y+'-'+(m<10?'0':'')+m+'-01';
   var ld=y+'-'+(m<10?'0':'')+m+'-'+new Date(y,m,0).getDate();
   return [fd,ld];
-}
-function getRate(d){
-  var r=null,best='';
-  for(var i=0;i<DB.rates.length;i++){
-    if(DB.rates[i].date<=d && DB.rates[i].date>=best){best=DB.rates[i].date;r=DB.rates[i].rate;}
-  }
-  return r||12850;
 }
 function inits(n){ return (n||'?').split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase(); }
 function escapeHtml(t){var m={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'};return String(t||'').replace(/[&<>"']/g,function(c){return m[c];});}
@@ -752,7 +744,7 @@ function txRow(t){
     +'<td>'+ordCell+'</td>'
     +'<td>'+fmt(t.amt)+' '+t.cur+'</td>'
     +'<td class="'+cls+'" style="font-weight:600">'+sign+fmt(t.uzs)+'</td>'
-    +'<td style="color:var(--mu);font-size:.72rem">'+(t.note||'—')+'</td>'
+    +'<td style="color:var(--mu);font-size:.72rem">'+escapeHtml(t.note||'—')+'</td>'
     +'<td>'+whoCell+'</td>'
     +'<td>'+delBtn+'</td>'
     +'</tr>';
@@ -1413,7 +1405,7 @@ function editOrderBasics(oid){
   if(USER.role!=='manager'||o.mid!==USER.id){toast('Нет доступа','error');return;}
   var cp=cpGet(o.cid);
   openModalRaw('✎ Редактировать заказ #'+oid,
-    '<div class="fg"><label>Название *</label><input id="eob-t" value="'+(o.title||'')+'"/></div>'
+    '<div class="fg"><label>Название *</label><input id="eob-t" value="'+escapeHtml(o.title||'')+'"/></div>'
     +'<div class="fg"><label>Клиент *</label><select id="eob-c"><option value="">— выберите —</option>'+optList(DB.cps.filter(function(c){return c.type==='client';}),function(c){return c.id;},function(c){return c.n;})+'</select></div>'
     +'<div class="fg"><label>Дедлайн сдачи</label><input type="date" id="eob-dl" value="'+(o.deadline||'')+'" style="width:100%"/></div>',
     'saveOrderBasics('+oid+')','Отмена','Сохранить');
@@ -1685,6 +1677,7 @@ function addComment(oid){
   saveDB();toast('Заметка добавлена','success');rp();
 }
 function delComment(oid,idx){
+  if(USER.role!=='manager'&&USER.role!=='director'){toast('Нет доступа','error');return;}
   var o=ordGet(oid); if(!o||!o.comments) return;
   o.comments.splice(idx,1);
   saveDB();toast('Заметка удалена','success');rp();
@@ -2610,6 +2603,7 @@ function saveAccNew(){
   saveDB();closeModal();rp();toast('Начисление добавлено','success');
 }
 function delAcc(id){
+  if(USER.role!=='accountant'&&USER.role!=='director'){toast('Нет доступа','error');return;}
   if(!confirm('Удалить начисление?')) return;
   DB.accruals=DB.accruals.filter(function(a){return a.id!==id;});
   saveDB();toast('Удалено','success');rp();
@@ -2815,7 +2809,7 @@ function pgClients(){
       +(cl.fio?'<div style="font-size:.72rem;color:rgba(255,255,255,.7);margin-top:2px">'+cl.fio+'</div>':'')
       +'</div>'
       +(isDir||USER.role==='manager'?'<button onclick="openClientM('+cl.id+')" style="background:rgba(255,255,255,.2);border:none;border-radius:6px;color:#fff;cursor:pointer;padding:4px 8px;font-size:.72rem" title="Редактировать">✏️</button>':''
-      +(isDir?'<button onclick="deleteClient('+cl.id+',\''+cl.n+'\')" style="background:rgba(239,68,68,.3);border:none;border-radius:6px;color:#fff;cursor:pointer;padding:4px 8px;font-size:.72rem;margin-left:4px" title="Удалить">🗑️</button>':''))
+      +(isDir?'<button onclick="deleteClient('+cl.id+','+JSON.stringify(cl.n)+')" style="background:rgba(239,68,68,.3);border:none;border-radius:6px;color:#fff;cursor:pointer;padding:4px 8px;font-size:.72rem;margin-left:4px" title="Удалить">🗑️</button>':''))
       +(isDir&&receivable>0?'<div style="background:rgba(255,255,255,.15);border-radius:8px;padding:6px 10px;text-align:right;flex-shrink:0">'
         +'<div style="font-size:.6rem;color:rgba(255,255,255,.7)">Долг</div>'
         +'<div style="font-size:.82rem;font-weight:700;color:#fca5a5">'+fmt(receivable)+'</div>'
@@ -2886,6 +2880,7 @@ function deleteClient(id, name){
     'confirmDeleteClient('+id+')', 'Отмена', '🗑️ Удалить');
 }
 function confirmDeleteClient(id){
+  if(USER.role!=='director'&&USER.role!=='accountant'){toast('Нет доступа','error');return;}
   DB.cps=DB.cps.filter(function(c){return c.id!==id;});
   saveDB();closeModal();toast('Клиент удалён','success');rp();
 }
@@ -3089,6 +3084,7 @@ function pgStaff(){
 }
 
 function editUserFull(uid){
+  if(USER.role!=='director'){toast('Нет доступа','error');return;}
   var u=userGet(uid); if(!u){toast('Сотрудник не найден','error');return;}
   var roleOpts=''; var rkeys=Object.keys(ROLES);
   for(var i=0;i<rkeys.length;i++) roleOpts+='<option value="'+rkeys[i]+'"'+(u.role===rkeys[i]?' selected':'')+'>'+ROLES[rkeys[i]].l+'</option>';
@@ -3169,6 +3165,7 @@ function openPwM(uid){
     'saveUpw('+uid+')');
 }
 function saveUpw(uid){
+  if(USER.role!=='director'){toast('Нет доступа','error');return;}
   var p=(document.getElementById('upw-'+uid)||{value:''}).value;
   if(!p){toast('Введите пароль','error');return;}
   for(var i=0;i<DB.users.length;i++) if(DB.users[i].id===uid){DB.users[i].p=p;break;}
@@ -3187,6 +3184,7 @@ function openUserM(){
     'saveUserNew()');
 }
 function saveUserNew(){
+  if(USER.role!=='director'){toast('Нет доступа','error');return;}
   var n=(document.getElementById('un-n')||{value:''}).value.trim();
   var e=(document.getElementById('un-e')||{value:''}).value.trim();
   var p=(document.getElementById('un-p')||{value:''}).value;
@@ -3815,6 +3813,7 @@ function closePetty(issueId){
 }
 
 function delPetty(id){
+  if(USER.role!=='accountant'&&USER.role!=='director'){toast('Нет доступа','error');return;}
   if(!confirm('Удалить запись?')) return;
   DB.petty=DB.petty.filter(function(p){return p.id!==id;});
   saveDB();toast('Удалено','success');rp();
