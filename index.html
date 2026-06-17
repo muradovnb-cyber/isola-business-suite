@@ -905,18 +905,19 @@ function getNavs(){
     n.push({s:'👥 HR'},{id:'crm',i:'🎯',l:'CRM Сделки'},{id:'asal',i:'💰',l:'Зарплата всех'});
     n.push({s:'⚙️ Данные'},{id:'cps',i:'🏢',l:'Контрагенты'},{id:'rates',i:'💱',l:'Курсы'},{id:'staff',i:'👤',l:'Сотрудники'},{id:'users',i:'⚙️',l:'Управление'},{id:'items',i:'📋',l:'Статьи расходов'});
   } else if(acc){
-    n.push({s:'Финансы'},{id:'cashflow',i:'🏦',l:'Баланс счетов'},{id:'txs',i:'💳',l:'Транзакции'},{id:'orders',i:'📦',l:'Заказы'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'items',i:'📋',l:'Статьи расходов'},{id:'asal',i:'💰',l:'Зарплата'});
+    n.push({s:'Финансы'},{id:'cashflow',i:'🏦',l:'Баланс счетов'},{id:'txs',i:'💳',l:'Транзакции'},{id:'orders',i:'📦',l:'Заказы'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'items',i:'📋',l:'Статьи расходов'},{id:'asal',i:'💰',l:'Зарплата всех'});
     n.push({s:'Спецхран'},{id:'warehouse',i:'🏭',l:'Склад'},{id:'inventories',i:'📋',l:'Инвентаризации'});
     n.push({s:'Справочники'},{id:'clients',i:'👥',l:'Клиенты'},{id:'cps',i:'🏢',l:'Контрагенты'},{id:'dir',i:'📖',l:'Справочник'});
+    n.push({s:'Личное'},{id:'profile',i:'👤',l:'Профиль'},{id:'sal',i:'💰',l:'Моя зарплата'},{id:'rights',i:'📋',l:'Регламент'},{id:'about',i:'🏢',l:'О компании'});
   } else if(mgr){
-    n.push({s:'Продажи'},{id:'crm',i:'🎯',l:'CRM — Сделки'},{id:'orders',i:'📦',l:'Мои заказы'},{id:'clients',i:'👥',l:'Клиенты'});
+    n.push({s:'Продажи'},{id:'crm',i:'🎯',l:'CRM — Сделки'},{id:'orders',i:'📦',l:'Мои заказы'},{id:'clients',i:'👥',l:'Клиенты'},{id:'cps',i:'🏢',l:'Контрагенты'});
     n.push({s:'Спец'},{id:'warehouse',i:'🏭',l:'Склад'});
-    n.push({s:'Личное'},{id:'profile',i:'👤',l:'Профиль'},{id:'sal',i:'💰',l:'Зарплата'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'dir',i:'📖',l:'Справочник'},{id:'rights',i:'📋',l:'Регламент'});
+    n.push({s:'Личное'},{id:'profile',i:'👤',l:'Профиль'},{id:'sal',i:'💰',l:'Зарплата'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'dir',i:'📖',l:'Справочник'},{id:'rights',i:'📋',l:'Регламент'},{id:'about',i:'🏢',l:'О компании'});
   } else {
     n.push({s:'Работа'},{id:'orders',i:'📦',l:'Заказы'},{id:'warehouse',i:'🏭',l:'Склад'},{id:'clients',i:'👥',l:'Клиенты'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'dir',i:'📖',l:'Справочник'});
-    if(r==='supply') n.push({id:'txs',i:'💳',l:'Транзакции'},{id:'inventories',i:'📋',l:'Инвентаризации'});
-    if(r==='constructor'||r==='production') n.push({id:'sreqs',i:'🔧',l:'Заявки на услуги'});
-    n.push({s:'Личное'},{id:'profile',i:'👤',l:'Профиль'},{id:'sal',i:'💰',l:'Зарплата'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'dir',i:'📖',l:'Справочник'},{id:'rights',i:'📋',l:'Регламент'},{id:'about',i:'🏢',l:'О компании'});
+    if(r==='supply') n.push({id:'txs',i:'💳',l:'Транзакции'},{id:'inventories',i:'📋',l:'Инвентаризации'},{id:'sreqs',i:'🔧',l:'Заявки на услуги'});
+    if(r==='constructor'||r==='production'||r==='brigadier') n.push({id:'sreqs',i:'🔧',l:'Заявки на услуги'});
+    n.push({s:'Личное'},{id:'profile',i:'👤',l:'Профиль'},{id:'sal',i:'💰',l:'Моя зарплата'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'dir',i:'📖',l:'Справочник'},{id:'rights',i:'📋',l:'Регламент'},{id:'about',i:'🏢',l:'О компании'});
   }
   return n;
 }
@@ -990,13 +991,13 @@ function pageHTML(){
   if(!USER) return '<div style="padding:32px;text-align:center;color:var(--mu)">Не авторизован</div>';
   // Allowed pages per role
   var allowed={
-    director: ['ceo','udash','dash','pl','bal','margin','orders','txs','petty','cashflow','items','staff','crm','asal','sal','profile','about','cps','rates','users','sreqs','clients','warehouse','inventories','logs'],
-    accountant:['cashflow','txs','orders','petty','items','asal','sal','profile','about','cps','clients','dir','rights','warehouse','inventories'],
-    supply:    ['orders','txs','petty','sal','profile','about','sreqs','clients','dir','rights','warehouse','inventories'],
-    manager:   ['crm','orders','sal','profile','about','petty','sreqs','clients','dir','rights','cps','warehouse'],
+    director:   ['ceo','udash','dash','pl','bal','margin','orders','txs','petty','cashflow','items','staff','crm','asal','sal','profile','about','cps','rates','users','sreqs','clients','warehouse','inventories','logs'],
+    accountant: ['cashflow','txs','orders','petty','items','asal','sal','profile','about','cps','clients','dir','rights','warehouse','inventories'],
+    supply:     ['orders','txs','petty','sal','profile','about','sreqs','clients','dir','rights','warehouse','inventories'],
+    manager:    ['crm','orders','sal','profile','about','petty','sreqs','clients','dir','rights','cps','warehouse'],
     constructor:['orders','petty','sal','profile','about','sreqs','clients','dir','rights','warehouse'],
     production: ['orders','petty','sal','profile','about','sreqs','clients','dir','rights','warehouse'],
-    brigadier:  []
+    brigadier:  ['orders','petty','sal','profile','about','sreqs','clients','dir','rights','warehouse']
   };
   var role=USER.role||'supply';
   var ok=allowed[role]||[];
