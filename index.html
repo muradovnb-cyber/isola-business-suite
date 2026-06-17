@@ -532,6 +532,24 @@ var VER='suite-v8';
 // DB starts from SEED, then server data loads async
 var DB = JSON.parse(JSON.stringify(SEED));
 
+// ── ОЧИСТКА ДАННЫХ ──
+function resetAllData(){
+  if(!confirm('❌ ОСТОРОЖНО!\n\nЭто удалит ВСЕ данные:\n- Заказы\n- Транзакции\n- Сделки CRM\n- Подотчёты\n- Начисления\n- Инвентаризации\n- Логи\n- Клиентов\n\nПоставщики и сотрудники останутся.\n\nПродолжить?')) return;
+
+  DB.orders = [];
+  DB.txs = [];
+  DB.deals = [];
+  DB.petty = [];
+  DB.accruals = [];
+  DB.inventories = [];
+  DB.logs = [];
+  DB.cps = DB.cps.filter(function(c){return c.type==='supplier';});
+
+  saveDB();
+  toast('✓ База данных очищена!','success');
+  render();
+}
+
 // ── ЛОГИРОВАНИЕ ──
 function log(action,type,target,changes){
   if(!DB.logs) DB.logs=[];
