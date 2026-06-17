@@ -865,7 +865,7 @@ function loginHTML(){
   for(var i=0;i<roles.length;i++){
     var role=roles[i],ri=ROLES[role];
     var u=null; for(var j=0;j<DB.users.length;j++) if(DB.users[j].role===role){u=DB.users[j];break;}
-    if(u) demos+='<div class="db" onclick="fillDemo(\''+u.e+'\')"><div>'+ri.l+'</div><div class="dr">'+u.n.split(' ')[0]+'</div></div>';
+    if(u) demos+='<div class="db" onclick="fillDemo('+JSON.stringify(u.e)+')"><div>'+ri.l+'</div><div class="dr">'+u.n.split(' ')[0]+'</div></div>';
   }
   return '<div class="lw"><div class="lc">'
     +'<div class="ll"><img src="logo.png" style="width:56px;height:auto;"/></div>'
