@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<meta name="theme-color" content="#101418">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ISOLA HR">
+<title>ISOLA — HR Портал</title>
+<style>
+:root{
+  --bg:#101418;--s1:#1e2227;--s2:#272b30;--s3:#2e3238;
+  --out:#3a3f45;--out2:#4a5058;
+  --blue:#8cb4f5;--blue-d:#004a9c;--blue-l:rgba(140,180,245,.15);
+  --green:#6dd58c;--green-l:rgba(109,213,140,.15);
+  --red:#ffb4ab;--red-l:rgba(255,180,171,.15);
+  --yellow:#e6c32e;--yellow-l:rgba(230,195,46,.15);
+  --purple:#cfbcff;--purple-l:rgba(207,188,255,.15);
+  --orange:#ffb874;--orange-l:rgba(255,184,116,.15);
+  --text:#e2e2e9;--t2:#c5c6d0;--t3:#8e909a;
+  --surf:rgba(255,255,255,.05);
+  --safe-t:env(safe-area-inset-top,0px);
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --navH:64px;--botH:80px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,'Roboto',sans-serif;color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+/* LOGIN */
+#login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse 150% 80% at 50% -10%,#0d2818,var(--bg) 60%);
+  padding:24px;padding-top:calc(var(--safe-t)+24px);}
+.lw{width:100%;max-width:400px;}
+.ll{margin-bottom:16px;text-align:center;}
+.ll img{height:60px;width:auto;}
+.lt{color:var(--t3);font-size:14px;margin-bottom:32px;text-align:center;}
+.lf{position:relative;margin-bottom:14px;}
+.lf input{width:100%;background:var(--s1);border:1px solid var(--out);border-radius:12px;
+  padding:20px 16px 8px;color:var(--text);font-family:inherit;font-size:16px;
+  outline:none;transition:border .2s;caret-color:var(--green);}
+.lf input:focus{border-color:var(--green);}
+.lf label{position:absolute;left:16px;top:50%;transform:translateY(-50%);
+  color:var(--t3);font-size:15px;transition:all .2s;pointer-events:none;}
+.lf input:focus~label,.lf input:not(:placeholder-shown)~label{top:12px;font-size:11px;color:var(--green);letter-spacing:.3px;}
+.lf input::placeholder{color:transparent;}
+.lbtn{width:100%;background:#1a6b3c;border:none;border-radius:100px;padding:15px;
+  color:#fff;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;margin-top:10px;transition:opacity .15s;}
+.lbtn:active{opacity:.8;}
+.lerr{color:var(--red);font-size:13px;margin-top:10px;display:none;
+  padding:10px 14px;background:var(--red-l);border-radius:10px;text-align:center;}
+.lhint{color:var(--t3);font-size:12px;margin-top:14px;text-align:center;line-height:1.8;}
+.lhint b{color:var(--green);}
+
+/* DEMO BUTTONS */
+.demo-btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:16px;}
+.db{background:var(--s1);border:1px solid var(--out);border-radius:12px;padding:10px 8px;
+  text-align:center;cursor:pointer;font-size:12px;transition:border-color .2s;}
+.db:active{border-color:var(--green);}
+.dr{font-size:11px;color:var(--t3);margin-top:2px;}
+
+/* APP */
+#app{display:none;}
+.topbar{position:fixed;top:0;left:0;right:0;z-index:200;height:calc(var(--navH)+var(--safe-t));
+  padding-top:var(--safe-t);background:rgba(16,20,24,.9);backdrop-filter:blur(20px);
+  border-bottom:1px solid rgba(26,107,60,.4);}
+.tbi{height:var(--navH);display:flex;align-items:center;justify-content:space-between;padding:0 16px;}
+.tb-logo img{height:32px;width:auto;}
+.tb-title{font-size:20px;font-weight:400;}
+.tb-right{display:flex;align-items:center;gap:10px;}
+.tb-av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#1a4029,#1a6b3c);
+  display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;overflow:hidden;cursor:pointer;}
+.tb-av img{width:100%;height:100%;object-fit:cover;}
+
+.navbar{position:fixed;bottom:0;left:0;right:0;z-index:200;
+  height:calc(var(--botH)+var(--safe-b));background:var(--s1);border-top:1px solid var(--out);
+  display:none;align-items:flex-start;justify-content:space-around;
+  padding:10px 4px 0;padding-bottom:var(--safe-b);}
+.nb{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;cursor:pointer;color:var(--t3);}
+.nb.active{color:#6dd58c;}
+.nbi{width:60px;height:30px;border-radius:100px;display:flex;align-items:center;justify-content:center;font-size:20px;transition:background .2s;}
+.nb.active .nbi{background:var(--green-l);}
+.nb:active .nbi{background:var(--surf);}
+.nb-l{font-size:11px;font-weight:500;letter-spacing:.2px;}
+
+.fab{position:fixed;bottom:calc(var(--botH)+var(--safe-b)+16px);right:16px;
+  width:56px;height:56px;border-radius:16px;z-index:150;background:#1a6b3c;
+  border:none;cursor:pointer;display:none;align-items:center;justify-content:center;
+  font-size:26px;color:#fff;font-weight:700;box-shadow:0 4px 20px rgba(0,0,0,.4);}
+.fab:active{transform:scale(.94);}
+
+.main{padding-top:calc(var(--navH)+var(--safe-t)+8px);padding-bottom:calc(var(--botH)+var(--safe-b)+10px);min-height:100vh;}
+
+/* PAGES */
+.page{display:none;}
+.page.active{display:block;animation:fi .2s ease;}
+@keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.sct{font-size:28px;font-weight:400;letter-spacing:-.3px;padding:12px 16px 2px;}
+.scs{font-size:14px;color:var(--t3);padding:2px 16px 0;}
+
+/* CARDS */
+.card{background:var(--s1);border-radius:16px;margin:12px 16px 0;padding:16px;border:1px solid var(--out);}
+.ct{font-size:13px;font-weight:500;color:var(--t3);margin-bottom:14px;text-transform:uppercase;letter-spacing:.5px;}
+
+/* STAT GRID */
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 16px 0;}
+.ms{background:var(--s1);border-radius:16px;padding:16px;border:1px solid var(--out);}
+.ms-l{font-size:11px;color:var(--t3);margin-bottom:8px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;}
+.ms-v{font-size:20px;font-weight:700;letter-spacing:-.5px;}
+.ms-v.b{color:var(--blue);}.ms-v.g{color:var(--green);}.ms-v.r{color:var(--red);}.ms-v.y{color:var(--yellow);}.ms-v.p{color:var(--purple);}.ms-v.o{color:var(--orange);}
+.ms-s{font-size:11px;color:var(--t3);margin-top:3px;}
+
+/* LIST */
+.mlist{background:var(--s1);border-radius:16px;margin:12px 16px 0;overflow:hidden;border:1px solid var(--out);}
+.mr{display:flex;align-items:center;padding:14px 16px;gap:14px;min-height:56px;
+  border-bottom:1px solid var(--out);cursor:pointer;transition:background .1s;}
+.mr:last-child{border-bottom:none;}
+.mr:active{background:var(--surf);}
+.mr-ico{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.mr-b{flex:1;min-width:0;}
+.mr-t{font-size:15px;font-weight:400;}
+.mr-s{font-size:13px;color:var(--t3);margin-top:2px;}
+.mr-tr{color:var(--t3);font-size:22px;flex-shrink:0;}
+
+/* CHIPS */
+.chip{display:inline-flex;align-items:center;padding:5px 12px;border-radius:8px;font-size:12px;font-weight:500;white-space:nowrap;}
+.c-b{background:var(--blue-l);color:var(--blue);}
+.c-g{background:var(--green-l);color:var(--green);}
+.c-r{background:var(--red-l);color:var(--red);}
+.c-y{background:var(--yellow-l);color:var(--yellow);}
+.c-p{background:var(--purple-l);color:var(--purple);}
+.c-o{background:var(--orange-l);color:var(--orange);}
+.c-gr{background:var(--surf);color:var(--t2);}
+
+/* DEPT BADGE */
+.dept{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;}
+.dept.sales{background:var(--blue-l);color:var(--blue);}
+.dept.production{background:var(--orange-l);color:var(--orange);}
+.dept.finance{background:var(--green-l);color:var(--green);}
+.dept.marketing{background:var(--purple-l);color:var(--purple);}
+.dept.admin{background:var(--yellow-l);color:var(--yellow);}
+
+/* TX */
+.tx{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--out);}
+.tx:last-child{border-bottom:none;}
+.txic{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+.txic.plus{background:var(--green-l);}.txic.minus{background:var(--red-l);}.txic.neut{background:var(--yellow-l);}.txic.comm{background:var(--orange-l);}
+.txb{flex:1;min-width:0;}
+.txn{font-size:14px;font-weight:500;}
+.txs{font-size:12px;color:var(--t3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.txa{font-size:14px;font-weight:700;white-space:nowrap;flex-shrink:0;}
+.txa.plus{color:var(--green);}.txa.minus{color:var(--red);}.txa.comm{color:var(--orange);}
+.tx-tap{cursor:pointer;border-radius:10px;transition:background .1s;}
+.tx-tap:active{background:var(--surf);}
+
+/* BARS */
+.br{margin:11px 0;}
+.bl{display:flex;justify-content:space-between;font-size:13px;color:var(--t2);margin-bottom:5px;}
+.bt{height:6px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden;}
+.bf{height:100%;border-radius:3px;transition:width .7s cubic-bezier(.4,0,.2,1);}
+.fb{background:var(--blue);}.fg{background:var(--green);}.fr{background:var(--red);}.fy{background:var(--yellow);}.fp{background:var(--purple);}.fo{background:var(--orange);}
+
+/* SALARY HERO */
+.sal-hero{margin:12px 16px 0;border-radius:20px;padding:24px;
+  background:linear-gradient(135deg,#0d2818,var(--s2));border:1px solid rgba(26,107,60,.3);}
+.sh-l{font-size:11px;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;}
+.sh-v{font-size:34px;font-weight:300;letter-spacing:-2px;color:var(--green);}
+.sh-s{font-size:12px;color:var(--t3);margin-top:5px;}
+.sh-chips{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px;}
+.sh-chip{border-radius:12px;padding:12px;}
+.sh-cl{font-size:11px;color:var(--t3);margin-bottom:4px;}
+.sh-cv{font-size:15px;font-weight:600;}
+
+/* CRM */
+.deal-card{background:var(--s1);border-radius:14px;margin-bottom:10px;padding:16px;border:1px solid var(--out);}
+.deal-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;gap:10px;}
+.deal-client{font-size:16px;font-weight:500;}
+.deal-desc{font-size:13px;color:var(--t3);margin-top:3px;}
+.deal-amount{font-size:17px;font-weight:700;color:var(--green);white-space:nowrap;}
+.deal-meta{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap;}
+.deal-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+.status-btn{padding:7px 14px;border-radius:100px;font-size:12px;font-weight:500;border:1px solid var(--out);
+  background:transparent;color:var(--t2);cursor:pointer;font-family:inherit;transition:all .15s;}
+.status-btn:active{opacity:.7;}
+.status-btn.won{background:var(--green-l);color:var(--green);border-color:transparent;}
+.status-btn.lost{background:var(--red-l);color:var(--red);border-color:transparent;}
+.crm-filter{display:flex;gap:8px;padding:12px 16px 0;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.crm-filter::-webkit-scrollbar{display:none;}
+.cf-btn{padding:8px 16px;border-radius:100px;font-size:13px;font-weight:500;white-space:nowrap;
+  border:1px solid var(--out);background:transparent;color:var(--t2);cursor:pointer;font-family:inherit;transition:all .15s;flex-shrink:0;}
+.cf-btn.active{background:var(--green-l);color:var(--green);border-color:var(--green);}
+.crm-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 16px 0;}
+.crm-s{background:var(--s1);border-radius:12px;padding:12px;text-align:center;border:1px solid var(--out);}
+.crm-sv{font-size:18px;font-weight:700;}
+.crm-sl{font-size:10px;color:var(--t3);margin-top:3px;text-transform:uppercase;letter-spacing:.5px;}
+.pipeline{display:flex;gap:4px;height:6px;border-radius:3px;overflow:hidden;margin:12px 16px 0;}
+.pl-seg{height:100%;transition:flex .5s;}
+
+/* PROFILE */
+.prof-card{margin:12px 16px 0;background:var(--s1);border-radius:20px;padding:24px;border:1px solid var(--out);display:flex;flex-direction:column;align-items:center;}
+.pav{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#1a4029,#1a6b3c);
+  display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;color:#fff;
+  cursor:pointer;overflow:hidden;position:relative;border:3px solid var(--out);}
+.pav img{width:100%;height:100%;object-fit:cover;}
+.pav-ed{position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;opacity:0;border-radius:50%;}
+.pav:active .pav-ed{opacity:1;}
+#pi{display:none;}
+.pnm{font-size:22px;font-weight:400;margin-top:12px;text-align:center;}
+.prl{font-size:14px;color:var(--green);margin-top:4px;}
+.pmg{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;margin-top:16px;}
+.pmi{background:var(--s2);border-radius:12px;padding:12px;}
+.pmil{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
+.pmiv{font-size:14px;font-weight:500;}
+
+/* PERIOD */
+.prow{display:flex;gap:8px;padding:12px 16px 0;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.prow::-webkit-scrollbar{display:none;}
+.pb-btn{padding:8px 18px;border-radius:100px;font-size:13px;font-weight:500;flex-shrink:0;
+  border:1px solid var(--out);background:transparent;color:var(--t2);cursor:pointer;font-family:inherit;transition:all .15s;}
+.pb-btn.active{background:var(--green-l);color:var(--green);border-color:var(--green);}
+
+/* ABOUT */
+.about-hdr{margin:12px 16px 0;border-radius:20px;padding:24px;background:linear-gradient(135deg,#0d2818,#13263d);border:1px solid rgba(26,107,60,.3);position:relative;overflow:hidden;}
+.about-hdr::before{content:'ISOLA';position:absolute;right:-5px;bottom:-20px;font-size:80px;font-weight:700;color:rgba(255,255,255,.04);letter-spacing:-4px;}
+.ah-t{font-size:26px;font-weight:500;letter-spacing:-.3px;margin-bottom:6px;}
+.ah-s{font-size:14px;color:var(--t3);line-height:1.6;}
+.a-sg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 16px 0;}
+.astat{background:var(--s1);border-radius:14px;padding:16px;text-align:center;border:1px solid var(--out);}
+.asv{font-size:24px;font-weight:700;color:var(--green);letter-spacing:-1px;}
+.asl{font-size:10px;color:var(--t3);margin-top:4px;text-transform:uppercase;letter-spacing:.5px;}
+.srv-g{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px;}
+.srv{background:var(--s2);border-radius:12px;padding:12px;text-align:center;}
+.srv-ic{font-size:24px;margin-bottom:6px;}
+.srv-t{font-size:12px;font-weight:500;}
+.srv-s{font-size:11px;color:var(--t3);margin-top:2px;}
+
+/* RIGHTS */
+.rc{background:var(--s1);border-radius:14px;margin-bottom:8px;padding:14px 16px;display:flex;align-items:flex-start;gap:12px;border:1px solid var(--out);}
+.rn{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+.rn.b{background:var(--blue-l);color:var(--blue);}
+.rn.g{background:var(--green-l);color:var(--green);}
+.rt{font-size:14px;color:var(--t2);line-height:1.5;}
+.fc{background:var(--s1);border-radius:14px;margin-bottom:8px;padding:16px;border:1px solid var(--out);}
+.fc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+.fc-nm{font-size:14px;font-weight:500;}
+.fc-nt{font-size:12px;color:var(--t3);}
+
+/* ADMIN */
+.admin-section{margin:0 16px 14px;}
+.admin-hdr{display:flex;justify-content:space-between;align-items:center;padding:16px 0 8px;font-size:16px;font-weight:500;color:var(--t2);}
+.dept-config{background:var(--s1);border-radius:14px;padding:16px;border:1px solid var(--out);margin-bottom:10px;}
+.dc-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+.dc-name{font-size:15px;font-weight:500;}
+.dc-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.dc-lbl{font-size:13px;color:var(--t3);}
+.dc-val{font-size:14px;font-weight:600;color:var(--text);}
+
+/* SHEET */
+.sheet-bg{position:fixed;inset:0;z-index:500;display:none;align-items:flex-end;background:rgba(0,0,0,.55);}
+.sheet-bg.open{display:flex;}
+.sheet{background:var(--s1);border-radius:28px 28px 0 0;width:100%;max-height:92vh;overflow-y:auto;
+  padding:0 0 calc(var(--safe-b)+16px);animation:shUp .28s cubic-bezier(.4,0,.2,1);}
+@keyframes shUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.sh-hnd{width:32px;height:4px;background:var(--out);border-radius:4px;margin:14px auto 6px;}
+.sh-in{padding:0 22px 10px;}
+.sh-t{font-size:22px;font-weight:400;padding:8px 0 18px;}
+.sheet label{font-size:11px;color:var(--green);margin-bottom:5px;display:block;font-weight:500;text-transform:uppercase;letter-spacing:.4px;}
+.sheet input,.sheet select,.sheet textarea{
+  width:100%;background:var(--bg);border:1px solid var(--out);border-radius:12px;
+  padding:14px 16px;color:var(--text);font-family:inherit;font-size:16px;
+  outline:none;margin-bottom:13px;transition:border .2s;-webkit-appearance:none;}
+.sheet input:focus,.sheet select:focus,.sheet textarea:focus{border-color:var(--green);}
+.sheet textarea{resize:none;min-height:80px;}
+.sheet select option{background:var(--s2);}
+.sh-btns{display:flex;gap:10px;margin-top:6px;}
+.sh-btns .shb{flex:1;}
+.shb{background:transparent;border:1px solid var(--out);border-radius:100px;padding:14px;
+  color:var(--text);font-family:inherit;font-size:15px;font-weight:500;cursor:pointer;transition:all .15s;}
+.shb:active{opacity:.7;}
+.shb.p{background:#1a6b3c;color:#fff;border-color:transparent;font-weight:700;}
+.shb.d{background:var(--red-l);color:var(--red);border-color:transparent;}
+.g2f{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.det-ico{font-size:50px;text-align:center;margin:18px 0 10px;}
+.det-amt{font-size:30px;font-weight:300;text-align:center;margin-bottom:6px;letter-spacing:-1px;}
+.det-dt{text-align:center;color:var(--t3);font-size:13px;margin-bottom:22px;}
+.det-box{background:var(--s2);border-radius:14px;padding:16px;}
+.det-lbl{font-size:11px;color:var(--green);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;font-weight:500;}
+.det-txt{font-size:15px;line-height:1.7;color:var(--t2);}
+
+/* SNACK */
+.snack{position:fixed;bottom:calc(var(--botH)+var(--safe-b)+8px);left:16px;right:16px;
+  background:#2d3138;border-radius:4px;padding:14px 16px;font-size:14px;z-index:600;
+  transform:translateY(80px);opacity:0;transition:transform .3s,opacity .3s;
+  display:flex;align-items:center;justify-content:space-between;
+  box-shadow:0 3px 14px rgba(0,0,0,.5);}
+.snack.show{transform:translateY(0);opacity:1;}
+.snack.g{color:var(--green);}.snack.r{color:var(--red);}
+
+/* MISC */
+.sep{height:1px;background:var(--out);margin:14px 0;}
+.empty{color:var(--t3);font-size:14px;padding:28px 0;text-align:center;}
+.pb{padding-bottom:20px;}
+.section-lbl{padding:16px 16px 6px;font-size:13px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;}
+.avc{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#1a4029,#1a6b3c);
+  display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;overflow:hidden;}
+.avc img{width:100%;height:100%;object-fit:cover;}
+input[type="number"]{-moz-appearance:textfield;}
+input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238e909a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px !important;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+<div class="lw">
+  <div class="ll"><img src="logo.png" alt="ISOLA"></div>
+  <div class="lt">HR Портал сотрудников</div>
+  <div class="lf">
+    <input type="text" id="li" placeholder=" " autocomplete="username">
+    <label>Логин</label>
+  </div>
+  <div class="lf">
+    <input type="password" id="lp" placeholder=" " autocomplete="current-password">
+    <label>Пароль</label>
+  </div>
+  <button class="lbtn" onclick="doLogin()">Войти</button>
+  <div class="lerr" id="lerr"></div>
+  <div class="lhint">Первый вход: <b>admin / admin1234</b></div>
+  <div class="demo-btns" id="demo-btns"></div>
+</div>
+</div>
+
+<!-- APP -->
+<div id="app">
+<div class="topbar">
+  <div class="tbi">
+    <div class="tb-logo" id="tb-logo"><img src="logo.png" alt="ISOLA"></div>
+    <div class="tb-title" id="tb-title" style="display:none"></div>
+    <div class="tb-right">
+      <div class="tb-av" id="tb-av"></div>
+    </div>
+  </div>
+</div>
+
+<div class="navbar" id="navbar"></div>
+<button class="fab" id="fab">＋</button>
+
+<div class="main">
+
+<!-- DASHBOARD -->
+<div class="page" id="page-dash">
+  <div class="sct" id="dash-t">Главная</div>
+  <div class="scs" id="dash-d"></div>
+  <div class="sg" id="dash-stats"></div>
+  <div class="card" style="margin-top:14px;"><div class="ct">Последние операции</div><div id="dash-tx"></div></div>
+  <div class="card"><div class="ct">Аналитика месяца</div><div id="dash-bars"></div></div>
+  <div class="pb"></div>
+</div>
+
+<!-- PROFILE -->
+<div class="page" id="page-profile">
+  <div class="prof-card">
+    <div class="pav" id="pav" onclick="document.getElementById('pi').click()"><div class="pav-ed">📷</div></div>
+    <input type="file" id="pi" accept="image/*" onchange="handlePhoto(event)">
+    <div class="pnm" id="pnm"></div>
+    <div class="prl" id="prl"></div>
+    <div class="pmg" id="pmg"></div>
+  </div>
+  <div class="mlist" id="plist"></div>
+  <div class="section-lbl">Должностные инструкции</div>
+  <div style="margin:0 16px;" id="pinstr"></div>
+  <div class="pb"></div>
+</div>
+
+<!-- CRM -->
+<div class="page" id="page-crm">
+  <div class="sct">CRM — Сделки</div>
+  <div class="scs" id="crm-sub"></div>
+  <div class="crm-summary" id="crm-sum"></div>
+  <div class="pipeline" id="crm-pipeline"></div>
+  <div class="crm-filter">
+    <button class="cf-btn active" onclick="filterDeals('all',this)">Все</button>
+    <button class="cf-btn" onclick="filterDeals('new',this)">Новые</button>
+    <button class="cf-btn" onclick="filterDeals('progress',this)">В работе</button>
+    <button class="cf-btn" onclick="filterDeals('negotiation',this)">Переговоры</button>
+    <button class="cf-btn" onclick="filterDeals('won',this)">Выиграны</button>
+    <button class="cf-btn" onclick="filterDeals('lost',this)">Проиграны</button>
+  </div>
+  <div style="margin:12px 16px 0;" id="deal-list"></div>
+  <div class="pb"></div>
+</div>
+
+<!-- SALARY -->
+<div class="page" id="page-salary">
+  <div class="sct">Зарплата</div>
+  <div class="scs">История начислений и выплат</div>
+  <div class="prow" id="ysel" style="margin-top:4px;"></div>
+  <div class="prow" id="msel"></div>
+  <div class="sal-hero" id="salsum"></div>
+  <div class="card"><div class="ct">Все операции</div><div id="sal-tx"></div></div>
+  <div class="card"><div class="ct">Разбивка</div><div id="sal-det"></div></div>
+  <div class="pb"></div>
+</div>
+
+<!-- DIRECTORY -->
+<div class="page" id="page-dir">
+  <div class="sct">Справочник</div>
+  <div class="scs">Контакты коллег</div>
+  <div style="margin:12px 16px 0;" id="dgrid"></div>
+  <div class="pb"></div>
+</div>
+
+<!-- ABOUT -->
+<div class="page" id="page-about">
+  <div class="about-hdr"><div class="ah-t">О компании ISOLA</div><div class="ah-s">Мебель и двери под заказ, готовые интерьеры под ключ.</div></div>
+  <div class="a-sg">
+    <div class="astat"><div class="asv">2008</div><div class="asl">Год основания</div></div>
+    <div class="astat"><div class="asv">300+</div><div class="asl">Проектов</div></div>
+    <div class="astat"><div class="asv">7+</div><div class="asl">Лет в Ташкенте</div></div>
+    <div class="astat"><div class="asv">UZ·RU</div><div class="asl">Присутствие</div></div>
+  </div>
+  <div class="card">
+    <div class="ct">История</div>
+    <div style="color:var(--t2);font-size:14px;line-height:1.75;">Компания Isola основана в <b style="color:var(--text)">2008 году в России</b>. Главная идея — качественная мебель по привлекательной цене.<br><br>В <b style="color:var(--text)">2018 году</b> открылся филиал в <b style="color:var(--text)">Ташкенте</b>. Более 300 проектов по всему Узбекистану.</div>
+    <div class="srv-g">
+      <div class="srv"><div class="srv-ic">🛋️</div><div class="srv-t">Мягкая мебель</div><div class="srv-s">Диваны, кресла</div></div>
+      <div class="srv"><div class="srv-ic">🚪</div><div class="srv-t">Двери</div><div class="srv-s">Межкомнатные</div></div>
+      <div class="srv"><div class="srv-ic">🏠</div><div class="srv-t">Под ключ</div><div class="srv-s">Интерьер</div></div>
+    </div>
+  </div>
+  <div class="mlist">
+    <div class="mr"><div class="mr-ico" style="background:var(--blue-l)">📍</div><div class="mr-b"><div class="mr-t">ул. Джами, 229, Ташкент</div></div></div>
+    <div class="mr" onclick="window.location.href='tel:+998712000715'"><div class="mr-ico" style="background:var(--green-l)">📞</div><div class="mr-b"><div class="mr-t">+998 71 200-07-15</div></div><div class="mr-tr">›</div></div>
+    <div class="mr" onclick="window.location.href='tel:+998909101871'"><div class="mr-ico" style="background:var(--green-l)">📱</div><div class="mr-b"><div class="mr-t">+998 90 910-18-71</div></div><div class="mr-tr">›</div></div>
+    <div class="mr"><div class="mr-ico" style="background:var(--yellow-l)">⏰</div><div class="mr-b"><div class="mr-t">Пн–Сб: 9:00 – 18:00</div></div></div>
+  </div>
+  <div class="pb"></div>
+</div>
+
+<!-- RIGHTS -->
+<div class="page" id="page-rights">
+  <div class="sct">Регламент</div>
+  <div class="section-lbl">⚖️ Права сотрудника</div>
+  <div style="margin:0 16px;" id="rlist"></div>
+  <div class="section-lbl" style="margin-top:8px;">📌 Обязательства</div>
+  <div style="margin:0 16px;" id="olist"></div>
+  <div class="section-lbl" style="margin-top:8px;">🚫 Штрафной регламент</div>
+  <div style="margin:0 16px 0;" id="flist">
+    <div class="fc"><div class="fc-top"><div class="fc-nm">Опоздание до 30 мин</div><span class="chip c-y">50 000 сум</span></div><div class="fc-nt">За каждый случай</div></div>
+    <div class="fc"><div class="fc-top"><div class="fc-nm">Опоздание свыше 30 мин</div><span class="chip c-r">100 000 сум</span></div><div class="fc-nt">За каждый случай</div></div>
+    <div class="fc"><div class="fc-top"><div class="fc-nm">Невыполнение плана</div><span class="chip c-r">до 5% оклада</span></div><div class="fc-nt">По решению руководства</div></div>
+    <div class="fc"><div class="fc-top"><div class="fc-nm">Нарушение дресс-кода</div><span class="chip c-y">50 000 сум</span></div><div class="fc-nt">За каждый случай</div></div>
+    <div class="fc"><div class="fc-top"><div class="fc-nm">Грубость с клиентом</div><span class="chip c-r">200 000 сум</span></div><div class="fc-nt">+ предупреждение</div></div>
+    <div class="fc"><div class="fc-top"><div class="fc-nm">Разглашение тайны</div><span class="chip c-r">Увольнение</span></div><div class="fc-nt">Без предупреждения</div></div>
+  </div>
+  <div class="pb"></div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div class="page" id="page-admin">
+  <div class="sct">Администратор</div>
+  <div class="admin-section">
+    <div class="admin-hdr"><span>👥 Сотрудники</span><button class="shb p" style="padding:8px 16px;font-size:13px;" onclick="openM('mod-emp')">＋ Добавить</button></div>
+    <div id="a-emplist"></div>
+  </div>
+  <div class="admin-section">
+    <div class="admin-hdr"><span>💸 Начисления</span><button class="shb p" style="padding:8px 16px;font-size:13px;" onclick="openAccM()">＋ Добавить</button></div>
+    <div id="a-acclist"></div>
+  </div>
+  <div class="admin-section">
+    <div class="admin-hdr"><span>⚙️ Настройка отделов</span></div>
+    <div id="a-depts"></div>
+  </div>
+  <div class="pb"></div>
+</div>
+
+</div><!-- /main -->
+</div><!-- /app -->
+
+<!-- SHEET: NEW EMPLOYEE -->
+<div class="sheet-bg" id="mod-emp">
+<div class="sheet">
+  <div class="sh-hnd"></div>
+  <div class="sh-in">
+    <div class="sh-t">Новый сотрудник</div>
+    <label>ФИО</label><input id="fn" placeholder="Иванов Иван" autocomplete="off">
+    <label>Отдел</label>
+    <select id="fdept">
+      <option value="sales">📊 Отдел продаж</option>
+      <option value="production">🔨 Производство</option>
+      <option value="finance">💼 Финансовый отдел</option>
+      <option value="marketing">📣 Отдел маркетинга</option>
+    </select>
+    <label>Должность</label><input id="fr" placeholder="Менеджер по продажам">
+    <div class="g2f">
+      <div><label>Дата рождения</label><input id="fd" type="date"></div>
+      <div><label>Дата трудоустройства</label><input id="fs" type="date"></div>
+    </div>
+    <label>Мобильный</label><input id="fp" type="tel" placeholder="+998 90 000 00 00">
+    <label>Оклад (сум)</label><input id="fsal" type="number" placeholder="3000000" inputmode="numeric">
+    <div id="comm-field">
+      <label>% комиссии с продаж</label>
+      <input id="fcomm" type="number" placeholder="5" inputmode="numeric">
+    </div>
+    <div class="g2f">
+      <div><label>Логин</label><input id="fl" autocomplete="off"></div>
+      <div><label>Пароль</label><input id="fpa" placeholder="1234"></div>
+    </div>
+    <label>Инструкции (каждая с новой строки)</label>
+    <textarea id="fi" placeholder="Обрабатывать заявки&#10;Вести отчётность"></textarea>
+    <div class="sh-btns">
+      <button class="shb" onclick="closeM('mod-emp')">Отмена</button>
+      <button class="shb p" onclick="saveEmp()">Добавить</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- SHEET: ADD ACCRUAL -->
+<div class="sheet-bg" id="mod-acc">
+<div class="sheet">
+  <div class="sh-hnd"></div>
+  <div class="sh-in">
+    <div class="sh-t">Добавить начисление</div>
+    <label>Сотрудник</label><select id="ae"></select>
+    <label>Тип</label>
+    <select id="atype">
+      <option value="salary">💼 Оклад</option>
+      <option value="bonus">🎯 Бонус</option>
+      <option value="commission">💰 Комиссия с продаж</option>
+      <option value="advance">💵 Аванс</option>
+      <option value="fine">⚠️ Штраф</option>
+      <option value="payout">✅ Выплата</option>
+    </select>
+    <div class="g2f">
+      <div><label>Год</label><select id="ayear"></select></div>
+      <div><label>Месяц</label><select id="amonth">
+        <option value="0">Январь</option><option value="1">Февраль</option><option value="2">Март</option>
+        <option value="3">Апрель</option><option value="4">Май</option><option value="5">Июнь</option>
+        <option value="6">Июль</option><option value="7">Август</option><option value="8">Сентябрь</option>
+        <option value="9">Октябрь</option><option value="10">Ноябрь</option><option value="11">Декабрь</option>
+      </select></div>
+    </div>
+    <label>Сумма (сум)</label><input id="aamount" type="number" placeholder="500000" inputmode="numeric">
+    <label>Комментарий / Причина</label>
+    <textarea id="acomment" placeholder="Подробное описание..."></textarea>
+    <div class="sh-btns">
+      <button class="shb" onclick="closeM('mod-acc')">Отмена</button>
+      <button class="shb p" onclick="saveAcc()">Сохранить</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- SHEET: NEW DEAL -->
+<div class="sheet-bg" id="mod-deal">
+<div class="sheet">
+  <div class="sh-hnd"></div>
+  <div class="sh-in">
+    <div class="sh-t">Новая сделка</div>
+    <div id="deal-emp-row" style="display:none;">
+      <label>Менеджер</label><select id="deal-emp"></select>
+    </div>
+    <label>Клиент</label><input id="dclient" placeholder="ООО «Название» или ФИО" autocomplete="off">
+    <label>Описание / Продукт</label><input id="ddesc" placeholder="Кухонный гарнитур, диван...">
+    <label>Сумма договора (сум)</label><input id="damount" type="number" placeholder="5000000" inputmode="numeric">
+    <div class="g2f">
+      <div><label>Год</label><select id="dyear"></select></div>
+      <div><label>Месяц</label><select id="dmonth">
+        <option value="0">Январь</option><option value="1">Февраль</option><option value="2">Март</option>
+        <option value="3">Апрель</option><option value="4">Май</option><option value="5">Июнь</option>
+        <option value="6">Июль</option><option value="7">Август</option><option value="8">Сентябрь</option>
+        <option value="9">Октябрь</option><option value="10">Ноябрь</option><option value="11">Декабрь</option>
+      </select></div>
+    </div>
+    <label>Статус</label>
+    <select id="dstatus">
+      <option value="new">🆕 Новая заявка</option>
+      <option value="progress">🔄 В работе</option>
+      <option value="negotiation">🤝 Переговоры</option>
+      <option value="won">✅ Выиграна</option>
+      <option value="lost">❌ Проиграна</option>
+    </select>
+    <div class="sh-btns">
+      <button class="shb" onclick="closeM('mod-deal')">Отмена</button>
+      <button class="shb p" onclick="saveDeal()">Сохранить</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- SHEET: DETAIL -->
+<div class="sheet-bg" id="mod-det">
+<div class="sheet">
+  <div class="sh-hnd"></div>
+  <div class="sh-in">
+    <div class="det-ico" id="det-ico"></div>
+    <div class="det-amt" id="det-amt"></div>
+    <div class="det-dt" id="det-dt"></div>
+    <div class="det-box"><div class="det-lbl" id="det-lbl"></div><div class="det-txt" id="det-txt"></div></div>
+    <div class="sh-btns" style="margin-top:18px;"><button class="shb" onclick="closeM('mod-det')">Закрыть</button></div>
+  </div>
+</div>
+</div>
+
+<!-- SHEET: DEAL DETAIL -->
+<div class="sheet-bg" id="mod-deal-det">
+<div class="sheet">
+  <div class="sh-hnd"></div>
+  <div class="sh-in" id="deal-det-in"></div>
+</div>
+</div>
+
+<!-- SHEET: DEPT CONFIG -->
+<div class="sheet-bg" id="mod-dept">
+<div class="sheet">
+  <div class="sh-hnd"></div>
+  <div class="sh-in">
+    <div class="sh-t" id="dept-sh-t">Настройка отдела</div>
+    <input type="hidden" id="dept-key">
+    <label>% комиссии с продаж (0 = нет комиссии)</label>
+    <input id="dept-comm" type="number" placeholder="5" inputmode="numeric">
+    <label>Фиксированный бонус к окладу (сум)</label>
+    <input id="dept-bonus" type="number" placeholder="0" inputmode="numeric">
+    <div class="sh-btns">
+      <button class="shb" onclick="closeM('mod-dept')">Отмена</button>
+      <button class="shb p" onclick="saveDept()">Сохранить</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="snack" id="snack"></div>
+
+<script>
+// ══════ CONSTANTS ══════
+var MN=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+var MS=['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+var DEPTS={
+  sales:{name:'Отдел продаж',ico:'📊',cls:'sales'},
+  production:{name:'Производство',ico:'🔨',cls:'production'},
+  finance:{name:'Финансовый отдел',ico:'💼',cls:'finance'},
+  marketing:{name:'Отдел маркетинга',ico:'📣',cls:'marketing'},
+  admin:{name:'Администратор',ico:'⚙️',cls:'admin'}
+};
+var STATUS_MAP={
+  new:{lbl:'Новая',cls:'c-b',ico:'🆕'},
+  progress:{lbl:'В работе',cls:'c-y',ico:'🔄'},
+  negotiation:{lbl:'Переговоры',cls:'c-p',ico:'🤝'},
+  won:{lbl:'Выиграна',cls:'c-g',ico:'✅'},
+  lost:{lbl:'Проиграна',cls:'c-r',ico:'❌'}
+};
+var RIGHTS_D=['Получать зарплату в установленные сроки','Своевременно получать информацию об изменениях','Перерыв на обед 1 час','Получать бонусы при выполнении KPI','Обращаться к руководству с предложениями','Обучение за счёт компании','Корпоративные ресурсы','Аванс до 50% оклада по запросу'];
+var OBLIGS_D=['Режим работы: 9:00–18:00','Выполнять задания в срок','Дресс-код: деловой стиль','Порядок на рабочем месте','Не разглашать коммерческую тайну','Предупреждать об опозданиях','Вежливое общение с клиентами','Обновлять CRM после контактов'];
+var ACC_ICO={salary:'💼',bonus:'🎯',commission:'💰',advance:'💵',fine:'⚠️',payout:'✅'};
+var ACC_LBL={salary:'Оклад',bonus:'Бонус',commission:'Комиссия',advance:'Аванс',fine:'Штраф',payout:'Выплата'};
+
+var now = new Date();
+var CY=now.getFullYear(), CM=now.getMonth(), dealFilter='all';
+var CU=null, _lastAcc=[];
+
+// ══════ LOCAL DB ══════
+var DB_KEY='hr_';
+function dbGet(key,def){
+  try{var v=localStorage.getItem(DB_KEY+key);return v?JSON.parse(v):(def!=null?def:[]);}catch(e){return def!=null?def:[];}
+}
+function dbSet(key,data){localStorage.setItem(DB_KEY+key,JSON.stringify(data));}
+
+function seedData(){
+  if(dbGet('seeded',false))return;
+  var users=[
+    {id:1,name:'Администратор',login:'admin',password:'admin1234',role:'admin',department:null,baseSalary:0,phone:'+998 90 000 00 00',dob:'',startDate:'2018-01-01',status:'active',photo:null,instructions:[]},
+    {id:2,name:'Анна Смирнова',login:'anna',password:'1234',role:'employee',department:'sales',baseSalary:3000000,commissionRate:5,phone:'+998 90 123 45 67',dob:'15.04.1995',startDate:'2023-03-01',status:'active',photo:null,instructions:['Обрабатывать заявки в течение 15 минут','Вести базу клиентов в CRM','Выполнять план: не менее 30 сделок в месяц']},
+    {id:3,name:'Дмитрий Казаков',login:'dima',password:'1234',role:'employee',department:'production',baseSalary:5000000,commissionRate:0,phone:'+998 91 234 56 78',dob:'03.09.1992',startDate:'2022-06-15',status:'active',photo:null,instructions:['Соблюдать нормы производства','Контролировать качество изделий','Вести журнал производства']}
+  ];
+  var mo=now.getMonth(),yr=now.getFullYear();
+  var moFmt=function(m){return m<10?'0'+m:m;};
+  var accruals=[
+    {id:1,empId:2,type:'salary',amount:3000000,comment:'Оклад '+MN[mo]+' '+yr,date:'01.'+moFmt(mo+1)+'.'+yr,month:mo,year:yr},
+    {id:2,empId:2,type:'bonus',amount:450000,comment:'Комиссия с продаж '+MN[mo],date:'15.'+moFmt(mo+1)+'.'+yr,month:mo,year:yr},
+    {id:3,empId:2,type:'advance',amount:800000,comment:'Аванс '+MN[mo],date:'10.'+moFmt(mo+1)+'.'+yr,month:mo,year:yr},
+    {id:4,empId:3,type:'salary',amount:5000000,comment:'Оклад '+MN[mo]+' '+yr,date:'01.'+moFmt(mo+1)+'.'+yr,month:mo,year:yr}
+  ];
+  var deals=[
+    {id:1,empId:2,client:'ООО "Алиев Дизайн"',amount:9000000,status:'won',date:'05.'+moFmt(mo+1)+'.'+yr,description:'Кухня+прихожая',month:mo,year:yr},
+    {id:2,empId:2,client:'Рустамов Б.',amount:5000000,status:'won',date:'12.'+moFmt(mo+1)+'.'+yr,description:'Спальный гарнитур',month:mo,year:yr},
+    {id:3,empId:2,client:'ТОО "Самарканд Буд"',amount:18000000,status:'progress',date:'18.'+moFmt(mo+1)+'.'+yr,description:'Офисная мебель',month:mo,year:yr},
+    {id:4,empId:2,client:'Ли Синь',amount:3200000,status:'new',date:'22.'+moFmt(mo+1)+'.'+yr,description:'Детская комната',month:mo,year:yr},
+    {id:5,empId:2,client:'Ахмедов Р.',amount:7500000,status:'lost',date:'14.'+moFmt(mo+1)+'.'+yr,description:'Гостиная',month:mo,year:yr}
+  ];
+  var config={departments:{
+    sales:{name:'Отдел продаж',commissionRate:5,fixedBonus:0},
+    production:{name:'Производство',commissionRate:0,fixedBonus:0},
+    finance:{name:'Финансовый отдел',commissionRate:0,fixedBonus:0},
+    marketing:{name:'Отдел маркетинга',commissionRate:0,fixedBonus:0}
+  }};
+  dbSet('users',users);
+  dbSet('accruals',accruals);
+  dbSet('deals',deals);
+  dbSet('config',config);
+  dbSet('seeded',true);
+}
+seedData();
+
+// ══════ LOCAL API ══════
+function localAPI(method,url,body){
+  var users=dbGet('users');
+  var accruals=dbGet('accruals');
+  var deals=dbGet('deals');
+  var config=dbGet('config',{departments:{}});
+
+  // POST /api/login
+  if(method==='POST'&&url==='/api/login'){
+    var u=null;
+    for(var i=0;i<users.length;i++) if(users[i].login.toLowerCase()===body.login.toLowerCase().trim()){u=users[i];break;}
+    if(!u||u.password!==body.password) throw new Error('Неверный логин или пароль');
+    if(u.status!=='active') throw new Error('Аккаунт деактивирован');
+    var safe=Object.assign({},u);delete safe.password;
+    return {token:'local',user:safe};
+  }
+
+  // GET /api/users/me
+  if(method==='GET'&&url==='/api/users/me'){
+    var u=null;for(var i=0;i<users.length;i++) if(users[i].id===CU.id){u=users[i];break;}
+    if(!u) throw new Error('Not found');
+    var safe=Object.assign({},u);delete safe.password;return safe;
+  }
+
+  // GET /api/users
+  if(method==='GET'&&url==='/api/users'){
+    if(CU.role!=='admin'){
+      return users.filter(function(u){return u.status==='active';}).map(function(u){return {id:u.id,name:u.name,role:u.role,department:u.department,phone:u.phone};});
+    }
+    return users.map(function(u){var s=Object.assign({},u);delete s.password;return s;});
+  }
+
+  // POST /api/users
+  if(method==='POST'&&url==='/api/users'){
+    if(users.find(function(u){return u.login.toLowerCase()===body.login.toLowerCase();})) throw new Error('Логин уже занят');
+    var newUser=Object.assign({id:Date.now(),status:'active',photo:null},body);
+    users.push(newUser);dbSet('users',users);
+    var safe=Object.assign({},newUser);delete safe.password;return safe;
+  }
+
+  // PUT /api/users/:id
+  var mU=url.match(/^\/api\/users\/(\d+)$/);
+  if(method==='PUT'&&mU){
+    var id=parseInt(mU[1]);
+    var idx=-1;for(var i=0;i<users.length;i++) if(users[i].id===id){idx=i;break;}
+    if(idx===-1) throw new Error('Not found');
+    var allowed=CU.role==='admin'?body:{photo:body.photo};
+    users[idx]=Object.assign({},users[idx],allowed);
+    dbSet('users',users);
+    var safe=Object.assign({},users[idx]);delete safe.password;return safe;
+  }
+
+  // DELETE /api/users/:id
+  if(method==='DELETE'&&mU){
+    var id=parseInt(mU[1]);
+    for(var i=0;i<users.length;i++) if(users[i].id===id){users[i].status='inactive';break;}
+    dbSet('users',users);return {ok:true};
+  }
+
+  // GET /api/accruals
+  if(method==='GET'&&url.startsWith('/api/accruals')&&!url.match(/\/\d+$/)){
+    var p=parseQS(url);
+    var acc=accruals.slice();
+    if(CU.role!=='admin') acc=acc.filter(function(a){return a.empId===CU.id;});
+    if(p.year) acc=acc.filter(function(a){return a.year===parseInt(p.year);});
+    if(p.month) acc=acc.filter(function(a){return a.month===parseInt(p.month);});
+    if(p.empId) acc=acc.filter(function(a){return a.empId===parseInt(p.empId);});
+    return acc;
+  }
+
+  // POST /api/accruals
+  if(method==='POST'&&url==='/api/accruals'){
+    var entry=Object.assign({id:Date.now()},body);
+    accruals.push(entry);dbSet('accruals',accruals);return entry;
+  }
+
+  // DELETE /api/accruals/:id
+  var mA=url.match(/^\/api\/accruals\/(\d+)$/);
+  if(method==='DELETE'&&mA){
+    var id=parseInt(mA[1]);
+    dbSet('accruals',accruals.filter(function(a){return a.id!==id;}));return {ok:true};
+  }
+
+  // GET /api/deals
+  if(method==='GET'&&url.startsWith('/api/deals')&&!url.match(/\/\d+$/)){
+    var p=parseQS(url);
+    var dd=deals.slice();
+    if(CU.role!=='admin') dd=dd.filter(function(d){return d.empId===CU.id;});
+    if(p.year) dd=dd.filter(function(d){return d.year===parseInt(p.year);});
+    if(p.month) dd=dd.filter(function(d){return d.month===parseInt(p.month);});
+    if(p.empId) dd=dd.filter(function(d){return d.empId===parseInt(p.empId);});
+    if(p.status) dd=dd.filter(function(d){return d.status===p.status;});
+    return dd;
+  }
+
+  // POST /api/deals
+  if(method==='POST'&&url==='/api/deals'){
+    var empId=CU.role==='admin'?(body.empId||CU.id):CU.id;
+    var entry=Object.assign({id:Date.now(),empId:empId},body);
+    deals.push(entry);dbSet('deals',deals);return entry;
+  }
+
+  // PUT /api/deals/:id
+  var mD=url.match(/^\/api\/deals\/(\d+)$/);
+  if(method==='PUT'&&mD){
+    var id=parseInt(mD[1]);
+    var idx=-1;for(var i=0;i<deals.length;i++) if(deals[i].id===id){idx=i;break;}
+    if(idx===-1) throw new Error('Not found');
+    var old=deals[idx];
+    deals[idx]=Object.assign({},old,body);
+    dbSet('deals',deals);
+    // Auto-commission when won
+    if(body.status==='won'&&old.status!=='won'){
+      var emp=null;for(var i=0;i<users.length;i++) if(users[i].id===deals[idx].empId){emp=users[i];break;}
+      if(emp&&emp.department==='sales'){
+        var rate=emp.commissionRate||(config.departments&&config.departments.sales?config.departments.sales.commissionRate:5)||5;
+        var commission=Math.round(deals[idx].amount*rate/100);
+        var freshAcc=dbGet('accruals');
+        freshAcc.push({
+          id:Date.now(),empId:deals[idx].empId,type:'commission',amount:commission,
+          comment:'Комиссия '+rate+'% со сделки "'+deals[idx].client+'" ('+Number((deals[idx].amount/1000000).toFixed(1))+' млн сум)',
+          date:new Date().toLocaleDateString('ru-RU'),
+          month:deals[idx].month,year:deals[idx].year,dealId:deals[idx].id
+        });
+        dbSet('accruals',freshAcc);
+      }
+    }
+    return deals[idx];
+  }
+
+  // DELETE /api/deals/:id
+  if(method==='DELETE'&&mD){
+    var id=parseInt(mD[1]);
+    dbSet('deals',deals.filter(function(d){return d.id!==id;}));return {ok:true};
+  }
+
+  // GET /api/config
+  if(method==='GET'&&url==='/api/config') return config;
+
+  // PUT /api/config
+  if(method==='PUT'&&url==='/api/config'){dbSet('config',body);return {ok:true};}
+
+  // GET /api/stats
+  if(method==='GET'&&url==='/api/stats'){
+    var activeUsers=users.filter(function(u){return u.status==='active'&&u.role!=='admin';});
+    var mAcc=accruals.filter(function(a){return a.month===CM&&a.year===CY;});
+    var mDeals=deals.filter(function(d){return d.month===CM&&d.year===CY;});
+    return {
+      totalEmployees:activeUsers.length,
+      totalPayroll:activeUsers.reduce(function(s,u){return s+u.baseSalary;},0),
+      monthFines:mAcc.filter(function(a){return a.type==='fine';}).reduce(function(s,a){return s+a.amount;},0),
+      monthPayouts:mAcc.filter(function(a){return a.type==='payout';}).reduce(function(s,a){return s+a.amount;},0),
+      dealsTotal:mDeals.filter(function(d){return d.status==='won';}).reduce(function(s,d){return s+d.amount;},0),
+      dealsClosed:mDeals.filter(function(d){return d.status==='won';}).length,
+      dealsPipeline:mDeals.filter(function(d){return ['new','progress','negotiation'].indexOf(d.status)>-1;}).length
+    };
+  }
+
+  throw new Error('Not found: '+url);
+}
+
+function parseQS(url){
+  var result={};
+  var idx=url.indexOf('?');
+  if(idx===-1)return result;
+  var qs=url.slice(idx+1);
+  qs.split('&').forEach(function(p){var kv=p.split('=');if(kv[0])result[kv[0]]=kv[1];});
+  return result;
+}
+
+function api(method,url,body){
+  try{return Promise.resolve(localAPI(method,url,body));}
+  catch(e){return Promise.reject(e);}
+}
+
+// ══════ HELPERS ══════
+function g(id){return document.getElementById(id);}
+function fm(n){return (n||0).toLocaleString('ru-RU');}
+function smT(arr,type){return arr.filter(function(a){return a.type===type;}).reduce(function(s,a){return s+a.amount;},0);}
+function inits(name){return (name||'?').split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase();}
+function fmD(d){if(!d)return '—';if(d.indexOf('-')>-1){var p=d.split('-');return p[2]+'.'+p[1]+'.'+p[0];}return d;}
+function fmDI(d){if(!d)return '';var p=d.split('-');return p[2]+'.'+p[1]+'.'+p[0];}
+function calcAge(dob){if(!dob||dob==='—')return '?';var p=dob.split('.');if(p.length<3)return '?';var bd=new Date(+p[2],+p[1]-1,+p[0]),n=new Date();var age=n.getFullYear()-bd.getFullYear();if(n<new Date(n.getFullYear(),bd.getMonth(),bd.getDate()))age--;return age;}
+function calcTen(sd){if(!sd)return '—';var d=sd.indexOf('-')>-1?new Date(sd):new Date(sd.split('.').reverse().join('-'));if(isNaN(d))return '—';var n=new Date();var y=n.getFullYear()-d.getFullYear(),m=n.getMonth()-d.getMonth();if(m<0){y--;m+=12;}if(y>0&&m>0)return y+' г. '+m+' мес.';if(y>0)return y+' г.';return m+' мес.';}
+function sc(label,value,sub,color){return '<div class="ms"><div class="ms-l">'+label+'</div><div class="ms-v '+color+'">'+value+'</div><div class="ms-s">'+sub+'</div></div>';}
+function br(label,val,total,cls){var pct=Math.round(Math.min(100,(val/(total||1))*100));return '<div class="br"><div class="bl"><span>'+label+'</span><span>'+fm(val)+' сум</span></div><div class="bt"><div class="bf '+cls+'" style="width:'+pct+'%"></div></div></div>';}
+function toast(msg,type){type=type||'g';var t=g('snack');t.textContent=(type==='g'?'✓  ':'✕  ')+msg;t.className='snack '+type+' show';setTimeout(function(){t.classList.remove('show');},3000);}
+function txEl(a,empName,clickable){
+  clickable=clickable||false;empName=empName||null;
+  _lastAcc=_lastAcc.filter(function(x){return x.id!==a.id;});_lastAcc.push(a);
+  var ip=a.type!=='fine',isComm=a.type==='commission';
+  var canClick=a.type==='fine'||a.type==='bonus'||a.type==='commission';
+  return '<div class="tx'+(canClick?' tx-tap':'')+'" '+(canClick?'onclick="showDet('+a.id+')"':'')+'>'+
+    '<div class="txic '+(ip?isComm?'comm':'plus':'minus')+'">'+(ACC_ICO[a.type]||'•')+'</div>'+
+    '<div class="txb"><div class="txn">'+(ACC_LBL[a.type]||a.type)+(empName?' — '+empName:'')+(canClick?' ↗':'')+'</div>'+
+    '<div class="txs">'+((a.comment||'').slice(0,42))+((a.comment||'').length>42?'…':'')+' · '+a.date+'</div></div>'+
+    '<div class="txa '+(ip?isComm?'comm':'plus':'minus')+'">'+(ip?'+':'-')+fm(a.amount)+'</div></div>';
+}
+function yearOpts(selId){
+  var s=g(selId);if(!s)return;
+  var h='';for(var y=CY;y>=CY-3;y--) h+='<option value="'+y+'"'+(y===CY?' selected':'')+'>'+y+'</option>';
+  s.innerHTML=h;
+}
+
+// ══════ AUTH ══════
+function doLogin(){
+  var l=g('li').value.trim().toLowerCase(),p=g('lp').value;
+  if(!l||!p){showErr('Введите логин и пароль');return;}
+  api('POST','/api/login',{login:l,password:p}).then(function(r){
+    CU=r.user;
+    localStorage.setItem('hr_session',JSON.stringify(CU));
+    startApp();
+  }).catch(function(e){showErr(e.message);});
+}
+function showErr(msg){var el=g('lerr');el.textContent=msg;el.style.display='block';setTimeout(function(){el.style.display='none';},4000);}
+document.addEventListener('keydown',function(e){if(e.key==='Enter'&&g('login-screen').style.display!=='none')doLogin();});
+function logout(){CU=null;localStorage.removeItem('hr_session');g('login-screen').style.display='';g('app').style.display='none';g('li').value='';g('lp').value='';}
+
+// Demo buttons
+function buildDemoButtons(){
+  var users=dbGet('users');
+  var roles=[{r:'admin',l:'Администратор'},{r:'employee',d:'sales',l:'Продажи'},{r:'employee',d:'production',l:'Производство'}];
+  var html='';
+  users.forEach(function(u){
+    if(u.role==='admin') html+='<div class="db" onclick="fillDemo(\''+u.login+'\',\''+u.password+'\')"><div>⚙️ Админ</div><div class="dr">'+u.name.split(' ')[0]+'</div></div>';
+    else {
+      var dept=DEPTS[u.department||'production'];
+      html+='<div class="db" onclick="fillDemo(\''+u.login+'\',\''+u.password+'\')"><div>'+dept.ico+' '+dept.name.split(' ')[0]+'</div><div class="dr">'+u.name.split(' ')[0]+'</div></div>';
+    }
+  });
+  g('demo-btns').innerHTML=html;
+}
+function fillDemo(login,pass){g('li').value=login;g('lp').value=pass;}
+
+// Auto-login
+(function(){
+  var sess=localStorage.getItem('hr_session');
+  if(sess){try{CU=JSON.parse(sess);startApp();return;}catch(e){}}
+  g('login-screen').style.display='flex';
+  buildDemoButtons();
+})();
+
+// ══════ APP INIT ══════
+function startApp(){
+  g('login-screen').style.display='none';
+  g('app').style.display='block';
+  buildNav();buildTbAv();
+  showPage('dash');
+  api('GET','/api/users/me').then(function(u){CU=u;localStorage.setItem('hr_session',JSON.stringify(u));buildTbAv();}).catch(function(){});
+}
+function buildTbAv(){
+  var av=g('tb-av');
+  av.innerHTML=CU.photo?'<img src="'+CU.photo+'">':'<span>'+inits(CU.name)+'</span>';
+  av.onclick=function(){CU.role==='admin'?nav('admin'):nav('profile');};
+}
+function buildNav(){
+  var A=CU.role==='admin',isSales=CU.department==='sales';
+  var its=A
+    ?[['dash','🏠','Главная'],['admin','⚙️','Админ'],['crm','📊','CRM'],['about','🏢','О нас']]
+    :isSales
+      ?[['dash','🏠','Главная'],['crm','📊','CRM'],['salary','💰','Зарплата'],['profile','👤','Профиль'],['dir','📖','Контакты']]
+      :[['dash','🏠','Главная'],['salary','💰','Зарплата'],['profile','👤','Профиль'],['dir','📖','Контакты'],['about','🏢','О нас']];
+  g('navbar').innerHTML=its.map(function(it){return '<div class="nb" id="nb-'+it[0]+'" onclick="nav(\''+it[0]+'\')"><div class="nbi">'+it[1]+'</div><div class="nb-l">'+it[2]+'</div></div>';}).join('');
+  g('navbar').style.display='flex';
+  var fab=g('fab');
+  if(isSales||A){fab.style.display='flex';fab.onclick=function(){openDealM();};}
+  else fab.style.display='none';
+}
+function nav(id){showPage(id);}
+var PAGE_BUILDERS={dash:bDash,profile:bProf,crm:bCRM,salary:bSal,dir:bDir,about:function(){},rights:bRights,admin:bAdmin};
+function showPage(id){
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.nb').forEach(function(n){n.classList.remove('active');});
+  var pg=g('page-'+id);if(pg)pg.classList.add('active');
+  var nb=g('nb-'+id);if(nb)nb.classList.add('active');
+  var titles={dash:'',profile:'Профиль',crm:'CRM — Сделки',salary:'Зарплата',dir:'Справочник',about:'О компании',rights:'Регламент',admin:'Администратор'};
+  var isHome=id==='dash';
+  g('tb-logo').style.display=isHome?'block':'none';
+  g('tb-title').style.display=isHome?'none':'block';
+  g('tb-title').textContent=titles[id]||'';
+  if(PAGE_BUILDERS[id])PAGE_BUILDERS[id]();
+  window.scrollTo(0,0);
+}
+
+// ══════ DASHBOARD ══════
+function bDash(){
+  g('dash-t').textContent=CU.role==='admin'?'Панель управления':'Главная';
+  g('dash-d').textContent=now.toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
+  try{
+    if(CU.role==='admin'){
+      var stats=localAPI('GET','/api/stats');
+      g('dash-stats').innerHTML=
+        sc('Сотрудников',stats.totalEmployees,'активных','b')+
+        sc('ФОТ',fm(stats.totalPayroll)+' сум','фонд оплаты','g')+
+        sc('Продажи',fm(stats.dealsTotal)+' сум','выиграно в месяце','o')+
+        sc('Штрафы',fm(stats.monthFines)+' сум','текущий месяц','r');
+      var acc=localAPI('GET','/api/accruals?month='+CM+'&year='+CY);
+      g('dash-tx').innerHTML=acc.slice(-6).reverse().map(function(a){return txEl(a);}).join('')||'<div class="empty">Нет операций</div>';
+      var users=localAPI('GET','/api/users');
+      var depts=['sales','production','finance','marketing'];
+      g('dash-bars').innerHTML=depts.map(function(d){
+        var cnt=users.filter(function(u){return u.department===d;}).length;
+        var di=DEPTS[d];
+        return cnt?'<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><span>'+di.ico+' '+di.name+'</span><span style="color:var(--t3)">'+cnt+' чел.</span></div><div class="bt"><div class="bf fb" style="width:'+Math.min(100,cnt*20)+'%"></div></div></div>':'';
+      }).join('');
+    } else {
+      var acc=localAPI('GET','/api/accruals?month='+CM+'&year='+CY);
+      var earned=smT(acc,'salary')+smT(acc,'bonus')+smT(acc,'commission');
+      var adv=smT(acc,'advance'),fin=smT(acc,'fine'),pay=smT(acc,'payout');
+      g('dash-stats').innerHTML=
+        sc('Начислено',fm(earned)+' сум',MN[CM],'b')+
+        sc('Авансы',fm(adv)+' сум','выдано','y')+
+        sc('Штрафы',fm(fin)+' сум','удержано','r')+
+        sc('К выплате',fm(Math.max(0,earned-fin-pay))+' сум','остаток','g');
+      if(CU.department==='sales'){
+        var deals=localAPI('GET','/api/deals?month='+CM+'&year='+CY);
+        var wonAmt=deals.filter(function(d){return d.status==='won';}).reduce(function(s,d){return s+d.amount;},0);
+        var comm=deals.filter(function(d){return d.status==='won';}).reduce(function(s,d){return s+Math.round(d.amount*(CU.commissionRate||5)/100);},0);
+        g('dash-bars').innerHTML=
+          '<div style="margin-bottom:14px"><div style="font-size:13px;color:var(--t3);margin-bottom:8px">Продажи за '+MN[CM]+'</div>'+
+          br('Выиграно',wonAmt,wonAmt||1,'fg')+
+          '<div style="display:flex;justify-content:space-between;font-size:13px;margin-top:10px"><span style="color:var(--t3)">Комиссия '+(CU.commissionRate||5)+'%</span><span style="color:var(--orange);font-weight:700">'+fm(comm)+' сум</span></div></div>';
+      } else {
+        var tot=earned||1;
+        g('dash-bars').innerHTML=br('Оклад',smT(acc,'salary'),tot,'fb')+br('Бонус',smT(acc,'bonus'),tot,'fg')+br('Авансы',adv,tot,'fy')+br('Штрафы',fin,tot,'fr');
+      }
+      g('dash-tx').innerHTML=acc.slice(-6).reverse().map(function(a){return txEl(a,null,true);}).join('')||'<div class="empty">Нет операций</div>';
+    }
+  }catch(e){toast(e.message,'r');}
+}
+
+// ══════ PROFILE ══════
+function bProf(){
+  var e=CU;
+  var av=g('pav');av.innerHTML=(e.photo?'<img src="'+e.photo+'">':'<span>'+inits(e.name)+'</span>')+'<div class="pav-ed">📷</div>';
+  g('pnm').textContent=e.name;
+  var dept=DEPTS[e.department||'production'];
+  g('prl').innerHTML=dept.ico+' '+(e.role||dept.name);
+  var tenure=calcTen(e.startDate),age=calcAge(e.dob);
+  g('pmg').innerHTML=[['🎂','Дата рождения',(e.dob||'—')+' · '+age+' лет'],['⏱','В компании',tenure],['💰','Оклад',fm(e.baseSalary)+' сум'],['📞','Телефон',e.phone||'—']].map(function(x){return '<div class="pmi"><div class="pmil">'+x[1]+'</div><div class="pmiv">'+x[0]+' '+x[2]+'</div></div>';}).join('');
+  if(e.department==='sales'&&e.commissionRate){
+    g('pmg').innerHTML+='<div class="pmi" style="grid-column:span 2;"><div class="pmil">Комиссия с продаж</div><div class="pmiv" style="color:var(--orange)">💰 '+e.commissionRate+'% от суммы договора + оклад '+fm(e.baseSalary)+' сум</div></div>';
+  }
+  g('plist').innerHTML=[['📅','В компании с',fmD(e.startDate)],['🔑','Логин',e.login],['🏢','Отдел',dept.ico+' '+dept.name]].map(function(x){return '<div class="mr"><div class="mr-ico" style="background:var(--blue-l)">'+x[0]+'</div><div class="mr-b"><div class="mr-s" style="font-size:12px">'+x[1]+'</div><div class="mr-t" style="font-size:15px">'+x[2]+'</div></div></div>';}).join('');
+  g('pinstr').innerHTML=(e.instructions||[]).map(function(ins,i){return '<div class="rc"><div class="rn b">'+(i+1)+'</div><div class="rt">'+ins+'</div></div>';}).join('')||'<div class="empty">Инструкции не заданы</div>';
+}
+function handlePhoto(evt){
+  var file=evt.target.files[0];if(!file)return;
+  var r=new FileReader();
+  r.onload=function(x){
+    api('PUT','/api/users/'+CU.id,{photo:x.target.result}).then(function(u){
+      CU.photo=u.photo;localStorage.setItem('hr_session',JSON.stringify(CU));
+      bProf();buildTbAv();toast('Фото обновлено','g');
+    }).catch(function(e){toast(e.message,'r');});
+  };
+  r.readAsDataURL(file);
+}
+
+// ══════ CRM ══════
+function bCRM(){
+  try{
+    var deals=localAPI('GET','/api/deals');
+    var n=new Date();CM=CM||n.getMonth();
+    g('crm-sub').textContent=MN[CM]+' '+CY+' · '+CU.name.split(' ')[0];
+    var mDeals=deals.filter(function(d){return d.month===CM&&d.year===CY;});
+    var won=mDeals.filter(function(d){return d.status==='won';}),wonAmt=won.reduce(function(s,d){return s+d.amount;},0);
+    var pipe=mDeals.filter(function(d){return ['new','progress','negotiation'].indexOf(d.status)>-1;});
+    var rate=CU.commissionRate||5;
+    var comm=Math.round(wonAmt*rate/100);
+    g('crm-sum').innerHTML=
+      '<div class="crm-s"><div class="crm-sv" style="color:var(--green)">'+won.length+'</div><div class="crm-sl">Выиграно</div></div>'+
+      '<div class="crm-s"><div class="crm-sv" style="color:var(--yellow)">'+pipe.length+'</div><div class="crm-sl">В работе</div></div>'+
+      '<div class="crm-s"><div class="crm-sv" style="color:var(--orange)">'+fm(comm)+'</div><div class="crm-sl">Комиссия сум</div></div>';
+    var cols={new:'var(--blue)',progress:'var(--yellow)',negotiation:'var(--purple)',won:'var(--green)',lost:'var(--red)'};
+    var counts={};mDeals.forEach(function(d){counts[d.status]=(counts[d.status]||0)+1;});
+    g('crm-pipeline').innerHTML=Object.keys(cols).map(function(k){return '<div class="pl-seg" style="flex:'+(counts[k]||0)+';background:'+cols[k]+';min-width:'+(counts[k]?4:0)+'px"></div>';}).join('');
+    renderDeals(mDeals,dealFilter);
+  }catch(e){toast(e.message,'r');}
+}
+function filterDeals(status,btn){
+  dealFilter=status;
+  document.querySelectorAll('.cf-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  var deals=localAPI('GET','/api/deals');
+  renderDeals(deals.filter(function(d){return d.month===CM&&d.year===CY;}),status);
+}
+function renderDeals(deals,filter){
+  var filtered=filter==='all'?deals:deals.filter(function(d){return d.status===filter;});
+  if(!filtered.length){g('deal-list').innerHTML='<div class="empty">Нет сделок</div>';return;}
+  g('deal-list').innerHTML=filtered.map(function(d){
+    var st=STATUS_MAP[d.status];
+    var rate=CU.commissionRate||5;
+    var comm=d.status==='won'?Math.round(d.amount*rate/100):0;
+    return '<div class="deal-card">'+
+      '<div class="deal-top"><div><div class="deal-client">'+d.client+'</div><div class="deal-desc">'+(d.description||'')+'</div></div><div class="deal-amount">'+fm(d.amount)+' сум</div></div>'+
+      '<div class="deal-meta"><span class="chip '+st.cls+'">'+st.ico+' '+st.lbl+'</span><span style="font-size:12px;color:var(--t3)">'+d.date+'</span>'+
+      (comm?'<span class="chip c-o">💰 Комиссия '+fm(comm)+' сум</span>':'')+'</div>'+
+      (d.status!=='won'&&d.status!=='lost'?
+        '<div class="deal-actions">'+
+        '<button class="status-btn" onclick="updDeal('+d.id+',\'progress\')">🔄 В работе</button>'+
+        '<button class="status-btn" onclick="updDeal('+d.id+',\'negotiation\')">🤝 Переговоры</button>'+
+        '<button class="status-btn won" onclick="updDeal('+d.id+',\'won\')">✅ Выиграна</button>'+
+        '<button class="status-btn lost" onclick="updDeal('+d.id+',\'lost\')">❌ Проиграна</button></div>':'')+
+      '</div>';
+  }).join('');
+}
+function updDeal(id,status){
+  try{
+    localAPI('PUT','/api/deals/'+id,{status:status});
+    if(status==='won')toast('🎉 Сделка выиграна! Комиссия начислена.','g');
+    else toast('Статус обновлён','g');
+    bCRM();
+  }catch(e){toast(e.message,'r');}
+}
+function openDealM(){
+  if(CU.role==='admin'){
+    var users=localAPI('GET','/api/users');
+    var sales=users.filter(function(u){return u.department==='sales'&&u.status==='active';});
+    var sel=g('deal-emp');sel.innerHTML=sales.map(function(u){return '<option value="'+u.id+'">'+u.name+'</option>';}).join('');
+    g('deal-emp-row').style.display='block';
+  } else {
+    g('deal-emp-row').style.display='none';
+  }
+  yearOpts('dyear');
+  g('dmonth').value=CM;
+  openM('mod-deal');
+}
+function saveDeal(){
+  var empId=CU.role==='admin'?parseInt(g('deal-emp').value):CU.id;
+  var payload={client:g('dclient').value.trim(),description:g('ddesc').value.trim(),
+    amount:parseInt(g('damount').value)||0,status:g('dstatus').value,
+    month:parseInt(g('dmonth').value),year:parseInt(g('dyear').value),
+    date:new Date().toLocaleDateString('ru-RU'),empId:empId};
+  if(!payload.client||!payload.amount){toast('Заполните клиента и сумму','r');return;}
+  try{
+    localAPI('POST','/api/deals',payload);
+    closeM('mod-deal');bCRM();toast('Сделка добавлена','g');
+    ['dclient','ddesc','damount'].forEach(function(id){g(id).value='';});
+  }catch(e){toast(e.message,'r');}
+}
+
+// ══════ SALARY ══════
+function bSal(){
+  yearOpts('ysel');
+  g('ysel').innerHTML=g('ysel').innerHTML.replace(/value="(\d+)"/g,function(m,y){
+    return 'value="'+y+'" onclick="selY('+y+')" class="pb-btn'+(parseInt(y)===CY?' active':'')+'"';
+  });
+  var years=[CY,CY-1,CY-2,CY-3];
+  g('ysel').innerHTML=years.map(function(y){return '<button class="pb-btn '+(y===CY?'active':'')+'" onclick="selY('+y+')">'+y+'</button>';}).join('');
+  g('msel').innerHTML=Array.from({length:12},function(_,i){return '<button class="pb-btn '+(i===CM?'active':'')+'" onclick="selM('+i+')">'+MS[i]+'</button>';}).join('');
+  renderSal();
+}
+function selY(y){CY=y;document.querySelectorAll('#ysel .pb-btn').forEach(function(b,i){b.classList.toggle('active',parseInt(b.textContent)===y);});renderSal();}
+function selM(m){CM=m;document.querySelectorAll('#msel .pb-btn').forEach(function(b,i){b.classList.toggle('active',i===m);});renderSal();}
+function renderSal(){
+  try{
+    var acc=localAPI('GET','/api/accruals?month='+CM+'&year='+CY);
+    var sal=smT(acc,'salary'),bon=smT(acc,'bonus'),comm=smT(acc,'commission');
+    var adv=smT(acc,'advance'),fin=smT(acc,'fine'),pay=smT(acc,'payout');
+    var earned=sal+bon+comm,net=Math.max(0,earned-fin-pay);
+    var ap=sal>0?Math.round((adv/sal)*100):0;
+    var heroExtra='';
+    if(CU.department==='sales'){
+      var deals=localAPI('GET','/api/deals?month='+CM+'&year='+CY);
+      var wonAmt=deals.filter(function(d){return d.status==='won';}).reduce(function(s,d){return s+d.amount;},0);
+      heroExtra='<div style="margin-top:14px;background:var(--orange-l);border-radius:12px;padding:12px 14px;font-size:13px;color:var(--orange)">📊 Выиграно: <b>'+fm(wonAmt)+' сум</b> · Ставка: <b>'+(CU.commissionRate||5)+'%</b> · Комиссия: <b>'+fm(comm)+' сум</b></div>';
+    }
+    g('salsum').innerHTML='<div class="sh-l">К получению · '+MN[CM]+' '+CY+'</div><div class="sh-v">'+fm(net)+' сум</div><div class="sh-s">Начислено '+fm(earned)+' · Удержано '+fm(fin)+' · Выплачено '+fm(pay)+'</div>'+
+      '<div class="sh-chips"><div class="sh-chip" style="background:var(--blue-l)"><div class="sh-cl">Оклад</div><div class="sh-cv" style="color:var(--blue)">'+fm(sal)+'</div></div>'+
+      '<div class="sh-chip" style="background:var(--orange-l)"><div class="sh-cl">Комиссия</div><div class="sh-cv" style="color:var(--orange)">'+fm(comm)+'</div></div>'+
+      '<div class="sh-chip" style="background:var(--purple-l)"><div class="sh-cl">Бонус</div><div class="sh-cv" style="color:var(--purple)">'+fm(bon)+'</div></div>'+
+      '<div class="sh-chip" style="background:var(--red-l)"><div class="sh-cl">Штрафы</div><div class="sh-cv" style="color:var(--red)">'+fm(fin)+'</div></div></div>'+heroExtra;
+    g('sal-tx').innerHTML=acc.length?acc.map(function(a){return txEl(a,null,true);}).join(''):'<div class="empty">Нет операций</div>';
+    var tot=earned||1;
+    g('sal-det').innerHTML=br('Оклад',sal,tot,'fb')+br('Комиссия',comm,tot,'fo')+br('Бонус',bon,tot,'fp')+br('Авансы',adv,tot,'fy')+br('Штрафы',fin,tot,'fr')+
+      '<div class="sep"></div>'+
+      '<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:var(--t3);font-size:13px">Начислено</span><span style="font-size:15px;font-weight:700;color:var(--blue)">'+fm(earned)+' сум</span></div>'+
+      '<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:var(--t3);font-size:13px">Выплачено</span><span style="font-size:15px;font-weight:700;color:var(--yellow)">'+fm(pay+adv)+' сум</span></div>'+
+      '<div style="display:flex;justify-content:space-between"><span style="color:var(--t3);font-size:13px">Остаток</span><span style="font-size:22px;font-weight:700;color:var(--green)">'+fm(net)+' сум</span></div>'+
+      (adv>0?'<div style="margin-top:12px;background:var(--yellow-l);border-radius:10px;padding:12px;font-size:12.5px;color:var(--yellow)">ℹ️ Аванс <b>'+fm(adv)+' сум</b> = <b>'+ap+'%</b> оклада. Остаток к выдаче: <b>'+fm(Math.max(0,sal-adv))+' сум</b></div>':'');
+  }catch(e){toast(e.message,'r');}
+}
+
+// ══════ DIRECTORY ══════
+function bDir(){
+  try{
+    var users=localAPI('GET','/api/users');
+    g('dgrid').innerHTML=users.map(function(u){
+      var dept=DEPTS[u.department||'production'];
+      return '<div style="background:var(--s1);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:10px;border:1px solid var(--out);">'+
+        '<div class="avc">'+inits(u.name)+'</div>'+
+        '<div style="flex:1;min-width:0;"><div style="font-size:15px;font-weight:500">'+u.name+'</div>'+
+        '<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap"><span class="dept '+dept.cls+'">'+dept.ico+' '+dept.name+'</span></div>'+
+        (u.phone?'<a href="tel:'+u.phone+'" style="font-size:13px;color:var(--green);text-decoration:none;display:block;margin-top:4px;font-weight:500">'+u.phone+'</a>':'')+'</div></div>';
+    }).join('')||'<div class="empty">Нет данных</div>';
+  }catch(e){toast(e.message,'r');}
+}
+
+// ══════ RIGHTS ══════
+function bRights(){
+  g('rlist').innerHTML=RIGHTS_D.map(function(r,i){return '<div class="rc"><div class="rn b">'+(i+1)+'</div><div class="rt">'+r+'</div></div>';}).join('');
+  g('olist').innerHTML=OBLIGS_D.map(function(r,i){return '<div class="rc"><div class="rn g">'+(i+1)+'</div><div class="rt">'+r+'</div></div>';}).join('');
+}
+
+// ══════ ADMIN ══════
+function bAdmin(){
+  try{
+    var users=localAPI('GET','/api/users');
+    var acc=localAPI('GET','/api/accruals');
+    var cfg=localAPI('GET','/api/config');
+    g('a-emplist').innerHTML=users.filter(function(u){return u.role!=='admin';}).map(function(u){
+      var dept=DEPTS[u.department||'production'];
+      return '<div style="background:var(--s1);border-radius:14px;padding:14px 16px;margin-bottom:8px;border:1px solid var(--out);">'+
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">'+
+        '<div style="flex:1"><div style="font-size:15px;font-weight:500">'+u.name+'</div>'+
+        '<div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap">'+
+        '<span class="dept '+dept.cls+'">'+dept.ico+' '+dept.name+'</span>'+
+        '<span class="chip '+(u.status==='active'?'c-g':'c-r')+'">'+(u.status==='active'?'Активен':'Неактивен')+'</span></div>'+
+        '<div style="font-size:13px;color:var(--t3);margin-top:4px">Оклад: '+fm(u.baseSalary)+' сум'+(u.commissionRate?' · Комиссия: '+u.commissionRate+'%':'')+'</div></div>'+
+        '<button class="shb" style="padding:7px 14px;font-size:12px;" onclick="toggleUser('+u.id+',\''+(u.status==='active'?'inactive':'active')+'\')">'+
+        (u.status==='active'?'Деакт.':'Активир.')+'</button></div></div>';
+    }).join('')||'<div class="empty">Нет сотрудников</div>';
+    g('a-acclist').innerHTML=acc.slice().reverse().slice(0,20).map(function(a){
+      var u=null;for(var i=0;i<users.length;i++) if(users[i].id===a.empId){u=users[i];break;}
+      var ip=a.type!=='fine';
+      return '<div style="background:var(--s1);border-radius:12px;padding:13px 16px;margin-bottom:8px;border:1px solid var(--out);display:flex;align-items:center;gap:12px">'+
+        '<div style="font-size:20px">'+(ACC_ICO[a.type]||'•')+'</div>'+
+        '<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:500">'+(ACC_LBL[a.type])+' — '+(u?u.name.split(' ')[0]:'?')+'</div>'+
+        '<div style="font-size:12px;color:var(--t3);margin-top:2px">'+MS[a.month]+' '+a.year+' · '+((a.comment||'').slice(0,40))+'</div></div>'+
+        '<div style="font-size:14px;font-weight:700;color:'+(ip?'var(--green)':'var(--red)')+';white-space:nowrap">'+(ip?'+':'-')+fm(a.amount)+'</div>'+
+        '<button class="shb d" style="padding:6px 12px;font-size:12px;" onclick="delAcc('+a.id+')">🗑</button></div>';
+    }).join('')||'<div class="empty">Нет начислений</div>';
+    var deptKeys=['sales','production','finance','marketing'];
+    g('a-depts').innerHTML=deptKeys.map(function(key){
+      var d=DEPTS[key],dc=(cfg.departments&&cfg.departments[key])||{};
+      return '<div class="dept-config">'+
+        '<div class="dc-head"><span class="dept '+d.cls+'">'+d.ico+' '+d.name+'</span>'+
+        '<button class="shb p" style="padding:7px 14px;font-size:12px;" onclick="openDeptCfg(\''+key+'\',\''+d.name+'\','+(dc.commissionRate||0)+','+(dc.fixedBonus||0)+')">Настроить</button></div>'+
+        '<div class="dc-row"><div class="dc-lbl">% комиссии</div><div class="dc-val">'+(dc.commissionRate||0)+'%</div></div>'+
+        '<div class="dc-row"><div class="dc-lbl">Фикс. бонус</div><div class="dc-val">'+fm(dc.fixedBonus||0)+' сум</div></div></div>';
+    }).join('');
+  }catch(e){toast(e.message,'r');}
+}
+function toggleUser(id,status){
+  try{localAPI('PUT','/api/users/'+id,{status:status});bAdmin();toast('Статус обновлён','g');}catch(e){toast(e.message,'r');}
+}
+function delAcc(id){
+  try{localAPI('DELETE','/api/accruals/'+id);bAdmin();toast('Удалено','g');}catch(e){toast(e.message,'r');}
+}
+function openDeptCfg(key,name,comm,bonus){
+  g('dept-sh-t').textContent='Настройка: '+name;
+  g('dept-key').value=key;
+  g('dept-comm').value=comm;
+  g('dept-bonus').value=bonus;
+  openM('mod-dept');
+}
+function saveDept(){
+  try{
+    var cfg=localAPI('GET','/api/config');
+    var key=g('dept-key').value;
+    cfg.departments=cfg.departments||{};
+    cfg.departments[key]=Object.assign({},cfg.departments[key],{commissionRate:parseFloat(g('dept-comm').value)||0,fixedBonus:parseInt(g('dept-bonus').value)||0});
+    localAPI('PUT','/api/config',cfg);
+    closeM('mod-dept');bAdmin();toast('Настройки сохранены','g');
+  }catch(e){toast(e.message,'r');}
+}
+
+// ══════ MODALS ══════
+function openM(id){g(id).classList.add('open');document.body.style.overflow='hidden';}
+function closeM(id){g(id).classList.remove('open');document.body.style.overflow='';}
+document.querySelectorAll('.sheet-bg').forEach(function(el){
+  el.addEventListener('click',function(e){if(e.target===el)closeM(el.id);});
+});
+g('fdept').addEventListener('change',function(){
+  g('comm-field').style.display=this.value==='sales'?'block':'none';
+});
+
+function openAccM(){
+  var users=localAPI('GET','/api/users');
+  g('ae').innerHTML=users.filter(function(u){return u.role!=='admin'&&u.status==='active';}).map(function(u){return '<option value="'+u.id+'">'+u.name+' ('+DEPTS[u.department||'production'].name+')</option>';}).join('');
+  yearOpts('ayear');
+  g('amonth').value=CM;
+  openM('mod-acc');
+}
+function saveEmp(){
+  var name=g('fn').value.trim(),role=g('fr').value.trim(),login=g('fl').value.trim().toLowerCase();
+  if(!name||!login){toast('Заполните ФИО и логин','r');return;}
+  var dept=g('fdept').value;
+  var payload={name:name,role:role||'employee',login:login,password:g('fpa').value||'1234',department:dept,
+    commissionRate:dept==='sales'?(parseFloat(g('fcomm').value)||5):0,
+    baseSalary:parseInt(g('fsal').value)||0,phone:g('fp').value.trim(),
+    dob:g('fd').value?fmDI(g('fd').value):'',startDate:g('fs').value||new Date().toISOString().slice(0,10),
+    instructions:g('fi').value.trim().split('\n').map(function(s){return s.trim();}).filter(Boolean)};
+  try{
+    localAPI('POST','/api/users',payload);
+    closeM('mod-emp');bAdmin();toast(name+' добавлен','g');
+    ['fn','fr','fl','fpa','fsal','fp','fd','fs','fi','fcomm'].forEach(function(id){g(id).value='';});
+  }catch(e){toast(e.message,'r');}
+}
+function saveAcc(){
+  var empId=parseInt(g('ae').value),type=g('atype').value,
+    month=parseInt(g('amonth').value),year=parseInt(g('ayear').value),
+    amount=parseInt(g('aamount').value)||0,comment=g('acomment').value.trim();
+  if(!amount){toast('Укажите сумму','r');return;}
+  try{
+    localAPI('POST','/api/accruals',{empId:empId,type:type,month:month,year:year,amount:amount,comment:comment||'—',date:new Date().toLocaleDateString('ru-RU')});
+    closeM('mod-acc');bAdmin();g('aamount').value='';g('acomment').value='';toast('Начисление добавлено','g');
+  }catch(e){toast(e.message,'r');}
+}
+
+// Detail sheet
+function showDet(id){
+  var tx=_lastAcc.find(function(a){return a.id===id;});if(!tx)return;
+  var iF=tx.type==='fine',iC=tx.type==='commission',iB=tx.type==='bonus';
+  var ip=!iF;
+  g('det-ico').textContent=ACC_ICO[tx.type]||'•';
+  g('det-amt').textContent=(ip?'+':'−')+fm(tx.amount)+' сум';
+  g('det-amt').style.color=ip?'var(--green)':'var(--red)';
+  g('det-dt').textContent=tx.date+' · '+MN[tx.month]+' '+tx.year;
+  g('det-lbl').textContent=iF?'Причина штрафа':iC?'Детали комиссии':iB?'За что бонус':'Комментарий';
+  g('det-txt').textContent=tx.comment||'—';
+  openM('mod-det');
+}
+</script>
+</body>
+</html>

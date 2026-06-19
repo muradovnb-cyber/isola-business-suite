@@ -24,21 +24,22 @@
 /* ── AGENT: RESET (all platforms) ── */
 *{-webkit-box-sizing:border-box;box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;}
 html{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;background:#f0f4f8;color:#1e293b;font-size:14px;min-height:100vh;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--tx);font-size:14px;min-height:100vh;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}
 button{font-family:inherit;cursor:pointer;}
 input,select,textarea{font-family:inherit;}
 a{text-decoration:none;}
 
-/* ── CSS VARIABLES ── */
+/* ── CSS VARIABLES — ISOLA Design System ── */
 :root{
-  --dk:#0f172a;--dk2:#1e293b;--dk3:#273549;--dk4:#334155;
-  --ac:#3b82f6;--ac2:#2563eb;--ac-g:rgba(59,130,246,.12);
+  /* ISOLA brand: dark forest green */
+  --dk:#0d2818;--dk2:#122e1c;--dk3:#1a4029;--dk4:#235233;
+  --ac:#1a6b3c;--ac2:#145c30;--ac-g:rgba(26,107,60,.12);
   --gr:#22c55e;--gr2:#16a34a;--gr-g:rgba(34,197,94,.12);
   --rd:#ef4444;--rd2:#dc2626;--rd-g:rgba(239,68,68,.12);
   --or:#f59e0b;--or2:#d97706;--or-g:rgba(245,158,11,.12);
   --pu:#8b5cf6;--pu-g:rgba(139,92,246,.12);
   --te:#14b8a6;--te-g:rgba(20,184,166,.12);
-  --bg:#f0f4f8;--wh:#fff;--bd:#e2e8f0;--tx:#1e293b;--mu:#64748b;--lt:#f8fafc;
+  --bg:#f4f7f4;--wh:#fff;--bd:#dce8dc;--tx:#1a2e1a;--mu:#5a7a5a;--lt:#f0f7f0;
   --safe-t:env(safe-area-inset-top,0px);
   --safe-b:env(safe-area-inset-bottom,0px);
   --safe-l:env(safe-area-inset-left,0px);
@@ -47,10 +48,10 @@ a{text-decoration:none;}
 }
 
 /* ── LOGIN ── */
-.lw{min-height:100vh;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;background:-webkit-linear-gradient(135deg,#0f172a,#1e3a5f 50%,#0f172a);background:linear-gradient(135deg,#0f172a,#1e3a5f 50%,#0f172a);padding:20px;padding-top:calc(20px + var(--safe-t));}
-.lc{background:#fff;border-radius:18px;padding:28px;width:420px;max-width:100%;-webkit-box-shadow:0 28px 72px rgba(0,0,0,.3);box-shadow:0 28px 72px rgba(0,0,0,.3);}
+.lw{min-height:100vh;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;background:-webkit-linear-gradient(135deg,#0d2818,#1a6b3c 50%,#0d2818);background:linear-gradient(135deg,#0d2818,#1a6b3c 50%,#0d2818);padding:20px;padding-top:calc(20px + var(--safe-t));}
+.lc{background:#fff;border-radius:18px;padding:28px;width:420px;max-width:100%;-webkit-box-shadow:0 28px 72px rgba(0,0,0,.3);box-shadow:0 28px 72px rgba(0,0,0,.3);border-top:4px solid var(--ac);}
 .ll{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:10px;-webkit-justify-content:center;justify-content:center;margin-bottom:18px;}
-.li{width:44px;height:44px;background:var(--ac);border-radius:10px;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;font-size:1.3rem;-webkit-flex-shrink:0;flex-shrink:0;}
+.li{width:44px;height:44px;background:var(--ac);border-radius:10px;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;font-size:1.3rem;-webkit-flex-shrink:0;flex-shrink:0;-webkit-box-shadow:0 4px 14px rgba(26,107,60,.35);box-shadow:0 4px 14px rgba(26,107,60,.35);}
 .lt{font-size:1.2rem;font-weight:800;letter-spacing:-0.5px;}
 .ls{font-size:.68rem;color:var(--mu);}
 .fg{display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;gap:3px;margin-bottom:9px;}
@@ -99,7 +100,7 @@ nav{-webkit-flex:1;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;paddi
 
 /* ── BODY / TOPBAR ── */
 .body{-webkit-flex:1;flex:1;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;overflow:hidden;margin-left:var(--sb);}
-.top{height:var(--nav);background:#fff;border-bottom:1px solid var(--bd);display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;padding:0 18px;gap:10px;-webkit-flex-shrink:0;flex-shrink:0;position:-webkit-sticky;position:sticky;top:0;z-index:50;}
+.top{height:var(--nav);background:#fff;border-bottom:2px solid var(--ac);display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;padding:0 18px;gap:10px;-webkit-flex-shrink:0;flex-shrink:0;position:-webkit-sticky;position:sticky;top:0;z-index:50;}
 .ttl{font-weight:600;font-size:.86rem;-webkit-flex:1;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:8px;}
 .ttl-icon{font-size:1.2rem;-webkit-flex-shrink:0;flex-shrink:0;}
 .tdt{font-size:.72rem;color:var(--mu);white-space:nowrap;}
@@ -108,11 +109,16 @@ nav{-webkit-flex:1;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;paddi
 
 /* ── GRID / KPI ── */
 .kg{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;gap:10px;margin-bottom:14px;}
-.kc{background:#fff;border-radius:10px;padding:12px 14px;border:1px solid var(--bd);-webkit-flex:1;flex:1;min-width:140px;}
+.kc{background:#fff;border-radius:10px;padding:12px 14px;border:1px solid var(--bd);-webkit-flex:1;flex:1;min-width:140px;border-left:3px solid var(--bd);}
 .kl{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--mu);margin-bottom:4px;}
 .kv{font-size:1.25rem;font-weight:700;line-height:1;margin-bottom:2px;}
 .ks{font-size:.66rem;color:var(--mu);}
-.kc.bl .kv{color:var(--ac2);}.kc.gn .kv{color:var(--gr2);}.kc.or .kv{color:var(--or2);}.kc.rd .kv{color:var(--rd2);}.kc.pu .kv{color:var(--pu);}.kc.te .kv{color:var(--te);}
+.kc.bl .kv{color:var(--ac2);}.kc.bl{border-left-color:var(--ac);}
+.kc.gn .kv{color:var(--gr2);}.kc.gn{border-left-color:var(--gr2);}
+.kc.or .kv{color:var(--or2);}.kc.or{border-left-color:var(--or2);}
+.kc.rd .kv{color:var(--rd2);}.kc.rd{border-left-color:var(--rd2);}
+.kc.pu .kv{color:var(--pu);}.kc.pu{border-left-color:var(--pu);}
+.kc.te .kv{color:var(--te);}.kc.te{border-left-color:var(--te);}
 
 /* ── CARDS ── */
 .cc{background:#fff;border-radius:10px;padding:13px 14px;border:1px solid var(--bd);margin-bottom:13px;}
@@ -187,7 +193,7 @@ tr:active td{background:#fafbfc;}
 .ts{background:#16a34a;}.te2{background:#dc2626;}.ti{background:#2563eb;}
 
 /* ── CEO PANEL ── */
-.ceo{background:-webkit-linear-gradient(135deg,#0f172a,#1e3a5f);background:linear-gradient(135deg,#0f172a,#1e3a5f);border-radius:13px;padding:18px;margin-bottom:14px;color:#fff;border:1px solid #334155;}
+.ceo{background:-webkit-linear-gradient(135deg,#0d2818,#1a6b3c);background:linear-gradient(135deg,#0d2818,#1a6b3c);border-radius:13px;padding:18px;margin-bottom:14px;color:#fff;border:1px solid #235233;}
 .ceo-h{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:11px;margin-bottom:14px;}
 .ceo-av{width:46px;height:46px;border-radius:11px;background:var(--or);display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;font-size:1.3rem;-webkit-flex-shrink:0;flex-shrink:0;}
 .ceo-t{font-size:.96rem;font-weight:700;}
@@ -201,7 +207,7 @@ tr:active td{background:#fafbfc;}
 .ags{font-size:.62rem;color:#4ade80;margin-top:2px;}
 
 /* ── SALARY HERO ── */
-.sh{background:-webkit-linear-gradient(135deg,#0f172a,#273549);background:linear-gradient(135deg,#0f172a,#273549);border-radius:13px;padding:18px;margin-bottom:13px;color:#fff;border:1px solid var(--dk4);}
+.sh{background:-webkit-linear-gradient(135deg,#0d2818,#1a4029);background:linear-gradient(135deg,#0d2818,#1a4029);border-radius:13px;padding:18px;margin-bottom:13px;color:#fff;border:1px solid var(--dk4);}
 .shl{font-size:.6rem;color:#64748b;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;}
 .shv{font-size:2rem;font-weight:700;color:#4ade80;letter-spacing:-1px;}
 .shs{font-size:.72rem;color:#64748b;margin-top:3px;}
@@ -620,7 +626,7 @@ function inits(n){ return (n||'?').split(' ').map(function(w){return w[0];}).joi
 function escapeHtml(t){var m={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'};return String(t||'').replace(/[&<>"']/g,function(c){return m[c];});}
 function cpGet(id){ if(!id||!DB.cps) return null; for(var i=0;i<DB.cps.length;i++) if(DB.cps[i].id===id) return DB.cps[i]; return null; }
 function userGet(id){ if(!id||!DB.users) return null; for(var i=0;i<DB.users.length;i++) if(DB.users[i].id===id) return DB.users[i]; return null; }
-function itemGet(id){ if(!id||!ITEMS) return null; for(var i=0;i<ITEMS.length;i++) if(ITEMS[i].id===id) return ITEMS[i]; return null; }
+function itemGet(id){ if(!id) return null; var list=getItems(); for(var i=0;i<list.length;i++) if(list[i].id===id) return list[i]; return null; }
 function ordGet(id){ if(!id||!DB.orders) return null; for(var i=0;i<DB.orders.length;i++) if(DB.orders[i].id===id) return DB.orders[i]; return null; }
 function smt(arr,type){ var s=0; for(var i=0;i<arr.length;i++) if(arr[i].type===type) s+=arr[i].amt; return s; }
 function balances(){
@@ -680,7 +686,7 @@ function itemsFor(role){
   var res=[];
   for(var i=0;i<DB.items.length;i++){
     var it=DB.items[i];
-    if(it.who==='all'||it.who===role||role==='director'||role==='accountant') res.push(it);
+    var w=it.who;var vis=w==='all'||role==='director'||role==='accountant'||(Array.isArray(w)?w.indexOf(role)>=0:w===role);if(vis) res.push(it);
   }
   return res;
 }
@@ -833,7 +839,7 @@ function dealCard(d){
     +linkStr+acts+'</div>';
 }
 function accRow(a){
-  var u=userGet(a.eid);
+  var u=userGet(a.eid||a.empId);
   var ip=a.type!=='fine';
   var clr=ip?a.type==='commission'?'var(--pu)':'var(--gr2)':'var(--rd2)';
   var sign=ip?'+':'-';
@@ -865,7 +871,7 @@ function loginHTML(){
   for(var i=0;i<roles.length;i++){
     var role=roles[i],ri=ROLES[role];
     var u=null; for(var j=0;j<DB.users.length;j++) if(DB.users[j].role===role){u=DB.users[j];break;}
-    if(u) demos+='<div class="db" onclick="fillDemo('+JSON.stringify(u.e)+')"><div>'+ri.l+'</div><div class="dr">'+u.n.split(' ')[0]+'</div></div>';
+    if(u) demos+='<div class="db" onclick="fillDemo(\''+u.e+'\',\''+u.p+'\')"><div>'+ri.l+'</div><div class="dr">'+u.n.split(' ')[0]+'</div></div>';
   }
   return '<div class="lw"><div class="lc">'
     +'<div class="ll"><img src="logo.png" style="width:56px;height:auto;"/></div>'
@@ -877,7 +883,7 @@ function loginHTML(){
     +'<div style="margin-top:12px;padding:10px 12px;background:#f0f9ff;border-radius:8px;border:1px solid #bae6fd;font-size:.71rem;color:#0369a1">💡 Объединяет FinApp и HR-портал ISOLA. Оба оригинальных приложения сохранены.</div>'
     +'</div></div>';
 }
-function fillDemo(e){ document.getElementById('le').value=e; document.getElementById('lp').value='1234'; }
+function fillDemo(e,p){ document.getElementById('le').value=e; document.getElementById('lp').value=p||'1234'; }
 function doLogin(){
   var e=document.getElementById('le').value,p=document.getElementById('lp').value,u=null;
   for(var i=0;i<DB.users.length;i++) if(DB.users[i].e===e&&DB.users[i].p===p){u=DB.users[i];break;}
@@ -943,7 +949,7 @@ function appHTML(){
     +'<button class="lo" onclick="logout()">Выход</button>'
     +'</div></div>'
     +'<div class="body">'
-    +'<div class="top"><button class="mb" onclick="openSide()">☰</button><div class="ttl"><svg width="28" height="28" viewBox="0 0 1200 450" xmlns="http://www.w3.org/2000/svg" style="margin-top:2px"><path d="M 100 80 Q 40 50 20 120 Q 10 160 40 190 Q 30 210 70 225 Q 60 245 110 260 Q 95 280 150 295 Q 130 310 190 325 Q 170 335 230 345 Q 210 340 240 320 Q 280 290 300 240 Q 320 190 310 130 Q 300 80 250 50 Q 200 30 150 40 Q 120 50 100 80 Z" fill="#1b5e3f"/><path d="M 100 200 Q 60 220 50 260 Q 45 290 80 310 Q 100 320 130 320 Q 140 310 130 290 Q 110 270 100 200 Z" fill="#1b5e3f"/><path d="M 120 310 Q 110 330 100 360 Q 95 380 110 395 L 150 395 Q 165 380 160 360 Q 150 330 140 310 Z" fill="#1b5e3f"/><ellipse cx="125" cy="405" rx="80" ry="35" fill="#1b5e3f"/></svg>'+(PAGE_TITLES[PAGE]||PAGE)+'</div><div class="tdt">'+dateStr+'</div></div>'
+    +'<div class="top"><button class="mb" onclick="openSide()">☰</button><div class="ttl"><img src="logo.png" style="height:28px;width:auto;margin-top:2px;vertical-align:middle;"/>'+(PAGE_TITLES[PAGE]||PAGE)+'</div><div class="tdt">'+dateStr+'</div></div>'
     +'<div class="pg" id="mc">'+pageHTML()+'</div>'
     +'</div></div>';
 }
@@ -1100,7 +1106,7 @@ function pgUDash(){
   var empRows=''; var emps=DB.users.filter(function(u){return u.role!=='director';}).slice(0,5);
   for(var i=0;i<emps.length;i++){
     var u=emps[i],ri=ROLES[u.role]||{l:'',c:'#64748b'};
-    var mAcc=[]; for(var j=0;j<DB.accruals.length;j++) if(DB.accruals[j].eid===u.id&&DB.accruals[j].mo===now.getMonth()&&DB.accruals[j].yr===now.getFullYear()) mAcc.push(DB.accruals[j]);
+    var mAcc=[]; for(var j=0;j<DB.accruals.length;j++) if((DB.accruals[j].eid===u.id||DB.accruals[j].empId===u.id)&&DB.accruals[j].mo===now.getMonth()&&DB.accruals[j].yr===now.getFullYear()) mAcc.push(DB.accruals[j]);
     var earned=smt(mAcc,'salary')+smt(mAcc,'bonus')+smt(mAcc,'commission');
     empRows+='<tr><td><b>'+u.n.split(' ')[0]+' '+u.n.split(' ')[1]+'</b></td>'
       +'<td>'+bdg('','<span style="background:'+ri.c+'20;color:'+ri.c+';padding:2px 7px;border-radius:20px;font-size:.63rem;font-weight:600">'+ri.l+'</span>')+'</td>'
@@ -1642,7 +1648,7 @@ function saveExpOrd(oid){
   DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:acc,iid:iid,cpid:+(document.getElementById('en-c-'+oid)||{value:0}).value||null,oid:oid,amt:amt,cur:cur,rate:rate,uzs:expUzs,note:(document.getElementById('en-n-'+oid)||{value:''}).value||'',by:USER.id,debt:acc==='debt'});
   // % банка 0.1% при безнале
   if(acc==='bank'&&expUzs>0&&iid!==13&&iid!==14){
-    var bFee=Math.round(expUzs*0.001);
+    var bFee=Math.round(expUzs*0.002);
     if(bFee>0) DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:'bank',iid:13,cpid:null,oid:oid,amt:bFee,cur:'UZS',rate:1,uzs:bFee,note:'% банка 0.2%',by:USER.id,debt:false});
   }
   saveDB();toast('Расход добавлен'+(acc==='bank'&&expUzs>0&&iid!==13&&iid!==14?' (+% банка)':''),'success');rp();
@@ -2298,7 +2304,8 @@ function saveTxNew(){
       if(bankFee>0) DB.txs.push({id:nid(DB.txs),date:date,type:'expense',acc:'bank',iid:13,cpid:null,oid:oid,amt:bankFee,cur:'UZS',rate:1,uzs:bankFee,note:'% банка 0.2% от '+fmt(uzs),by:USER.id,debt:false});
     }
   }
-  log('create','tx','Платёж '+fmt(uzs)+' ('+mVal('tn-t')+')','Статья: '+itemGet(iid)?.n+', Контрагент: '+(cpGet(cpid)?.n||'—')+', Назначение: '+purpose);
+  var _li=itemGet(iid),_cp=cpGet(cpid);
+  log('create','tx','Платёж '+fmt(uzs)+' ('+mVal('tn-t')+')','Статья: '+(_li?_li.n:'—')+', Контрагент: '+(_cp?_cp.n:'—')+', Назначение: '+purpose);
   saveDB();var msg=type==='income'?'Поступление зафиксировано ✓':'Расход добавлен ✓'+(acc==='bank'&&uzs>0&&iid!==13&&iid!==14?' (+% банка)':'');if(purpose==='warehouse'&&whMat) msg+=' → Склад пополнен';toast(msg,'success');closeModal();rp();
 }
 
@@ -2522,7 +2529,7 @@ function calcManagerComm(uid){
 // PAGE: SALARY (employee)
 // ══════════════════════════════════════════════════════
 function pgSal(){
-  var acc=DB.accruals.filter(function(a){return a.eid===USER.id;});
+  var acc=DB.accruals.filter(function(a){return (a.eid===USER.id)||(a.empId===USER.id);});
   var yrs=[]; var yrSet={};
   for(var i=0;i<acc.length;i++) if(!yrSet[acc[i].yr]){yrSet[acc[i].yr]=1;yrs.push(acc[i].yr);}
   yrs.sort(function(a,b){return b-a;});
@@ -2589,7 +2596,7 @@ function pgASal(){
   var rows='';
   for(var i=0;i<emps.length;i++){
     var u=emps[i],ri=ROLES[u.role]||{l:'',c:'#64748b'};
-    var mAcc=DB.accruals.filter(function(a){return a.eid===u.id&&a.mo===CM&&a.yr===CY;});
+    var mAcc=DB.accruals.filter(function(a){return (a.eid===u.id||a.empId===u.id)&&a.mo===CM&&a.yr===CY;});
     var earned=smt(mAcc,'salary')+smt(mAcc,'bonus')+smt(mAcc,'commission');
     var adv=smt(mAcc,'advance'),fin=smt(mAcc,'fine'),pay=smt(mAcc,'payout');
     var net=Math.max(0,earned-fin-pay);
@@ -2615,7 +2622,8 @@ function openAccM(uid){
   openModalRaw('Начисление',
     '<div class="fg"><label>Сотрудник</label><select id="ac-e">'+empOpts+'</select></div>'
     +'<div class="fg"><label>Тип</label><select id="ac-t"><option value="salary">💼 Оклад</option><option value="bonus">🎯 Бонус</option><option value="commission">💰 Комиссия</option><option value="advance">💵 Аванс</option><option value="fine">⚠️ Штраф</option><option value="payout">✅ Выплата</option></select></div>'
-    +'<div class="fg"><label>Год</label><select id="ac-y"><option value="2025">2025</option><option value="2024">2024</option></select></div>'
+    +(function(){var now=new Date().getFullYear();var yOpts='';for(var yi=now;yi>=now-3;yi--) yOpts+='<option value="'+yi+'"'+(yi===CY?' selected':'')+'>'+yi+'</option>';return '<div class="fg"><label>Год</label><select id="ac-y">'+yOpts+'</select></div>';})()
+
     +'<div class="fg"><label>Месяц</label><select id="ac-m">'+moOpts+'</select></div>'
     +'<div class="fg"><label>Сумма (сум) *</label><input type="number" id="ac-a" placeholder="0"/></div>'
     +'<div class="fg"><label>Комментарий</label><textarea id="ac-c" rows="2" placeholder="Подробное описание..."></textarea></div>',
@@ -2929,21 +2937,80 @@ function saveClientM(){
 }
 
 function pgCPs(){
-  var showS=USER.role==='director'||USER.role==='accountant'||USER.role==='supply';
+  var isDir=USER.role==='director';
+  var showS=isDir||USER.role==='accountant'||USER.role==='supply';
   var rows='';
   for(var i=0;i<DB.cps.length;i++){
     var c=DB.cps[i];
-    var tb={client:'bg-b',supplier:'bg-g'}[c.type]||'bg-gr';
-    var tl={client:'Клиент',supplier:'Поставщик'}[c.type]||c.type;
+    var tb={client:'bg-b',supplier:'bg-g',service:'bg-p'}[c.type]||'bg-gr';
+    var tl={client:'Клиент',supplier:'Поставщик',service:'Услуги'}[c.type]||c.type;
     var debt=debtCP(c.id);
-    rows+='<tr class="cp-row" data-n="'+c.n.toLowerCase()+'" data-fio="'+(c.fio||'').toLowerCase()+'" data-note="'+(c.note||'').toLowerCase()+'"><td><b>'+c.n+'</b></td><td style="font-size:.74rem;color:var(--mu)">'+(c.fio||'—')+'</td>'
-      +'<td>'+bdg(tb,tl)+'</td><td>'+(c.ph||'—')+'</td>'
+    var typCell=isDir&&(c.type==='supplier'||c.type==='service')
+      ?'<td><span style="cursor:pointer" title="Нажмите для смены типа" onclick="toggleCpType('+c.id+')">'+bdg(tb,tl+' ⇄')+'</span></td>'
+      :'<td>'+bdg(tb,tl)+'</td>';
+    rows+='<tr class="cp-row" data-n="'+c.n.toLowerCase()+'" data-fio="'+(c.fio||'').toLowerCase()+'" data-note="'+(c.note||'').toLowerCase()+'">'
+      +'<td><b>'+c.n+'</b></td>'
+      +'<td style="font-size:.74rem;color:var(--mu)">'+(c.fio||'—')+'</td>'
+      +typCell
+      +'<td>'+(c.ph||'—')+'</td>'
       +(showS?'<td class="'+(debt>0?'an':'')+'">'+fmt(debt)+'</td>':'')
+      +(isDir?'<td>'+btn('bg0 bsm','✎','openCpEdit('+c.id+')')+'</td>':'')
       +'</tr>';
   }
+  var cols=5+(showS?1:0)+(isDir?1:0);
   return '<div class="ph"><div class="pt">Контрагенты</div>'+btn('bp','+ Добавить','openCpM()')+'</div>'
     +'<input class="srch" id="cpsrch" placeholder="🔍 Поиск по названию, контакту..." oninput="filterCPs()">'
-    +'<div class="tc"><div class="tw"><table><thead><tr><th>Название</th><th>ФИО</th><th>Тип</th><th>Телефон</th>'+(showS?'<th>Долг</th>':'')+'</tr></thead><tbody id="cps-tbody">'+(rows||'<tr class="er"><td colspan="5">Нет</td></tr>')+'</tbody></table></div></div>';
+    +(isDir?'<div style="display:flex;gap:6px;padding:4px 12px 8px;flex-wrap:wrap">'
+      +'<button class="bsm bp" onclick="filterCPtype(\'all\',this)">Все</button>'
+      +'<button class="bsm" onclick="filterCPtype(\'supplier\',this)">Поставщики</button>'
+      +'<button class="bsm" onclick="filterCPtype(\'service\',this)">Услуги</button>'
+      +'<button class="bsm" onclick="filterCPtype(\'client\',this)">Клиенты</button>'
+      +'</div>':'')
+    +'<div class="tc"><div class="tw"><table><thead><tr><th>Название</th><th>ФИО</th><th>Тип</th><th>Телефон</th>'+(showS?'<th>Долг</th>':'')+(isDir?'<th></th>':'')+'</tr></thead><tbody id="cps-tbody">'+(rows||'<tr class="er"><td colspan="'+cols+'">Нет</td></tr>')+'</tbody></table></div></div>';
+}
+function toggleCpType(id){
+  for(var i=0;i<DB.cps.length;i++){
+    if(DB.cps[i].id===id){
+      DB.cps[i].type=DB.cps[i].type==='supplier'?'service':'supplier';
+      break;
+    }
+  }
+  saveDB();toast('Тип изменён','success');rp();
+}
+function openCpEdit(id){
+  var c=null;for(var i=0;i<DB.cps.length;i++) if(DB.cps[i].id===id){c=DB.cps[i];break;}
+  if(!c)return;
+  openModalRaw('Редактировать контрагента',
+    '<div class="fg"><label>Название *</label><input id="cp-n" value="'+c.n+'"/></div>'
+    +'<div class="fg"><label>Тип</label><select id="cp-t">'
+    +'<option value="client"'+(c.type==='client'?' selected':'')+'>Клиент</option>'
+    +'<option value="supplier"'+(c.type==='supplier'?' selected':'')+'>Поставщик</option>'
+    +'<option value="service"'+(c.type==='service'?' selected':'')+'>Услуги</option>'
+    +'</select></div>'
+    +'<div class="fg"><label>ФИО / контакт</label><input id="cp-f" value="'+(c.fio||'')+'"/></div>'
+    +'<div class="fg"><label>Телефон</label><input id="cp-p" type="tel" value="'+(c.ph||'')+'"/></div>'
+    +'<div class="fg"><label>Примечание</label><input id="cp-nt" value="'+(c.note||'')+'"/></div>',
+    'saveCpEdit('+id+')');
+}
+function saveCpEdit(id){
+  var n=(document.getElementById('cp-n')||{value:''}).value.trim();
+  if(!n){toast('Укажите название','error');return;}
+  for(var i=0;i<DB.cps.length;i++){
+    if(DB.cps[i].id===id){
+      DB.cps[i].n=n;DB.cps[i].org=n;
+      DB.cps[i].type=(document.getElementById('cp-t')||{value:'supplier'}).value;
+      DB.cps[i].fio=(document.getElementById('cp-f')||{value:''}).value||'';
+      DB.cps[i].ph=(document.getElementById('cp-p')||{value:''}).value||'';
+      DB.cps[i].note=(document.getElementById('cp-nt')||{value:''}).value||'';
+      break;
+    }
+  }
+  saveDB();toast('Сохранено','success');closeModal();rp();
+}
+function filterCPtype(type,btn){
+  document.querySelectorAll('.cp-row').forEach(function(r){
+    r.style.display=(type==='all'||r.querySelector('td:nth-child(3)').textContent.indexOf(type==='supplier'?'Поставщик':type==='service'?'Услуги':'Клиент')>-1)?'':'none';
+  });
 }
 function filterCPs(){
   var q=((document.getElementById('cpsrch')||{}).value||'').toLowerCase().trim();
@@ -2958,7 +3025,7 @@ function filterCPs(){
   var tb=document.getElementById('cps-tbody');
   var noRes=document.getElementById('cps-nores');
   if(!found&&q){
-    if(!noRes){var tr=document.createElement('tr');tr.id='cps-nores';tr.className='er';tr.innerHTML='<td colspan="5">Ничего не найдено</td>';if(tb)tb.appendChild(tr);}
+    if(!noRes){var tr=document.createElement('tr');tr.id='cps-nores';tr.className='er';tr.innerHTML='<td colspan="6">Ничего не найдено</td>';if(tb)tb.appendChild(tr);}
   } else {
     if(noRes) noRes.remove();
   }
@@ -2966,7 +3033,7 @@ function filterCPs(){
 function openCpM(){
   openModalRaw('Новый контрагент',
     '<div class="fg"><label>Название *</label><input id="cp-n" placeholder="МеталлБаза"/></div>'
-    +'<div class="fg"><label>Тип</label><select id="cp-t"><option value="client">Клиент</option><option value="supplier">Поставщик</option></select></div>'
+    +'<div class="fg"><label>Тип</label><select id="cp-t"><option value="client">Клиент</option><option value="supplier">Поставщик</option><option value="service">Услуги</option></select></div>'
     +'<div class="fg"><label>ФИО / контакт</label><input id="cp-f" placeholder="Иванов Иван"/></div>'
     +'<div class="fg"><label>Телефон</label><input id="cp-p" type="tel" placeholder="+998 90 ..."/></div>'
     +'<div class="fg"><label>Примечание</label><input id="cp-nt"/></div>',
@@ -3861,15 +3928,22 @@ function pgSreqs(){
     var r=sorted[i],w=userGet(r.by),it=itemGet(r.iid),ord=ordGet(r.oid);
     var stBdg=r.status==='pending'?bdg('bg-o','Ожидает'):r.status==='taken'?bdg('bg-g','Принято'):bdg('bg-b','Выполнено');
     var actCell=role==='supply'&&r.status==='pending'?'<td>'+btn('bp bsm','Принять','takeSR('+r.id+')')+'</td>':'<td></td>';
-    rows+='<tr><td>'+fmtD(r.date)+'</td><td>'+(w?w.n:'—')+'</td><td>'+(ord?'#'+ord.id+' '+ord.title.slice(0,15):'—')+'</td><td>'+(it?it.n:r.desc||'—')+'</td><td>'+(r.note||'—')+'</td><td>'+stBdg+'</td>'+actCell+'</tr>';
+    rows+='<tr><td>'+fmtD(r.date)+'</td><td>'+(w?w.n:'—')+'</td><td>'+(ord?'#'+ord.id+' '+ord.title.slice(0,15):'—')+'</td><td>'+(it?it.n:r.desc||'—')+'</td><td>'+(r.supplier||r.note||'—')+'</td><td>'+stBdg+'</td>'+actCell+'</tr>';
   }
   var canCreateSR=['manager','constructor','production','supply'].indexOf(role)>-1;
   var addBtn=canCreateSR?btn('bp','+ Добавить заявку','openModal(\'sr-new\')'):'';
+  // Услуги для данной роли: sub==='svc' и who совпадает с ролью или 'all'
+  var svcItems=getItems().filter(function(it){if(it.sub!=='svc') return false; var w=it.who; return w==='all'||(Array.isArray(w)?w.indexOf(role)>=0:w===role);});
+  // Для снабженца — все svc позиции
+  if(role==='supply') svcItems=getItems().filter(function(it){return it.sub==='svc';});
+  // Поставщики услуг: тип 'service' или supplier с заметкой об услугах
+  var svcCPs=DB.cps.filter(function(c){return c.type==='service';});
+  if(!svcCPs.length) svcCPs=DB.cps.filter(function(c){return c.type==='supplier';});
   return '<div class="ph"><div class="pt">Заявки на услуги</div>'+addBtn+'</div>'
-    +'<div class="tc"><div class="tw"><table><thead><tr><th>Дата</th><th>От кого</th><th>Заказ</th><th>Услуга</th><th>Примечание</th><th>Статус</th><th></th></tr></thead><tbody>'+(rows||'<tr class="er"><td colspan="7">Нет заявок</td></tr>')+'</tbody></table></div></div>'
+    +'<div class="tc"><div class="tw"><table><thead><tr><th>Дата</th><th>От кого</th><th>Заказ</th><th>Услуга</th><th>Подрядчик</th><th>Статус</th><th></th></tr></thead><tbody>'+(rows||'<tr class="er"><td colspan="7">Нет заявок</td></tr>')+'</tbody></table></div></div>'
     +'<div id="m-sr-new" style="display:none">'
-    +'<div class="fg"><label>Услуга *</label><select id="sr-i">'+optList(DB.items.filter(function(it){return it.cat==='service';}),function(it){return it.id;},function(it){return it.n;})+'</select></div>'
-    +'<div class="fg"><label>Поставщик / Подрядчик *</label><input id="sr-supplier" placeholder="Кто оказывает услугу"/></div>'
+    +'<div class="fg"><label>Услуга *</label><select id="sr-i"><option value="">— выберите —</option>'+optList(svcItems,function(it){return it.id;},function(it){return it.n;})+'</select></div>'
+    +'<div class="fg"><label>Поставщик / Подрядчик *</label><select id="sr-supplier"><option value="">— выберите —</option>'+svcCPs.map(function(c){return '<option value="'+c.n+'">'+c.n+'</option>';}).join('')+'</select></div>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
     +'<div class="fg" style="flex:1;min-width:120px"><label>Сумма заявки</label><input type="number" id="sr-amount" placeholder="0"/></div>'
     +'<div class="fg" style="flex:1;min-width:120px"><label>Сроки</label><input type="date" id="sr-deadline"/></div>'
