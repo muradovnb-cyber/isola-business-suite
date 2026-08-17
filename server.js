@@ -1,339 +1,583 @@
-const http  = require('http');
-const https = require('https');
-const fs    = require('fs');
-const path  = require('path');
+/*
+ * ISOLA Suite — secure server v2
+ * =================================
+ * Adds: helmet, rate limiting, session-based auth (HttpOnly cookie),
+ * Argon2id password hashing with lazy migration + immediate plaintext deletion,
+ * server-side RBAC + field whitelisting, hourly automatic backups.
+ *
+ * Backward-compat surface for the current SPA:
+ *   GET  /api/data      — still returns bulk snapshot, BUT
+ *                          - requires session
+ *                          - never contains user.p or user.pwd_hash
+ *                          - user.sal only visible to director/accountant
+ *   POST /api/data      — merge-by-id, but 'users' NOT mergeable through it
+ *                          - requires session
+ *   POST /api/delete    — requires session (director/accountant only)
+ *   GET  /api/audit*    — requires session (director/accountant)
+ *   POST /api/auth/login, /api/auth/logout, GET /api/auth/me — new
+ *
+ * Fresh endpoints for phase 2+ will replace /api/data with per-entity ones.
+ */
+const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const cron = require('node-cron');
+const cookieParser = require('cookie-parser');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const argon2 = require('argon2');
 
-const PORT       = process.env.PORT || 3000;
-const DIR        = __dirname;
-const GH_TOKEN   = (process.env.GH_TOKEN || '').replace(/^"|"$/g,'').replace(/^'|'$/g,'').trim();
-const GH_REPO    = 'muradovnb-cyber/isola-business-suite';
-const GH_FILE    = 'data.json';
+const { buildAudit } = require('./audit');
+const tg = require('./telegram');
 
-const MIME = {
-  '.html':        'text/html;charset=utf-8',
-  '.js':          'application/javascript',
-  '.json':        'application/json',
-  '.png':         'image/png',
-  '.ico':         'image/x-icon',
-  '.css':         'text/css',
-  '.svg':         'image/svg+xml',
-  '.webmanifest': 'application/manifest+json',
-};
+const PORT = process.env.PORT || 3000;
+const DATA_DIR = process.env.DATA_DIR || '/data';
+const DB_FILE = path.join(DATA_DIR, 'db.json');
+const BACKUP_DIR = path.join(DATA_DIR, 'backups');
+const AUDIT_DIR = path.join(DATA_DIR, 'audits');
+const SEED_FILE = path.join(__dirname, 'data.json');
 
-// ── Security: blocked IPs + event log ──────────────────────────────────────
-const blockedIPs = new Set();
-const securityLog = [];
-const MAX_LOG = 200;
+const SESSION_SECRET = (process.env.SESSION_SECRET || '').trim();
+if (SESSION_SECRET.length < 32) {
+  console.error('FATAL: SESSION_SECRET env var must be set and be at least 32 chars long.');
+  process.exit(1);
+}
+const ADMIN_KEY = (process.env.ADMIN_KEY || '').trim();
+const CORS_ORIGINS = (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+const IS_PROD = process.env.NODE_ENV !== 'development';
 
-function logSecurity(ip, event, detail) {
-  const entry = { ts: new Date().toISOString(), ip, event, detail };
-  securityLog.unshift(entry);
-  if (securityLog.length > MAX_LOG) securityLog.pop();
-  console.log('[SECURITY]', JSON.stringify(entry));
+try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
+try { fs.mkdirSync(BACKUP_DIR, { recursive: true }); } catch (e) {}
+try { fs.mkdirSync(AUDIT_DIR, { recursive: true }); } catch (e) {}
+
+// Seed on first boot only (never overwrites existing db)
+if (!fs.existsSync(DB_FILE) && fs.existsSync(SEED_FILE)) {
+  fs.copyFileSync(SEED_FILE, DB_FILE);
+  console.log('[boot] Seeded ' + DB_FILE + ' from data.json');
 }
 
-function checkBlocked(req, res) {
-  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
-  if (blockedIPs.has(ip)) {
-    res.writeHead(403, {'Content-Type':'application/json'});
-    res.end(JSON.stringify({ok:false,err:'blocked'}));
-    return null;
+// ==========================================================================
+// APP
+// ==========================================================================
+const app = express();
+app.set('trust proxy', 1); // required behind Railway proxy so req.ip is real
+app.use(helmet({
+  contentSecurityPolicy: {
+    useDefaults: true,
+    directives: {
+      // Frontend uses inline scripts and inline styles heavily. Keep it working but restrict domains.
+      'script-src': ["'self'", "'unsafe-inline'"],
+      'style-src': ["'self'", "'unsafe-inline'"],
+      'img-src': ["'self'", 'data:'],
+      'connect-src': ["'self'"],
+      'font-src': ["'self'", 'data:'],
+      'object-src': ["'none'"],
+      'frame-ancestors': ["'none'"],
+      'base-uri': ["'self'"],
+      'form-action': ["'self'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false, // PWA compat
+  referrerPolicy: { policy: 'no-referrer' },
+  strictTransportSecurity: IS_PROD ? { maxAge: 15552000, includeSubDomains: true } : false,
+}));
+app.use(express.json({ limit: '256kb' })); // hard limit — was 8mb
+app.use(cookieParser());
+
+// --- CORS ---
+app.use((req, res, next) => {
+  const origin = req.get('origin');
+  if (origin && CORS_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   }
-  return ip;
+  if (req.method === 'OPTIONS') return res.status(204).end();
+  next();
+});
+
+// ==========================================================================
+// STORAGE
+// ==========================================================================
+let writing = Promise.resolve();
+function writeAtomic(data) {
+  writing = writing.then(() => new Promise((resolve, reject) => {
+    const tmp = DB_FILE + '.tmp';
+    fs.writeFile(tmp, JSON.stringify(data), (err) => {
+      if (err) return reject(err);
+      fs.rename(tmp, DB_FILE, (err2) => err2 ? reject(err2) : resolve());
+    });
+  }));
+  return writing;
 }
 
-// ── In-memory DB ────────────────────────────────────────────────────────
-let DB     = null;
-let ghSHA  = null;     // SHA of data.json on GitHub (needed for updates)
-let saving = false;
-let saveQueue = false;
+function readDB() {
+  if (!fs.existsSync(DB_FILE)) return {};
+  try { return JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); } catch (_) { return {}; }
+}
 
-// ── GitHub helpers ──────────────────────────────────────────────────────
-function ghRequest(method, path2, body, cb) {
-  const opts = {
-    hostname: 'api.github.com',
-    path:     '/repos/' + GH_REPO + '/contents/' + path2,
-    method:   method,
-    headers: {
-      'Authorization': 'token ' + GH_TOKEN,
-      'Content-Type':  'application/json',
-      'User-Agent':    'ISOLA-Server/1.0'
+let lock = Promise.resolve();
+function withLock(fn) {
+  lock = lock.then(fn, fn);
+  return lock;
+}
+
+// ==========================================================================
+// AUTOMATIC HOURLY BACKUPS
+// ==========================================================================
+// Retention: last 48 hourly + last 30 daily-at-01:07 (deterministic)
+function backupNow(tag) {
+  try {
+    if (!fs.existsSync(DB_FILE)) return null;
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const file = path.join(BACKUP_DIR, `db-${tag}-${ts}.json`);
+    fs.copyFileSync(DB_FILE, file);
+    return file;
+  } catch (e) { console.error('[backup] failed:', e.message); return null; }
+}
+
+function pruneBackups() {
+  try {
+    const files = fs.readdirSync(BACKUP_DIR)
+      .filter(f => /^db-.*\.json$/.test(f))
+      .map(f => ({ f, t: fs.statSync(path.join(BACKUP_DIR, f)).mtimeMs }))
+      .sort((a, b) => b.t - a.t);
+    const hourly = files.filter(x => x.f.startsWith('db-hourly-')).slice(48);
+    const daily = files.filter(x => x.f.startsWith('db-daily-')).slice(30);
+    const manual = files.filter(x => x.f.startsWith('db-manual-')).slice(20);
+    [...hourly, ...daily, ...manual].forEach(x => {
+      try { fs.unlinkSync(path.join(BACKUP_DIR, x.f)); } catch (_) {}
+    });
+  } catch (e) { console.error('[backup] prune failed:', e.message); }
+}
+
+// Cron: hourly at :07, daily at 01:07 Tashkent
+const CRON_TZ = process.env.AUDIT_TZ || 'Asia/Tashkent';
+cron.schedule('7 * * * *', () => { backupNow('hourly'); pruneBackups(); }, { timezone: CRON_TZ });
+cron.schedule('7 1 * * *', () => { backupNow('daily'); pruneBackups(); }, { timezone: CRON_TZ });
+
+// ==========================================================================
+// AUTHENTICATION
+// ==========================================================================
+// Session cookie = base64url(payload).base64url(hmac).
+// Payload: { uid, iat, exp } — signed with SESSION_SECRET (HMAC-SHA256).
+// HttpOnly + Secure (in prod) + SameSite=Lax. 8h absolute lifetime.
+
+const SESSION_COOKIE = 'isola_sid';
+const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+
+function b64u(buf) {
+  return Buffer.from(buf).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
+function b64uDecode(s) {
+  try {
+    s = s.replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4) s += '=';
+    return Buffer.from(s, 'base64').toString('utf8');
+  } catch (_) { return null; }
+}
+function sign(payloadStr) {
+  return crypto.createHmac('sha256', SESSION_SECRET).update(payloadStr).digest();
+}
+function makeToken(uid) {
+  const now = Date.now();
+  const payload = JSON.stringify({ uid, iat: now, exp: now + SESSION_TTL_MS });
+  const p = b64u(payload);
+  const sig = b64u(sign(p));
+  return `${p}.${sig}`;
+}
+function verifyToken(token) {
+  if (!token || typeof token !== 'string') return null;
+  const [p, sig] = token.split('.');
+  if (!p || !sig) return null;
+  const expected = b64u(sign(p));
+  // constant-time compare
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  const json = b64uDecode(p);
+  if (!json) return null;
+  try {
+    const obj = JSON.parse(json);
+    if (!obj.uid || !obj.exp || obj.exp < Date.now()) return null;
+    return obj;
+  } catch (_) { return null; }
+}
+
+function setSessionCookie(res, uid) {
+  const t = makeToken(uid);
+  res.cookie(SESSION_COOKIE, t, {
+    httpOnly: true,
+    secure: IS_PROD,
+    sameSite: 'lax',
+    maxAge: SESSION_TTL_MS,
+    path: '/',
+  });
+}
+function clearSessionCookie(res) {
+  res.clearCookie(SESSION_COOKIE, { path: '/' });
+}
+
+async function ensurePwdHash(user, plaintext) {
+  // Called only after we've verified the plaintext matches (either via legacy p, or by hash).
+  if (!user.pwd_hash) {
+    user.pwd_hash = await argon2.hash(plaintext, { type: argon2.argon2id });
+  }
+  if ('p' in user) delete user.p; // requirement 6: remove plaintext immediately
+}
+
+async function verifyCredentials(email, password) {
+  if (typeof email !== 'string' || typeof password !== 'string') return null;
+  const db = readDB();
+  const users = db.users || [];
+  const u = users.find(x => (x.e || '').toLowerCase() === email.toLowerCase());
+  if (!u) return null;
+  let ok = false;
+  if (u.pwd_hash) {
+    try { ok = await argon2.verify(u.pwd_hash, password); } catch (_) { ok = false; }
+  } else if (u.p && typeof u.p === 'string') {
+    // legacy plaintext — one-shot migration on successful login
+    ok = (u.p === password);
+  }
+  if (!ok) return null;
+  // migrate immediately (requirement 6: hash + delete plaintext right after)
+  if (!u.pwd_hash || 'p' in u) {
+    await ensurePwdHash(u, password);
+    await withLock(async () => {
+      const cur = readDB();
+      const cu = (cur.users || []).find(x => x.id === u.id);
+      if (cu) { cu.pwd_hash = u.pwd_hash; if ('p' in cu) delete cu.p; }
+      await writeAtomic(cur);
+    });
+  }
+  return u;
+}
+
+function requireAuth(req, res, next) {
+  const t = req.cookies && req.cookies[SESSION_COOKIE];
+  const payload = verifyToken(t);
+  if (!payload) return res.status(401).json({ ok: false, error: 'unauthenticated', code: 'AUTH_REQUIRED' });
+  const db = readDB();
+  const u = (db.users || []).find(x => x.id === payload.uid);
+  if (!u) return res.status(401).json({ ok: false, error: 'unauthenticated', code: 'AUTH_REQUIRED' });
+  req.user = u;
+  next();
+}
+
+function requireRole(...roles) {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({ ok: false, error: 'forbidden', code: 'FORBIDDEN' });
     }
+    next();
   };
-  const req = https.request(opts, res => {
-    let data = '';
-    res.on('data', c => data += c);
-    res.on('end', () => {
-      try { cb(null, JSON.parse(data)); }
-      catch(e) { cb(e, null); }
-    });
-  });
-  req.on('error', cb);
-  if (body) req.write(JSON.stringify(body));
-  req.end();
 }
 
-function loadFromGitHub(cb) {
-  ghRequest('GET', GH_FILE, null, (err, data) => {
-    if (err || data.message) {
-      console.log('GitHub load failed (first run?):', err || data.message);
-      cb(null, null); return;
+// ==========================================================================
+// RATE LIMITS
+// ==========================================================================
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  skipSuccessfulRequests: true, // only count failed attempts — brute-force protection, not legit users
+  message: { ok: false, error: 'too many login attempts', code: 'RATE_LIMITED' },
+  standardHeaders: true, legacyHeaders: false,
+});
+const writeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  message: { ok: false, error: 'rate limited', code: 'RATE_LIMITED' },
+  standardHeaders: true, legacyHeaders: false,
+});
+const readLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  message: { ok: false, error: 'rate limited', code: 'RATE_LIMITED' },
+  standardHeaders: true, legacyHeaders: false,
+});
+
+// ==========================================================================
+// AUDIT LOG (append-only)
+// ==========================================================================
+function logAudit(req, action, entity, entityId, before, after) {
+  return withLock(async () => {
+    const cur = readDB();
+    if (!Array.isArray(cur.audit_log)) cur.audit_log = [];
+    cur.audit_log.push({
+      ts: new Date().toISOString(),
+      uid: req.user ? req.user.id : null,
+      name: req.user ? req.user.n : null,
+      role: req.user ? req.user.role : null,
+      action, entity, entityId,
+      before: before || null, after: after || null,
+      ip: req.ip, ua: (req.get('user-agent') || '').slice(0, 200),
+    });
+    if (cur.audit_log.length > 5000) cur.audit_log = cur.audit_log.slice(-5000);
+    await writeAtomic(cur);
+  }).catch(e => console.error('[audit] fail', e.message));
+}
+
+// ==========================================================================
+// SANITIZERS
+// ==========================================================================
+// Strip fields the client must never see.
+function sanitizeUser(u, viewer) {
+  if (!u) return null;
+  const isAdmin = viewer && (viewer.role === 'director' || viewer.role === 'accountant');
+  const isSelf = viewer && viewer.id === u.id;
+  const out = { id: u.id, n: u.n, e: u.e, role: u.role, dept: u.dept, ph: u.ph, dob: u.dob, start: u.start, photo: u.photo, tg: u.tg, instrs: u.instrs };
+  if (isAdmin || isSelf) { out.sal = u.sal; out.comm = u.comm; }
+  return out;
+}
+function sanitizeSnapshot(db, viewer) {
+  const out = {};
+  for (const k of Object.keys(db)) {
+    if (k === 'users') out.users = (db.users || []).map(u => sanitizeUser(u, viewer));
+    else if (k === 'audit_log') { /* never returned via bulk */ }
+    else out[k] = db[k];
+  }
+  return out;
+}
+
+// ==========================================================================
+// AUTH ROUTES
+// ==========================================================================
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+    if (typeof email !== 'string' || typeof password !== 'string' || !email || !password) {
+      return res.status(400).json({ ok: false, error: 'invalid credentials', code: 'AUTH_INVALID' });
     }
-    try {
-      ghSHA = data.sha;
-      const decoded = JSON.parse(Buffer.from(data.content, 'base64').toString('utf8'));
-      cb(null, decoded);
-    } catch(e) { cb(e, null); }
-  });
-}
-
-function saveToGitHub(dbData, cb) {
-  const content = Buffer.from(JSON.stringify(dbData)).toString('base64');
-  const body = { message: 'auto: sync DB', content };
-  if (ghSHA) body.sha = ghSHA;
-  ghRequest('PUT', GH_FILE, body, (err, res) => {
-    if (!err && res.content) {
-      ghSHA = res.content.sha;
-      console.log('Saved to GitHub OK, SHA:', ghSHA.slice(0,7));
-    } else {
-      console.log('GitHub save error:', err || res.message);
+    // uniform error message + tiny delay to blunt timing/enum attacks
+    const u = await verifyCredentials(email, password);
+    if (!u) {
+      await new Promise(r => setTimeout(r, 350 + Math.floor(Math.random() * 250)));
+      return res.status(401).json({ ok: false, error: 'invalid credentials', code: 'AUTH_INVALID' });
     }
-    if (cb) cb(err);
-  });
-}
-
-function saveDB() {
-  if (saving) { saveQueue = true; return; }
-  saving = true;
-  saveToGitHub(DB, () => {
-    saving = false;
-    if (saveQueue) { saveQueue = false; saveDB(); }
-  });
-}
-
-// ── Startup: load DB from GitHub ────────────────────────────────────────
-function startServer() {
-  console.log('Loading DB from GitHub...');
-  loadFromGitHub((err, data) => {
-    DB = data || { users:[], cps:[], txs:[], orders:[], petty:[], deals:[], accruals:[], rates:{}, products:[] };
-    console.log('DB loaded. Txs:', (DB.txs||[]).length, 'Orders:', (DB.orders||[]).length);
-    http.createServer(handler).listen(PORT, '0.0.0.0', () => {
-      console.log('ISOLA Business Suite running on port ' + PORT);
-    });
-  });
-}
-
-// ── Body parser ─────────────────────────────────────────────────────────
-function readBody(req, cb) {
-  let body = '';
-  req.on('data', c => { body += c; if(body.length > 10*1024*1024) { body=''; req.destroy(); } });
-  req.on('end', () => {
-    try { cb(null, JSON.parse(body)); }
-    catch(e) { cb(e, null); }
-  });
-}
-
-function json(res, data, code) {
-  const s = JSON.stringify(data);
-  res.writeHead(code||200, {'Content-Type':'application/json','Access-Control-Allow-Origin':'*'});
-  res.end(s);
-}
-
-// ── Request handler ─────────────────────────────────────────────────────
-function checkApiKey(req) {
-  const validKey = (process.env.API_SECRET || '').replace(/^"|"$/g,'').trim();
-  if (!validKey) return true; // If no secret set, allow all (backwards compat)
-  return req.headers['x-api-key'] === validKey;
-}
-
-function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Service-Worker-Allowed', '/');
-
-  if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
-
-  const url = req.url.split('?')[0];
-
-  // ── API: get full DB ──────────────────────────────────────────────────
-  if (url === '/api/data' && req.method === 'GET') {
-    json(res, { ok:true, data: DB });
-    return;
+    setSessionCookie(res, u.id);
+    logAudit({ user: u, ip: req.ip, get: h => req.get(h) }, 'LOGIN', 'user', u.id);
+    res.json({ ok: true, user: sanitizeUser(u, u) });
+  } catch (e) {
+    console.error('[login]', e);
+    res.status(500).json({ ok: false, error: 'internal error', code: 'INTERNAL' });
   }
+});
 
-  // ── API: save full DB (from browser) ─────────────────────────────────
-  if (url === '/api/data' && req.method === 'POST') {
-    const ip_data = checkBlocked(req, res); if (!ip_data) return;
-    if (!checkApiKey(req)) {
-      logSecurity(ip_data, 'UNAUTHORIZED_WRITE', '/api/data POST');
-      json(res,{ok:false,err:'unauthorized'},401); return;
+app.post('/api/auth/logout', (req, res) => {
+  const t = req.cookies && req.cookies[SESSION_COOKIE];
+  const p = verifyToken(t);
+  if (p) {
+    const db = readDB();
+    const u = (db.users || []).find(x => x.id === p.uid);
+    if (u) logAudit({ user: u, ip: req.ip, get: h => req.get(h) }, 'LOGOUT', 'user', u.id);
+  }
+  clearSessionCookie(res);
+  res.json({ ok: true });
+});
+
+app.get('/api/auth/me', (req, res) => {
+  const t = req.cookies && req.cookies[SESSION_COOKIE];
+  const payload = verifyToken(t);
+  if (!payload) return res.json({ ok: true, user: null });
+  const db = readDB();
+  const u = (db.users || []).find(x => x.id === payload.uid);
+  if (!u) return res.json({ ok: true, user: null });
+  res.json({ ok: true, user: sanitizeUser(u, u) });
+});
+
+// ==========================================================================
+// DATA / DELETE (auth required + hardened)
+// ==========================================================================
+app.get('/api/data', readLimiter, requireAuth, (req, res) => {
+  try {
+    const db = readDB();
+    const sanitized = sanitizeSnapshot(db, req.user);
+    res.set('Cache-Control', 'no-store');
+    res.json({ ok: true, data: sanitized });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: 'internal error', code: 'INTERNAL' });
+  }
+});
+
+// Keys the bulk POST is allowed to touch. `users` is deliberately excluded
+// to eliminate mass-assignment on roles/salary/hashes.
+const ARRAY_KEYS = ['cps','txs','orders','petty','deals','accruals','rates','products','sreqs','items','warehouse','logs'];
+// Fields the client is NEVER allowed to set on user records (Phase 2 will add per-user endpoints).
+const USER_FORBIDDEN = new Set(['p', 'pwd_hash', 'role', 'sal', 'comm']);
+
+function mergeById(current, incoming) {
+  const map = new Map();
+  if (Array.isArray(current)) for (const r of current) if (r && r.id != null) map.set(String(r.id), r);
+  if (Array.isArray(incoming)) {
+    for (const r of incoming) {
+      if (!r || r.id == null) continue;
+      if (r._deleted) { map.delete(String(r.id)); continue; }
+      map.set(String(r.id), r);
     }
-    readBody(req, (err, body) => {
-      if (err || !body) { json(res, {ok:false, err:'bad json'}, 400); return; }
-      DB = body;
-      saveDB();
-      json(res, { ok:true });
-    });
-    return;
   }
-
-  // ── API: add expense from n8n bot ─────────────────────────────────────
-  if (url === '/api/expense' && req.method === 'POST') {
-    if (!checkApiKey(req)) { json(res,{ok:false,err:'unauthorized'},401); return; }
-    readBody(req, (err, body) => {
-      if (err || !body) { json(res, {ok:false, err:'bad json'}, 400); return; }
-      if (!DB.txs) DB.txs = [];
-      const newId = DB.txs.length ? Math.max.apply(null, DB.txs.map(t=>t.id||0)) + 1 : 1;
-      const tx = {
-        id:    newId,
-        date:  body.date || new Date().toISOString().slice(0,10),
-        type:  'expense',
-        acc:   body.account || 'cash',
-        iid:   body.iid || 15,
-        cpid:  body.cpid || null,
-        oid:   body.oid  || null,
-        amt:   body.amount || 0,
-        cur:   body.currency || 'UZS',
-        rate:  1,
-        uzs:   body.amount || 0,
-        note:  '[ТГ] ' + (body.description || ''),
-        by:    body.by || 3,
-        debt:  false,
-        fromTg: true
-      };
-      DB.txs.push(tx);
-      saveDB();
-      json(res, { ok:true, tx });
-    });
-    return;
-  }
-
-  // ── API: health check ─────────────────────────────────────────────────
-  // ── API: add income ─────────────────────────────────────────────────────
-  if (url === '/api/income' && req.method === 'POST') {
-    if (!checkApiKey(req)) { logSecurity(checkBlocked(req,res)||'?','UNAUTH','/api/income'); json(res,{ok:false,err:'unauthorized'},401); return; }
-    readBody(req, (err, body) => {
-      if (err || !body) { json(res,{ok:false},400); return; }
-      if (!DB.txs) DB.txs = [];
-      const id = DB.txs.length ? Math.max(...DB.txs.map(t=>t.id||0))+1 : 1;
-      const tx = { id, date: body.date||new Date().toISOString().slice(0,10),
-        type:'income', acc: body.acc||'cash', iid: body.iid||1,
-        cpid: body.cpid||null, oid: body.oid||null,
-        amt: body.amt||0, cur: body.cur||'UZS', rate:1, uzs: body.amt||0,
-        note: body.note||'', by: body.by||1, payType: body.payType||'payment', fromBot:true };
-      DB.txs.push(tx); saveDB(); json(res,{ok:true,tx});
-    }); return;
-  }
-
-  // ── API: create order ────────────────────────────────────────────────────
-  if (url === '/api/order' && req.method === 'POST') {
-    if (!checkApiKey(req)) { json(res,{ok:false,err:'unauthorized'},401); return; }
-    readBody(req, (err, body) => {
-      if (err || !body) { json(res,{ok:false},400); return; }
-      if (!DB.orders) DB.orders = [];
-      const id = DB.orders.length ? Math.max(...DB.orders.map(o=>o.id||0))+1 : 1;
-      const order = { id, num:'#'+id, name: body.name||'Новый заказ',
-        cpid: body.cpid||null, mid: body.mid||4, status: body.status||'new',
-        total: body.total||0, paid:0, date: body.date||new Date().toISOString().slice(0,10),
-        deadline: body.deadline||null, note: body.note||'', fromBot:true };
-      DB.orders.push(order); saveDB(); json(res,{ok:true,order});
-    }); return;
-  }
-
-  // ── API: create deal (CRM) ───────────────────────────────────────────────
-  if (url === '/api/deal' && req.method === 'POST') {
-    if (!checkApiKey(req)) { json(res,{ok:false,err:'unauthorized'},401); return; }
-    readBody(req, (err, body) => {
-      if (err || !body) { json(res,{ok:false},400); return; }
-      if (!DB.deals) DB.deals = [];
-      const id = DB.deals.length ? Math.max(...DB.deals.map(d=>d.id||0))+1 : 1;
-      const deal = { id, name: body.name||'Новая сделка',
-        cpid: body.cpid||null, mid: body.mid||4, stage: body.stage||'lead',
-        amt: body.amt||0, date: body.date||new Date().toISOString().slice(0,10),
-        note: body.note||'', fromBot:true };
-      DB.deals.push(deal); saveDB(); json(res,{ok:true,deal});
-    }); return;
-  }
-
-  // ── API: petty cash issue/report ─────────────────────────────────────────
-  if (url === '/api/petty' && req.method === 'POST') {
-    if (!checkApiKey(req)) { json(res,{ok:false,err:'unauthorized'},401); return; }
-    readBody(req, (err, body) => {
-      if (err || !body) { json(res,{ok:false},400); return; }
-      if (!DB.petty) DB.petty = [];
-      const id = DB.petty.length ? Math.max(...DB.petty.map(p=>p.id||0))+1 : 1;
-      const entry = { id, empId: body.empId||3, type: body.type||'issued',
-        amt: body.amt||0, date: body.date||new Date().toISOString().slice(0,10),
-        note: body.note||'', status: body.status||'open',
-        iid: body.iid||null, oid: body.oid||null, fromBot:true };
-      DB.petty.push(entry); saveDB(); json(res,{ok:true,entry});
-    }); return;
-  }
-
-  // ── API: salary accrual ──────────────────────────────────────────────────
-  if (url === '/api/salary' && req.method === 'POST') {
-    if (!checkApiKey(req)) { json(res,{ok:false,err:'unauthorized'},401); return; }
-    readBody(req, (err, body) => {
-      if (err || !body) { json(res,{ok:false},400); return; }
-      if (!DB.accruals) DB.accruals = [];
-      const id = DB.accruals.length ? Math.max(...DB.accruals.map(a=>a.id||0))+1 : 1;
-      const acc = { id, empId: body.empId, amt: body.amt||0,
-        month: body.month||new Date().getMonth()+1,
-        year: body.year||new Date().getFullYear(),
-        type: body.type||'salary', paid: body.paid||false,
-        date: body.date||new Date().toISOString().slice(0,10), fromBot:true };
-      DB.accruals.push(acc); saveDB(); json(res,{ok:true,accrual:acc});
-    }); return;
-  }
-
-  // ── Security log (только с правильным ключом) ───────────────────────────
-  if (url === '/api/security' && req.method === 'GET') {
-    if (!checkApiKey(req)) { json(res,{ok:false,err:'unauthorized'},401); return; }
-    json(res, { ok:true, blocked: Array.from(blockedIPs), log: securityLog.slice(0,50) });
-    return;
-  }
-
-  // ── Block IP manually ────────────────────────────────────────────────────
-  if (url === '/api/block' && req.method === 'POST') {
-    if (!checkApiKey(req)) { json(res,{ok:false,err:'unauthorized'},401); return; }
-    readBody(req, (err,body) => {
-      if(err||!body) { json(res,{ok:false},400); return; }
-      if(body.ip) { blockedIPs.add(body.ip); logSecurity(body.ip,'MANUALLY_BLOCKED','admin action'); }
-      if(body.unblock) blockedIPs.delete(body.unblock);
-      json(res, {ok:true, blocked: Array.from(blockedIPs)});
-    });
-    return;
-  }
-
-  if (url === '/api/health') {
-    json(res, {
-      ok:       true,
-      status:   'running',
-      txs:      (DB.txs||[]).length,
-      orders:   (DB.orders||[]).length,
-      users:    (DB.users||[]).length,
-      uptime:   Math.round(process.uptime()) + 's',
-      ghSHA:    ghSHA ? ghSHA.slice(0,7) : 'none'
-    });
-    return;
-  }
-
-  // ── Static files ──────────────────────────────────────────────────────
-  let filePath = path.normalize(path.join(DIR, url === '/' ? '/index.html' : url));
-  if (!filePath.startsWith(DIR)) { res.writeHead(403); res.end(); return; }
-
-  if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-    filePath = path.join(DIR, 'index.html');
-  }
-
-  if (!fs.existsSync(filePath)) { res.writeHead(404); res.end('Not Found'); return; }
-
-  const ext = path.extname(filePath).toLowerCase();
-  const ct  = MIME[ext] || 'application/octet-stream';
-  const cc  = ['.png','.ico','.svg'].includes(ext) ? 'max-age=604800' : 'no-cache, no-store, must-revalidate';
-  res.writeHead(200, {'Content-Type':ct,'Cache-Control':cc});
-  res.end(fs.readFileSync(filePath));
+  return Array.from(map.values());
 }
 
-startServer();
+app.post('/api/data', writeLimiter, requireAuth, async (req, res) => {
+  try {
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json({ ok: false, error: 'invalid payload', code: 'BAD_PAYLOAD' });
+    }
+    const incoming = req.body;
+    // Reject any attempt to write forbidden top-level keys via bulk endpoint
+    if ('users' in incoming || 'audit_log' in incoming) {
+      logAudit(req, 'BLOCKED_WRITE', 'system', null, null, { blocked_keys: Object.keys(incoming).filter(k => k === 'users' || k === 'audit_log') });
+      return res.status(403).json({ ok: false, error: 'users/audit_log must use dedicated endpoints', code: 'FORBIDDEN_KEY' });
+    }
+    await withLock(async () => {
+      const current = readDB();
+      const merged = { ...current };
+      for (const k of Object.keys(incoming)) {
+        if (ARRAY_KEYS.includes(k) && Array.isArray(incoming[k])) {
+          merged[k] = mergeById(current[k] || [], incoming[k]);
+        } else if (k === 'users' || k === 'audit_log') {
+          // already rejected above
+        } else if (Array.isArray(incoming[k])) {
+          // unknown array key — ignore silently to avoid mass-assignment
+          continue;
+        } else {
+          merged[k] = incoming[k];
+        }
+      }
+      await writeAtomic(merged);
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: 'internal error', code: 'INTERNAL' });
+  }
+});
+
+app.post('/api/delete', writeLimiter, requireAuth, requireRole('director', 'accountant'), async (req, res) => {
+  try {
+    const { key, ids } = req.body || {};
+    if (!ARRAY_KEYS.includes(key) || !Array.isArray(ids)) {
+      return res.status(400).json({ ok: false, error: 'invalid payload', code: 'BAD_PAYLOAD' });
+    }
+    const idSet = new Set(ids.map(String));
+    let removed = 0;
+    let beforeSnapshot = [];
+    await withLock(async () => {
+      const current = readDB();
+      beforeSnapshot = (current[key] || []).filter(r => idSet.has(String(r && r.id)));
+      current[key] = (current[key] || []).filter(r => !idSet.has(String(r && r.id)));
+      removed = beforeSnapshot.length;
+      await writeAtomic(current);
+    });
+    if (removed > 0) await logAudit(req, 'DELETE', key, ids, beforeSnapshot, null);
+    res.json({ ok: true, removed });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: 'internal error', code: 'INTERNAL' });
+  }
+});
+
+// ==========================================================================
+// AUDIT REPORTS (director/accountant only, or ADMIN_KEY for cron pull)
+// ==========================================================================
+function auditAuth(req, res, next) {
+  // Accept either session (director/accountant) or ADMIN_KEY header/query
+  if (ADMIN_KEY && (req.get('x-admin-key') === ADMIN_KEY || req.query.key === ADMIN_KEY)) return next();
+  const t = req.cookies && req.cookies[SESSION_COOKIE];
+  const p = verifyToken(t);
+  if (!p) return res.status(401).json({ ok: false, error: 'unauthenticated', code: 'AUTH_REQUIRED' });
+  const db = readDB();
+  const u = (db.users || []).find(x => x.id === p.uid);
+  if (!u || (u.role !== 'director' && u.role !== 'accountant')) {
+    return res.status(403).json({ ok: false, error: 'forbidden', code: 'FORBIDDEN' });
+  }
+  req.user = u;
+  next();
+}
+
+async function runAudit(mode, opts = {}) {
+  const db = readDB();
+  const report = buildAudit(db, mode);
+  const ts = new Date().toISOString().replace(/[:.]/g, '-');
+  const file = path.join(AUDIT_DIR, `${ts}-${mode}.md`);
+  try { fs.writeFileSync(file, report); } catch (_) {}
+  let tgResult = null;
+  if (tg.hasToken && !opts.skipTelegram) {
+    try { tgResult = await tg.send(opts.chatId, report); }
+    catch (e) { console.error('[tg]', e.message); tgResult = { error: e.message }; }
+  }
+  return { report, file, tgResult };
+}
+
+app.get('/api/audit', auditAuth, async (req, res) => {
+  try {
+    const mode = req.query.mode === 'eod' ? 'eod' : 'midday';
+    const skipTelegram = req.query.tg === '0';
+    const result = await runAudit(mode, { skipTelegram });
+    res.type('text/markdown; charset=utf-8').send(result.report);
+  } catch (e) { res.status(500).json({ ok: false, error: 'internal error', code: 'INTERNAL' }); }
+});
+app.get('/api/audit/list', auditAuth, (req, res) => {
+  try {
+    const files = fs.readdirSync(AUDIT_DIR).filter(f => f.endsWith('.md')).sort().reverse();
+    res.json({ ok: true, files });
+  } catch (e) { res.status(500).json({ ok: false, error: 'internal error', code: 'INTERNAL' }); }
+});
+app.get('/api/audit/file/:name', auditAuth, (req, res) => {
+  try {
+    const safe = path.basename(req.params.name);
+    if (!/^[\w\-.:]+\.md$/.test(safe)) return res.status(400).send('bad name');
+    const p = path.join(AUDIT_DIR, safe);
+    if (!fs.existsSync(p)) return res.status(404).send('not found');
+    res.type('text/markdown; charset=utf-8').send(fs.readFileSync(p, 'utf8'));
+  } catch (e) { res.status(500).send('err'); }
+});
+
+app.get('/api/health', (req, res) => res.json({ ok: true, ts: Date.now(), tg: tg.hasToken }));
+
+// Trigger a manual backup (director only, useful before risky ops)
+app.post('/api/backup', writeLimiter, requireAuth, requireRole('director'), (req, res) => {
+  const f = backupNow('manual');
+  if (!f) return res.status(500).json({ ok: false, error: 'backup failed', code: 'INTERNAL' });
+  pruneBackups();
+  res.json({ ok: true, file: path.basename(f) });
+});
+
+// ==========================================================================
+// STATIC + FALLBACK
+// ==========================================================================
+app.use(express.static(__dirname, { extensions: ['html'], maxAge: 0 }));
+
+// Anything else that starts with /api/* but wasn't matched → structured 404
+app.use('/api/', (req, res) => res.status(404).json({ ok: false, error: 'not found', code: 'NOT_FOUND' }));
+
+// Generic safe error handler — never leaks stack traces
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  // body-parser payload-too-large
+  if (err && (err.type === 'entity.too.large' || err.status === 413)) {
+    return res.status(413).json({ ok: false, error: 'payload too large', code: 'PAYLOAD_TOO_LARGE' });
+  }
+  if (err && err.type === 'entity.parse.failed') {
+    return res.status(400).json({ ok: false, error: 'invalid json', code: 'BAD_JSON' });
+  }
+  console.error('[err]', err && err.message);
+  res.status(500).json({ ok: false, error: 'internal error', code: 'INTERNAL' });
+});
+
+// ==========================================================================
+// SCHEDULED AUDITS
+// ==========================================================================
+cron.schedule('0 13 * * *', () => { runAudit('midday').catch(e => console.error('[cron midday]', e.message)); }, { timezone: CRON_TZ });
+cron.schedule('0 20 * * *', () => { runAudit('eod').catch(e => console.error('[cron eod]', e.message)); }, { timezone: CRON_TZ });
+
+// Do an initial startup backup so we have at least one snapshot
+setTimeout(() => { backupNow('boot'); pruneBackups(); }, 5000);
+
+app.listen(PORT, () => {
+  console.log(`ISOLA secure server listening on ${PORT}`);
+  console.log(`  data: ${DATA_DIR}   backups: ${BACKUP_DIR}   audits: ${AUDIT_DIR}`);
+  console.log(`  cron tz: ${CRON_TZ}   telegram: ${tg.hasToken ? 'enabled' : 'DISABLED'}   admin-key: ${ADMIN_KEY ? 'set' : 'unset'}`);
+  console.log(`  cors origins: ${CORS_ORIGINS.length ? CORS_ORIGINS.join(', ') : '(same-origin only)'}`);
+});
