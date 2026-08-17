@@ -1,13 +1,14 @@
 {
   "name": "isola-ai-runner",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Claude Code executor node for the ISOLA n8n orchestration pipeline",
+  "description": "Claude Code executor node for the ISOLA n8n orchestration pipeline (hardened)",
   "scripts": {
     "start": "node server.js",
     "test": "node tests/self-test.js"
   },
   "dependencies": {
-    "express": "4.19.2"
+    "express": "4.19.2",
+    "express-rate-limit": "7.4.0"
   }
 }
