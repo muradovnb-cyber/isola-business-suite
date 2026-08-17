@@ -241,17 +241,17 @@
     },
     {
       "parameters": {
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "telegramApi",
-        "operation": "sendMessage",
-        "chatId": "={{ $vars.telegram_chat_id }}",
-        "text": "={{ ($json.status === 'DONE' ? '🟢 TASK COMPLETED' : $json.status === 'BLOCKED' ? '🔴 BLOCKED' : '🟡 STATUS ' + $json.status) + '\\nTask: ' + $json.taskId + '\\nPR: ' + ($json.pr?.url || '—') + '\\nAttempt: ' + ($json.attempt || $json.attempts) }}",
-        "additionalFields": {}
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $vars.telegram_bot_token }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $vars.telegram_chat_id, text: ($json.status === 'DONE' ? '🟢 TASK COMPLETED' : $json.status === 'BLOCKED' ? '🔴 BLOCKED' : '🟡 STATUS ' + $json.status) + '\\nTask: ' + $json.taskId + '\\nPR: ' + ($json.pr?.url || '—') + '\\nAttempt: ' + ($json.attempt || $json.attempts || 1), disable_web_page_preview: true }) }}",
+        "options": { "timeout": 15000 }
       },
       "id": "telegram-notify",
-      "name": "Telegram Notify",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
+      "name": "Telegram Notify (via HTTP)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [3060, 400],
       "continueOnFail": true
     },
@@ -286,14 +286,14 @@
       [{ "node": "Bump Attempt → Loop", "type": "main", "index": 0 }]
     ]},
     "Bump Attempt → Loop":    { "main": [[{ "node": "Claude Code Executor (ai-runner)", "type": "main", "index": 0 }]] },
-    "Blocked (max retries)":  { "main": [[{ "node": "Telegram Notify", "type": "main", "index": 0 }]] },
+    "Blocked (max retries)":  { "main": [[{ "node": "Telegram Notify (via HTTP)", "type": "main", "index": 0 }]] },
     "Final Report":           { "main": [[{ "node": "Approved for Deploy?", "type": "main", "index": 0 }]] },
     "Approved for Deploy?":   { "main": [
       [{ "node": "Railway Deploy (guarded)", "type": "main", "index": 0 }],
-      [{ "node": "Telegram Notify", "type": "main", "index": 0 }]
+      [{ "node": "Telegram Notify (via HTTP)", "type": "main", "index": 0 }]
     ]},
-    "Railway Deploy (guarded)": { "main": [[{ "node": "Telegram Notify", "type": "main", "index": 0 }]] },
-    "Telegram Notify":        { "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]] }
+    "Railway Deploy (guarded)": { "main": [[{ "node": "Telegram Notify (via HTTP)", "type": "main", "index": 0 }]] },
+    "Telegram Notify (via HTTP)":        { "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]] }
   },
   "settings": {
     "executionOrder": "v1",

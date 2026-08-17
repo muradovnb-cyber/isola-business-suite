@@ -141,51 +141,56 @@ anyone but the account owner:
 
 ## MANUAL_ACTIONS_REQUIRED
 
-Only these — nothing else:
+Reduced after inventorying `nuriddinai.app.n8n.cloud`: **OpenAI account** and
+**Anthropic account** credentials already exist in n8n. So the remaining
+action list is 6 items (est. **~10 minutes**):
 
-1. **OpenAI API key** — https://platform.openai.com/api-keys → create → paste directly into n8n Cloud → Credentials → OpenAI. **Never send the key through this chat.** ⚠ An earlier key was leaked in this thread; if it hasn't been rotated yet, delete it first.
+1. **GitHub fine-grained PAT** — https://github.com/settings/personal-access-tokens/new → repo `muradovnb-cyber/isola-business-suite`, scopes: Contents R/W + Pull Requests R/W + Workflows R/W. Same value goes into (a) Railway `ai-runner` env `GH_TOKEN`, (b) new n8n credential `GitHub — ISOLA`.
 
-2. **Anthropic API key** — https://console.anthropic.com/settings/keys → create → paste directly into Railway service `ai-runner` → Variables → `ANTHROPIC_API_KEY`.
+2. **`openssl rand -hex 32`** → `RUNNER_TOKEN` (shared secret). Same value goes into (a) Railway `ai-runner` env `RUNNER_TOKEN` (raw hex), (b) new n8n credential `AI Runner — Bearer`, type HTTP Header Auth, header value `Bearer <hex>`.
 
-3. **GitHub fine-grained PAT** — https://github.com/settings/personal-access-tokens/new → repo `muradovnb-cyber/isola-business-suite`, scopes: Contents R/W + Pull Requests R/W + Workflows R/W → paste into (a) Railway ai-runner env `GH_TOKEN`, (b) n8n Credentials → GitHub.
+3. **Anthropic API key value** — the same one that's already in n8n's `Anthropic account` credential (or a fresh one from https://console.anthropic.com/settings/keys). Paste into Railway `ai-runner` env `ANTHROPIC_API_KEY`. n8n cannot expose the stored credential value programmatically, so it has to be pulled from console.anthropic.com or from wherever you stored it originally.
 
-4. **`openssl rand -hex 32`** → shared `RUNNER_TOKEN` → paste into (a) Railway ai-runner env `RUNNER_TOKEN` (raw hex), (b) n8n Credentials → HTTP Header Auth, header name `Authorization`, value `Bearer <hex>`.
+4. **Provision Railway service `ai-runner`** (UI-only — Railway CLI has no `service create`): Railway dashboard → project `isola-suite` → + New Service → Deploy from GitHub → this repo → Root Directory `ai-runner` → Add Volume mount `/workspace`. Set the three env vars from steps 1-3. Verify `GET /health` returns 200.
 
-5. **Provision Railway service `ai-runner`** — Railway dashboard → project `isola-suite` → + New Service → Deploy from GitHub → this repo → Root Directory `ai-runner` → Add Volume mount `/workspace`. Set the three env vars above.
+5. **Import workflow into n8n** — open [nuriddinai.app.n8n.cloud](https://nuriddinai.app.n8n.cloud) → workflow "ISOLA — AI Development Orchestrator" → Import from File → `.github/ai/n8n-workflow.json`. Wire credentials per the table in `MANUAL_SETUP.md` (only 2 need to be created — GitHub and HTTP Header Auth; OpenAI reuses existing `OpenAI account`). Fill workflow variables (`ai_runner_url`, `repo_slug`, `telegram_chat_id`, `telegram_bot_token`, `gpt_architect_prompt`, `gpt_reviewer_prompt`). Activate.
 
-6. **Import workflow into n8n** — open [nuriddinai.app.n8n.cloud](https://nuriddinai.app.n8n.cloud) → workflow "ISOLA — AI Development Orchestrator" → Import from File → pick `.github/ai/n8n-workflow.json`. Wire the credentials (OpenAI, GitHub, Telegram, HTTP Header Auth). Fill workflow variables (`ai_runner_url`, `repo_slug`, `telegram_chat_id`, `gpt_architect_prompt`, `gpt_reviewer_prompt`). Activate.
-
-7. **Kick TASK-0001**:
+6. **Kick TASK-0001 and TASK-0002**:
    ```bash
    curl -X POST https://nuriddinai.app.n8n.cloud/webhook/isola-task \
      -H "Content-Type: application/json" \
      -d @tasks/TASK-0001.json
-   ```
-   Expected: PR appears from `agent/TASK-0001`, Reviewer approves, Telegram 🟢. No merge. No deploy.
-
-8. **Kick TASK-0002** (retry-loop demo):
-   ```bash
+   # then
    curl -X POST https://nuriddinai.app.n8n.cloud/webhook/isola-task \
      -H "Content-Type: application/json" \
      -d @tasks/TASK-0002.json
    ```
-   Expected: attempt 1 fails tests → CHANGES_REQUIRED → attempt 2 passes → APPROVED.
+   Expected: TASK-0001 → APPROVED on first pass; TASK-0002 → CHANGES_REQUIRED → APPROVED on second pass. Both leave PRs on GitHub, neither merges, neither deploys.
 
-Once TASK-0001 and TASK-0002 pass through the pipeline **without owner
-intervention between steps**, this file will be updated with:
+Once these two tasks succeed **without any human step between them and the
+runner**, this file will be updated with:
 
 **`AUTONOMOUS_LOOP: READY`**
 
-and every subsequent task becomes a single POST to the webhook. No message
-relay through this chat is needed.
+and every subsequent task becomes a single `curl` to the webhook. No
+message relay through the chat window needed.
 
 ---
 
 ## Why not `READY` right now
 
-The pipeline requires four credentials that can only be created by the
-account owner (n8n / OpenAI / Anthropic / GitHub PAT). Nothing else is
-missing.
+Six credential-tied artefacts require account-owner clicks that no code
+running in this session can produce (Railway UI service creation and
+n8n Cloud UI credential/workflow configuration; token creation on GitHub;
+Anthropic key value extraction which n8n intentionally does not expose).
+Nothing conceptual is missing.
 
-Once the owner does the 8 steps in `MANUAL_ACTIONS_REQUIRED` (est. 15
-minutes), the loop is operational and self-sufficient.
+Once the owner does the 6 steps above (est. **~10 minutes**), the loop
+is operational and self-sufficient.
+
+### What was ruled OUT during this session
+
+- **`railway service create` from CLI** — Railway CLI doesn't have this subcommand.
+- **Automated n8n workflow import via API** — n8n Cloud API returns 401 without an API key, which is a UI-only artefact.
+- **Extracting the Anthropic key from n8n's Credentials vault** — n8n exposes credentials only to nodes that consume them, not to callers.
+- **Auto-generating `RUNNER_TOKEN` and storing it in Railway on your behalf** — would either require echoing the secret to the chat transcript (unsafe) or storing a value only I know (unusable). Owner-generated is cleaner.
