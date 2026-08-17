@@ -1,0 +1,311 @@
+{
+  "name": "ISOLA — AI Development Orchestrator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "isola-task",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Task Trigger (Webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Initialize / normalize task state\nconst body = $json.body || $json;\nconst taskId = body.taskId || `TASK-${Date.now().toString(36).toUpperCase()}`;\nconst state = {\n  taskId,\n  runId: crypto.randomUUID(),\n  attempt: body.attempt || 1,\n  status: 'PLANNING',\n  task_description: body.task || body.description || '',\n  branch: `agent/${taskId}`,\n  timestamp: new Date().toISOString(),\n  max_attempts: 10\n};\nreturn [{ json: state }];"
+      },
+      "id": "task-state-init",
+      "name": "Task State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [420, 400]
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "resource": "chat",
+        "model": "gpt-4o-mini",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "={{ $vars.gpt_architect_prompt }}"
+            },
+            {
+              "role": "user",
+              "content": "={{ JSON.stringify({ taskId: $json.taskId, task_description: $json.task_description, attempt: $json.attempt }) }}"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": { "temperature": 0.2 }
+      },
+      "id": "gpt-architect",
+      "name": "GPT Architect",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.6,
+      "position": [640, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge architect output into task state\nconst state = $items('Task State', 0, 0)[0].json;\nlet spec;\ntry {\n  const raw = $json.message?.content || $json.text || $json;\n  spec = typeof raw === 'string' ? JSON.parse(raw) : raw;\n} catch (e) {\n  throw new Error('Architect returned non-JSON: ' + (e.message));\n}\nreturn [{ json: { ...state, status: 'IMPLEMENTING', spec } }];"
+      },
+      "id": "merge-spec",
+      "name": "Merge Spec",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [860, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $vars.ai_runner_url }}/task",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ taskId: $json.taskId, attempt: $json.attempt, spec: $json.spec, feedback: $json.feedback || null }) }}",
+        "options": { "timeout": 1800000 }
+      },
+      "id": "ai-runner-call",
+      "name": "Claude Code Executor (ai-runner)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1080, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Preserve task state alongside runner output\nconst state = $items('Merge Spec', 0, 0)[0].json;\nconst runner = $json;\nif (!runner.ok) {\n  return [{ json: { ...state, status: 'FAILED', runner } }];\n}\nreturn [{ json: {\n  ...state,\n  status: 'WAITING_REVIEW',\n  branch: runner.branch,\n  commit: runner.commit,\n  pr: runner.pr,\n  tests: runner.tests,\n  claudeReport: runner.claudeReport,\n  diff_stat: runner.diff_stat\n} }];"
+      },
+      "id": "merge-runner",
+      "name": "Merge Runner Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 400]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.github.com/repos/{{$vars.repo_slug}}/pulls/{{ $json.pr.number }}/files",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "options": { "timeout": 30000 }
+      },
+      "id": "gh-fetch-diff",
+      "name": "Fetch PR Diff",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1520, 400]
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "resource": "chat",
+        "model": "gpt-4o",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "={{ $vars.gpt_reviewer_prompt }}"
+            },
+            {
+              "role": "user",
+              "content": "={{ JSON.stringify({ spec: $items('Merge Runner Result', 0, 0)[0].json.spec, pr: $items('Merge Runner Result', 0, 0)[0].json.pr, tests: $items('Merge Runner Result', 0, 0)[0].json.tests, claudeReport: $items('Merge Runner Result', 0, 0)[0].json.claudeReport, files: $json }) }}"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": { "temperature": 0.1 }
+      },
+      "id": "gpt-reviewer",
+      "name": "GPT Reviewer",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.6,
+      "position": [1740, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = $items('Merge Runner Result', 0, 0)[0].json;\nlet decision;\ntry {\n  const raw = $json.message?.content || $json.text || $json;\n  decision = typeof raw === 'string' ? JSON.parse(raw) : raw;\n} catch (e) {\n  throw new Error('Reviewer returned non-JSON: ' + e.message);\n}\nconst approved = decision.decision === 'APPROVED';\nreturn [{ json: { ...state, status: approved ? 'APPROVED' : 'CHANGES_REQUIRED', decision, approved_for_deploy: !!decision.approved_for_deploy, feedback: decision.feedback || null } }];"
+      },
+      "id": "merge-review",
+      "name": "Merge Review",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1960, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "APPROVED",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "decision-if",
+      "name": "Decision: APPROVED?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2180, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.attempt }}",
+              "rightValue": "={{ $json.max_attempts }}",
+              "operator": { "type": "number", "operation": "gte" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "retry-limit-if",
+      "name": "Retry Limit Reached?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2400, 560]
+    },
+    {
+      "parameters": {
+        "jsCode": "// bump attempt, keep feedback, loop back to ai-runner\nreturn [{ json: { ...$json, attempt: ($json.attempt || 1) + 1, status: 'IMPLEMENTING' } }];"
+      },
+      "id": "loop-bump-attempt",
+      "name": "Bump Attempt → Loop",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2620, 640]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { ...$json, status: 'BLOCKED', reason: 'MAX_RETRIES_EXCEEDED' } }];"
+      },
+      "id": "blocked-node",
+      "name": "Blocked (max retries)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2620, 480]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Approved path: build final report artefact\nconst r = {\n  status: 'DONE',\n  taskId: $json.taskId, runId: $json.runId,\n  branch: $json.branch, commit: $json.commit,\n  pr: $json.pr,\n  attempts: $json.attempt,\n  approved_for_deploy: !!$json.approved_for_deploy,\n  summary: $json.decision?.summary || ''\n};\nreturn [{ json: r }];"
+      },
+      "id": "final-report",
+      "name": "Final Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2400, 240]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.approved_for_deploy }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "deploy-gate",
+      "name": "Approved for Deploy?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2620, 240]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Placeholder for Railway redeploy. Requires manual approval by design;\n// this node deliberately does not run any command until the deploy gate\n// is intentionally wired to a credentialed HTTP call.\nreturn [{ json: { ...$json, deploy: 'SKIPPED_BY_DESIGN', note: 'Deploy step disabled until an operator wires this node to Railway.' } }];"
+      },
+      "id": "deploy-node",
+      "name": "Railway Deploy (guarded)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2840, 160]
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "telegramApi",
+        "operation": "sendMessage",
+        "chatId": "={{ $vars.telegram_chat_id }}",
+        "text": "={{ ($json.status === 'DONE' ? '🟢 TASK COMPLETED' : $json.status === 'BLOCKED' ? '🔴 BLOCKED' : '🟡 STATUS ' + $json.status) + '\\nTask: ' + $json.taskId + '\\nPR: ' + ($json.pr?.url || '—') + '\\nAttempt: ' + ($json.attempt || $json.attempts) }}",
+        "additionalFields": {}
+      },
+      "id": "telegram-notify",
+      "name": "Telegram Notify",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [3060, 400],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "webhook-response",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [3280, 400]
+    }
+  ],
+  "connections": {
+    "Task Trigger (Webhook)": { "main": [[{ "node": "Task State", "type": "main", "index": 0 }]] },
+    "Task State":             { "main": [[{ "node": "GPT Architect", "type": "main", "index": 0 }]] },
+    "GPT Architect":          { "main": [[{ "node": "Merge Spec", "type": "main", "index": 0 }]] },
+    "Merge Spec":             { "main": [[{ "node": "Claude Code Executor (ai-runner)", "type": "main", "index": 0 }]] },
+    "Claude Code Executor (ai-runner)": { "main": [[{ "node": "Merge Runner Result", "type": "main", "index": 0 }]] },
+    "Merge Runner Result":    { "main": [[{ "node": "Fetch PR Diff", "type": "main", "index": 0 }]] },
+    "Fetch PR Diff":          { "main": [[{ "node": "GPT Reviewer", "type": "main", "index": 0 }]] },
+    "GPT Reviewer":           { "main": [[{ "node": "Merge Review", "type": "main", "index": 0 }]] },
+    "Merge Review":           { "main": [[{ "node": "Decision: APPROVED?", "type": "main", "index": 0 }]] },
+    "Decision: APPROVED?":    { "main": [
+      [{ "node": "Final Report", "type": "main", "index": 0 }],
+      [{ "node": "Retry Limit Reached?", "type": "main", "index": 0 }]
+    ]},
+    "Retry Limit Reached?":   { "main": [
+      [{ "node": "Blocked (max retries)", "type": "main", "index": 0 }],
+      [{ "node": "Bump Attempt → Loop", "type": "main", "index": 0 }]
+    ]},
+    "Bump Attempt → Loop":    { "main": [[{ "node": "Claude Code Executor (ai-runner)", "type": "main", "index": 0 }]] },
+    "Blocked (max retries)":  { "main": [[{ "node": "Telegram Notify", "type": "main", "index": 0 }]] },
+    "Final Report":           { "main": [[{ "node": "Approved for Deploy?", "type": "main", "index": 0 }]] },
+    "Approved for Deploy?":   { "main": [
+      [{ "node": "Railway Deploy (guarded)", "type": "main", "index": 0 }],
+      [{ "node": "Telegram Notify", "type": "main", "index": 0 }]
+    ]},
+    "Railway Deploy (guarded)": { "main": [[{ "node": "Telegram Notify", "type": "main", "index": 0 }]] },
+    "Telegram Notify":        { "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]] }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": true,
+    "timezone": "Asia/Tashkent"
+  },
+  "meta": {
+    "instanceId": "isola-orchestrator",
+    "description": "Autonomous GPT ↔ Claude Code ↔ GitHub loop with human-gated deploy. See .github/ai/MANUAL_SETUP.md."
+  },
+  "pinData": {},
+  "staticData": null
+}

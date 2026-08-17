@@ -1,0 +1,5 @@
+{
+  "taskId": "TASK-0002",
+  "task": "Prove the retry / CHANGES_REQUIRED loop end-to-end",
+  "description": "Create a file AI_LOOP_TEST.md at the repo root. On the first attempt, deliberately introduce a small verifiable defect (e.g. mis-spell 'operational' as 'operationaal'). Add a test in tests/ai-loop.test.js that reads the file and asserts the correct spelling — so the test WILL FAIL on attempt 1. The Reviewer must return CHANGES_REQUIRED. The runner then re-runs; on attempt 2 the model must fix the typo so tests pass. The Reviewer then returns APPROVED. Do NOT merge. Do NOT deploy."
+}
