@@ -335,20 +335,38 @@ function upsertPR(cwd, branch, taskId, report, testsRes) {
   const bodyFile = path.join(cwd, '..', `pr-body-${taskId}.md`);
   fs.writeFileSync(bodyFile, body);
 
-  const existing = run('gh', ['pr', 'list', '--repo', REPO_SLUG, '--state', 'open', '--head', branch, '--json', 'number,url', '--jq', '.[0]'], { env: ghEnv() });
+  // GitHub GraphQL API occasionally 503s. Retry gh commands up to 3 times
+  // with backoff before giving up.
+  const ghRetry = (args) => {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const r = run('gh', args, { env: ghEnv() });
+      const combined = (r.stdout || '') + '\n' + (r.stderr || '');
+      const isFlake = /HTTP 5\d\d|No server is currently available|service.*unavailable|timeout/i.test(combined);
+      if (r.ok || !isFlake) return r;
+      log(`[gh] flake attempt ${attempt}/3:`, combined.slice(-200).replace(/\n+/g, ' '));
+      if (attempt < 3) { const wait = 2000 * attempt; const end = Date.now() + wait; while (Date.now() < end) {} }
+    }
+    return { ok: false, stdout: '', stderr: 'exhausted retries', code: -1 };
+  };
+
+  const existing = ghRetry(['pr', 'list', '--repo', REPO_SLUG, '--state', 'open', '--head', branch, '--json', 'number,url', '--jq', '.[0]']);
   let prUrl = '', prNumber = null;
-  if (existing.ok && existing.stdout.trim()) {
+  if (existing.ok && existing.stdout.trim() && existing.stdout.trim() !== 'null') {
     try {
       const j = JSON.parse(existing.stdout);
-      prNumber = j.number; prUrl = j.url;
-      run('gh', ['pr', 'edit', String(prNumber), '--repo', REPO_SLUG, '--title', title, '--body-file', bodyFile], { env: ghEnv() });
+      if (j && j.number) {
+        prNumber = j.number; prUrl = j.url;
+        ghRetry(['pr', 'edit', String(prNumber), '--repo', REPO_SLUG, '--title', title, '--body-file', bodyFile]);
+      }
     } catch (_) {}
   }
   if (!prNumber) {
-    const r = run('gh', ['pr', 'create', '--repo', REPO_SLUG, '--base', 'main', '--head', branch, '--title', title, '--body-file', bodyFile], { env: ghEnv() });
+    const r = ghRetry(['pr', 'create', '--repo', REPO_SLUG, '--base', 'main', '--head', branch, '--title', title, '--body-file', bodyFile]);
     if (r.ok) {
       const m = r.stdout.match(/https:\S+/);
       if (m) { prUrl = m[0]; const n = prUrl.match(/\/pull\/(\d+)/); if (n) prNumber = parseInt(n[1], 10); }
+    } else {
+      logErr('[pr create] final failure:', (r.stderr || '').slice(-300));
     }
   }
   try { fs.unlinkSync(bodyFile); } catch (_) {}
