@@ -1,9 +1,8 @@
-# ai-runner container image
-# Base: Node 20 slim.
-# Ships: git, gh CLI, Claude Code CLI.
+# ai-runner container image — Node 20 slim + git + gh + Claude Code CLI.
+# Runs as root (single-tenant internal tool behind bearer auth); entrypoint
+# ensures the /workspace volume is initialised before starting the server.
 FROM node:20-slim
 
-# System deps: git for cloning, gh for PRs, ca-certs, curl, tini
 RUN apt-get update && apt-get install -y --no-install-recommends \
       git ca-certificates curl gnupg tini \
  && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
@@ -11,28 +10,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && apt-get update && apt-get install -y --no-install-recommends gh \
  && rm -rf /var/lib/apt/lists/*
 
-# Claude Code CLI (non-interactive `claude -p` mode is what we use)
 RUN npm install -g @anthropic-ai/claude-code
 
 WORKDIR /app
 
-# App deps first (better layer cache)
 COPY package.json package-lock.json* ./
 RUN npm install --omit=dev --no-audit --no-fund
 
-# App source
 COPY server.js ./
 COPY tests ./tests
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Repo workspace lives on a persistent volume in production; the runner will
-# clone on first request if empty.
-RUN mkdir -p /workspace/repo && chown -R node:node /app /workspace
+RUN mkdir -p /workspace
 
-USER node
 ENV NODE_ENV=production \
-    REPO_DIR=/workspace/repo \
+    WORKSPACE_ROOT=/workspace \
     PORT=3000
 
 EXPOSE 3000
-ENTRYPOINT ["/usr/bin/tini","--"]
-CMD ["node","server.js"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
