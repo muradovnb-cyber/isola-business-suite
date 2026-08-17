@@ -12,7 +12,10 @@
       "name": "Task Trigger (Webhook)",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [200, 400]
+      "position": [
+        200,
+        400
+      ]
     },
     {
       "parameters": {
@@ -22,7 +25,10 @@
       "name": "Task State",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [420, 400]
+      "position": [
+        420,
+        400
+      ]
     },
     {
       "parameters": {
@@ -32,14 +38,19 @@
         "nodeCredentialType": "openAiApi",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: 'gpt-4o-mini', temperature: 0.2, response_format: { type: 'json_object' }, messages: [ { role: 'system', content: $vars.gpt_architect_prompt }, { role: 'user', content: JSON.stringify({ taskId: $json.taskId, task_description: $json.task_description, attempt: $json.attempt }) } ] }) }}",
-        "options": { "timeout": 120000 }
+        "jsonBody": "={{ JSON.stringify({ model: 'gpt-4o-mini', temperature: 0.2, response_format: { type: 'json_object' }, messages: [ { role: 'system', content: \"# GPT Architect \\u2014 system prompt\\n\\nYou are the **Architect** in an autonomous ISOLA Business Suite development pipeline.\\nYou NEVER write production code yourself. You produce a rigorous task spec that a\\ndownstream executor (Claude Code) will implement, and a downstream Reviewer (another\\nGPT session) will validate.\\n\\n## Inputs you will receive (from n8n)\\n\\n- A human-written task description (may be terse).\\n- Optional: current repo tree summary, prior PR context, prior review feedback.\\n\\n## Your output \\u2014 STRICT JSON, nothing else\\n\\nReturn a single JSON object matching this shape. Do not wrap it in prose or code fences.\\n\\n```jsonc\\n{\\n  \\\"taskId\\\":         \\\"TASK-XXXX\\\",         // stable per task; reuse across retries\\n  \\\"task\\\":           \\\"one-line title, \\u226480 chars\\\",\\n  \\\"objective\\\":      \\\"1\\u20133 sentence goal\\\",\\n  \\\"context\\\":        \\\"background the executor must know\\\",\\n  \\\"files_to_inspect\\\": [\\\"relative/path.js\\\", \\\"...\\\"],\\n  \\\"requirements\\\":     [\\\"numbered rules the implementation must satisfy\\\"],\\n  \\\"acceptance_criteria\\\": [\\\"checkable predicates the reviewer will verify\\\"],\\n  \\\"tests_required\\\":   [\\\"what tests to add or run\\\"],\\n  \\\"security_requirements\\\": [\\\"OWASP / project-specific security rules\\\"],\\n  \\\"do_not_change\\\":    [\\\"files / behaviors that must stay identical\\\"],\\n  \\\"deployment_policy\\\": \\\"DEPLOY = forbidden without APPROVED_FOR_DEPLOY\\\"\\n}\\n```\\n\\n## Rules\\n\\n1. **No code.** Never emit source code, patches, or file contents.\\n2. **Small tasks.** Prefer breaking large asks into multiple `TASK-XXXX` specs.\\n3. **Constrain blast radius.** Always populate `do_not_change` explicitly.\\n4. **Security first.** For any auth/finance/RBAC change, add relevant items to\\n   `security_requirements` (e.g. \\\"no plaintext passwords in responses\\\",\\n   \\\"session cookie must be HttpOnly + Secure\\\").\\n5. **Testable acceptance criteria.** Each item must be verifiable by inspecting\\n   the diff, running tests, or hitting an endpoint.\\n6. **Non-destructive default.** Migrations must be idempotent. Deletes must be\\n   soft where financial data is involved.\\n7. **Never approve deploys.** Approval to deploy is a separate decision made\\n   only by the Reviewer, and only when the task explicitly asks for it.\\n\\n## Failure modes to prevent\\n\\n- Do not invent file names. Only reference files you were told exist.\\n- Do not embed API keys, tokens, or environment values.\\n- Do not describe implementation. Only describe *what* and *why*.\\n\" }, { role: 'user', content: JSON.stringify({ taskId: $json.taskId, task_description: $json.task_description, attempt: $json.attempt }) } ] }) }}",
+        "options": {
+          "timeout": 120000
+        }
       },
       "id": "gpt-architect",
       "name": "GPT Architect",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [640, 400]
+      "position": [
+        640,
+        400
+      ]
     },
     {
       "parameters": {
@@ -49,24 +60,32 @@
       "name": "Merge Spec",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [860, 400]
+      "position": [
+        860,
+        400
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $vars.ai_runner_url }}/task",
+        "url": "https://ai-runner-production-4c3d.up.railway.app/task",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ taskId: $json.taskId, attempt: $json.attempt, spec: $json.spec, feedback: $json.feedback || null }) }}",
-        "options": { "timeout": 1800000 }
+        "options": {
+          "timeout": 1800000
+        }
       },
       "id": "ai-runner-call",
       "name": "Claude Code Executor (ai-runner)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1080, 400]
+      "position": [
+        1080,
+        400
+      ]
     },
     {
       "parameters": {
@@ -76,21 +95,29 @@
       "name": "Merge Runner Result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1300, 400]
+      "position": [
+        1300,
+        400
+      ]
     },
     {
       "parameters": {
         "method": "GET",
-        "url": "=https://api.github.com/repos/{{$vars.repo_slug}}/pulls/{{ $json.pr.number }}/files",
+        "url": "=https://api.github.com/repos/muradovnb-cyber/isola-business-suite/pulls/{{ $json.pr.number }}/files",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "githubApi",
-        "options": { "timeout": 30000 }
+        "options": {
+          "timeout": 30000
+        }
       },
       "id": "gh-fetch-diff",
       "name": "Fetch PR Diff",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1520, 400]
+      "position": [
+        1520,
+        400
+      ]
     },
     {
       "parameters": {
@@ -100,14 +127,19 @@
         "nodeCredentialType": "openAiApi",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: 'gpt-4o', temperature: 0.1, response_format: { type: 'json_object' }, messages: [ { role: 'system', content: $vars.gpt_reviewer_prompt }, { role: 'user', content: JSON.stringify({ spec: $items('Merge Runner Result', 0, 0)[0].json.spec, pr: $items('Merge Runner Result', 0, 0)[0].json.pr, tests: $items('Merge Runner Result', 0, 0)[0].json.tests, claudeReport: $items('Merge Runner Result', 0, 0)[0].json.claudeReport, files: $json }) } ] }) }}",
-        "options": { "timeout": 180000 }
+        "jsonBody": "={{ JSON.stringify({ model: 'gpt-4o', temperature: 0.1, response_format: { type: 'json_object' }, messages: [ { role: 'system', content: \"# GPT Reviewer \\u2014 system prompt\\n\\nYou are the **Reviewer** in the autonomous ISOLA Business Suite pipeline.\\nYou receive:\\n- the original task spec (from the Architect),\\n- the PR diff (unified format),\\n- the list of changed files,\\n- test output,\\n- the executor's short report.\\n\\nYour job: decide `APPROVED` or `CHANGES_REQUIRED`, and if the latter, produce a\\nstructured feedback object the executor will retry against.\\n\\n## Output \\u2014 STRICT JSON, nothing else\\n\\n```jsonc\\n// If ready:\\n{\\n  \\\"decision\\\": \\\"APPROVED\\\",\\n  \\\"approved_for_deploy\\\": false,     // set true ONLY when the task explicitly asked for a deploy\\n  \\\"summary\\\": \\\"one-line reason\\\"\\n}\\n\\n// If not:\\n{\\n  \\\"decision\\\": \\\"CHANGES_REQUIRED\\\",\\n  \\\"feedback\\\": {\\n    \\\"problem\\\": \\\"what is wrong\\\",\\n    \\\"why\\\":     \\\"why it matters (business/security/correctness)\\\",\\n    \\\"required_change\\\": \\\"what the executor must do differently\\\",\\n    \\\"acceptance_criteria\\\": \\\"how you will re-check on the next iteration\\\"\\n  }\\n}\\n```\\n\\nDo not include prose outside the JSON. No code fences.\\n\\n## Approval criteria (must ALL hold)\\n\\n- Every `acceptance_criteria` item from the spec is verifiably satisfied.\\n- No item from `do_not_change` was modified.\\n- All `security_requirements` hold in the diff.\\n- Test output shows all tests passing (or explicit `no tests` if the task was\\n  docs-only).\\n- Diff does not contain secrets, API keys, or personal identifying info.\\n- Commit history looks clean (no reverts, no merge-commit chaos, one focused\\n  change).\\n\\n## Reject strongly if\\n\\n- Any user-visible business logic changed but no tests were added or updated.\\n- Any file under `do_not_change` was touched.\\n- Any authentication / authorization / permission / RBAC / financial code path\\n  was changed without a matching test.\\n- Any secret pattern appears in the diff.\\n- Executor report claims changes that don't appear in the diff.\\n\\n## Retry etiquette\\n\\n- Be concrete. \\\"Fix the login\\\" is not feedback; \\\"The POST /api/auth/login\\n  handler still returns pwd_hash in the user object (see server.js line 210).\\n  Remove it and add a regression test in tests/api.test.js.\\\" is.\\n- Do not repeat previously satisfied criteria.\\n- If after 10 attempts a task still fails, output `CHANGES_REQUIRED` with\\n  `problem: \\\"MAX_RETRIES_EXCEEDED\\\"` \\u2014 n8n will escalate to a human.\\n\" }, { role: 'user', content: JSON.stringify({ spec: $items('Merge Runner Result', 0, 0)[0].json.spec, pr: $items('Merge Runner Result', 0, 0)[0].json.pr, tests: $items('Merge Runner Result', 0, 0)[0].json.tests, claudeReport: $items('Merge Runner Result', 0, 0)[0].json.claudeReport, files: $json }) } ] }) }}",
+        "options": {
+          "timeout": 180000
+        }
       },
       "id": "gpt-reviewer",
       "name": "GPT Reviewer",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1740, 400]
+      "position": [
+        1740,
+        400
+      ]
     },
     {
       "parameters": {
@@ -117,17 +149,26 @@
       "name": "Merge Review",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1960, 400]
+      "position": [
+        1960,
+        400
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
               "leftValue": "={{ $json.status }}",
               "rightValue": "APPROVED",
-              "operator": { "type": "string", "operation": "equals" }
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
             }
           ],
           "combinator": "and"
@@ -137,17 +178,26 @@
       "name": "Decision: APPROVED?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [2180, 400]
+      "position": [
+        2180,
+        400
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
               "leftValue": "={{ $json.attempt }}",
               "rightValue": "={{ $json.max_attempts }}",
-              "operator": { "type": "number", "operation": "gte" }
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
             }
           ],
           "combinator": "and"
@@ -157,7 +207,10 @@
       "name": "Retry Limit Reached?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [2400, 560]
+      "position": [
+        2400,
+        560
+      ]
     },
     {
       "parameters": {
@@ -167,7 +220,10 @@
       "name": "Bump Attempt → Loop",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2620, 640]
+      "position": [
+        2620,
+        640
+      ]
     },
     {
       "parameters": {
@@ -177,7 +233,10 @@
       "name": "Blocked (max retries)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2620, 480]
+      "position": [
+        2620,
+        480
+      ]
     },
     {
       "parameters": {
@@ -187,17 +246,26 @@
       "name": "Final Report",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2400, 240]
+      "position": [
+        2400,
+        240
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
               "leftValue": "={{ $json.approved_for_deploy }}",
               "rightValue": true,
-              "operator": { "type": "boolean", "operation": "equals" }
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
             }
           ],
           "combinator": "and"
@@ -207,7 +275,10 @@
       "name": "Approved for Deploy?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [2620, 240]
+      "position": [
+        2620,
+        240
+      ]
     },
     {
       "parameters": {
@@ -217,22 +288,26 @@
       "name": "Railway Deploy (guarded)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2840, 160]
+      "position": [
+        2840,
+        160
+      ]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "=https://api.telegram.org/bot{{ $vars.telegram_bot_token }}/sendMessage",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ chat_id: $vars.telegram_chat_id, text: ($json.status === 'DONE' ? '🟢 TASK COMPLETED' : $json.status === 'BLOCKED' ? '🔴 BLOCKED' : '🟡 STATUS ' + $json.status) + '\\nTask: ' + $json.taskId + '\\nPR: ' + ($json.pr?.url || '—') + '\\nAttempt: ' + ($json.attempt || $json.attempts || 1), disable_web_page_preview: true }) }}",
-        "options": { "timeout": 15000 }
+        "operation": "sendMessage",
+        "chatId": "63236216",
+        "text": "={{ ($json.status === 'DONE' ? '🟢 TASK COMPLETED' : $json.status === 'BLOCKED' ? '🔴 BLOCKED' : '🟡 STATUS ' + $json.status) + '\\nTask: ' + $json.taskId + '\\nPR: ' + ($json.pr?.url || '—') + '\\nAttempt: ' + ($json.attempt || $json.attempts || 1) }}",
+        "additionalFields": {}
       },
       "id": "telegram-notify",
-      "name": "Telegram Notify (via HTTP)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [3060, 400],
+      "name": "Telegram Notify",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3060,
+        400
+      ],
       "continueOnFail": true
     },
     {
@@ -244,36 +319,221 @@
       "name": "Respond to Webhook",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [3280, 400]
+      "position": [
+        3280,
+        400
+      ]
     }
   ],
   "connections": {
-    "Task Trigger (Webhook)": { "main": [[{ "node": "Task State", "type": "main", "index": 0 }]] },
-    "Task State":             { "main": [[{ "node": "GPT Architect", "type": "main", "index": 0 }]] },
-    "GPT Architect":          { "main": [[{ "node": "Merge Spec", "type": "main", "index": 0 }]] },
-    "Merge Spec":             { "main": [[{ "node": "Claude Code Executor (ai-runner)", "type": "main", "index": 0 }]] },
-    "Claude Code Executor (ai-runner)": { "main": [[{ "node": "Merge Runner Result", "type": "main", "index": 0 }]] },
-    "Merge Runner Result":    { "main": [[{ "node": "Fetch PR Diff", "type": "main", "index": 0 }]] },
-    "Fetch PR Diff":          { "main": [[{ "node": "GPT Reviewer", "type": "main", "index": 0 }]] },
-    "GPT Reviewer":           { "main": [[{ "node": "Merge Review", "type": "main", "index": 0 }]] },
-    "Merge Review":           { "main": [[{ "node": "Decision: APPROVED?", "type": "main", "index": 0 }]] },
-    "Decision: APPROVED?":    { "main": [
-      [{ "node": "Final Report", "type": "main", "index": 0 }],
-      [{ "node": "Retry Limit Reached?", "type": "main", "index": 0 }]
-    ]},
-    "Retry Limit Reached?":   { "main": [
-      [{ "node": "Blocked (max retries)", "type": "main", "index": 0 }],
-      [{ "node": "Bump Attempt → Loop", "type": "main", "index": 0 }]
-    ]},
-    "Bump Attempt → Loop":    { "main": [[{ "node": "Claude Code Executor (ai-runner)", "type": "main", "index": 0 }]] },
-    "Blocked (max retries)":  { "main": [[{ "node": "Telegram Notify (via HTTP)", "type": "main", "index": 0 }]] },
-    "Final Report":           { "main": [[{ "node": "Approved for Deploy?", "type": "main", "index": 0 }]] },
-    "Approved for Deploy?":   { "main": [
-      [{ "node": "Railway Deploy (guarded)", "type": "main", "index": 0 }],
-      [{ "node": "Telegram Notify (via HTTP)", "type": "main", "index": 0 }]
-    ]},
-    "Railway Deploy (guarded)": { "main": [[{ "node": "Telegram Notify (via HTTP)", "type": "main", "index": 0 }]] },
-    "Telegram Notify (via HTTP)":        { "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]] }
+    "Task Trigger (Webhook)": {
+      "main": [
+        [
+          {
+            "node": "Task State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Task State": {
+      "main": [
+        [
+          {
+            "node": "GPT Architect",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GPT Architect": {
+      "main": [
+        [
+          {
+            "node": "Merge Spec",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Spec": {
+      "main": [
+        [
+          {
+            "node": "Claude Code Executor (ai-runner)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Code Executor (ai-runner)": {
+      "main": [
+        [
+          {
+            "node": "Merge Runner Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Runner Result": {
+      "main": [
+        [
+          {
+            "node": "Fetch PR Diff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch PR Diff": {
+      "main": [
+        [
+          {
+            "node": "GPT Reviewer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GPT Reviewer": {
+      "main": [
+        [
+          {
+            "node": "Merge Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Review": {
+      "main": [
+        [
+          {
+            "node": "Decision: APPROVED?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decision: APPROVED?": {
+      "main": [
+        [
+          {
+            "node": "Final Report",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Retry Limit Reached?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retry Limit Reached?": {
+      "main": [
+        [
+          {
+            "node": "Blocked (max retries)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bump Attempt → Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bump Attempt → Loop": {
+      "main": [
+        [
+          {
+            "node": "Claude Code Executor (ai-runner)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Blocked (max retries)": {
+      "main": [
+        [
+          {
+            "node": "Telegram Notify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Final Report": {
+      "main": [
+        [
+          {
+            "node": "Approved for Deploy?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approved for Deploy?": {
+      "main": [
+        [
+          {
+            "node": "Railway Deploy (guarded)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram Notify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Railway Deploy (guarded)": {
+      "main": [
+        [
+          {
+            "node": "Telegram Notify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Notify": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "settings": {
     "executionOrder": "v1",
