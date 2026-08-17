@@ -26,34 +26,24 @@
     },
     {
       "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "openAiApi",
-        "resource": "chat",
-        "model": "gpt-4o-mini",
-        "messages": {
-          "values": [
-            {
-              "role": "system",
-              "content": "={{ $vars.gpt_architect_prompt }}"
-            },
-            {
-              "role": "user",
-              "content": "={{ JSON.stringify({ taskId: $json.taskId, task_description: $json.task_description, attempt: $json.attempt }) }}"
-            }
-          ]
-        },
-        "jsonOutput": true,
-        "options": { "temperature": 0.2 }
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'gpt-4o-mini', temperature: 0.2, response_format: { type: 'json_object' }, messages: [ { role: 'system', content: $vars.gpt_architect_prompt }, { role: 'user', content: JSON.stringify({ taskId: $json.taskId, task_description: $json.task_description, attempt: $json.attempt }) } ] }) }}",
+        "options": { "timeout": 120000 }
       },
       "id": "gpt-architect",
       "name": "GPT Architect",
-      "type": "@n8n/n8n-nodes-langchain.openAi",
-      "typeVersion": 1.6,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [640, 400]
     },
     {
       "parameters": {
-        "jsCode": "// Merge architect output into task state\nconst state = $items('Task State', 0, 0)[0].json;\nlet spec;\ntry {\n  const raw = $json.message?.content || $json.text || $json;\n  spec = typeof raw === 'string' ? JSON.parse(raw) : raw;\n} catch (e) {\n  throw new Error('Architect returned non-JSON: ' + (e.message));\n}\nreturn [{ json: { ...state, status: 'IMPLEMENTING', spec } }];"
+        "jsCode": "// Merge architect output into task state (OpenAI HTTP Request response shape)\nconst state = $items('Task State', 0, 0)[0].json;\nlet spec;\ntry {\n  const raw = $json.choices?.[0]?.message?.content || $json.message?.content || $json.text || $json;\n  spec = typeof raw === 'string' ? JSON.parse(raw) : raw;\n} catch (e) {\n  throw new Error('Architect returned non-JSON: ' + (e.message));\n}\nreturn [{ json: { ...state, status: 'IMPLEMENTING', spec } }];"
       },
       "id": "merge-spec",
       "name": "Merge Spec",
@@ -104,34 +94,24 @@
     },
     {
       "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "openAiApi",
-        "resource": "chat",
-        "model": "gpt-4o",
-        "messages": {
-          "values": [
-            {
-              "role": "system",
-              "content": "={{ $vars.gpt_reviewer_prompt }}"
-            },
-            {
-              "role": "user",
-              "content": "={{ JSON.stringify({ spec: $items('Merge Runner Result', 0, 0)[0].json.spec, pr: $items('Merge Runner Result', 0, 0)[0].json.pr, tests: $items('Merge Runner Result', 0, 0)[0].json.tests, claudeReport: $items('Merge Runner Result', 0, 0)[0].json.claudeReport, files: $json }) }}"
-            }
-          ]
-        },
-        "jsonOutput": true,
-        "options": { "temperature": 0.1 }
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'gpt-4o', temperature: 0.1, response_format: { type: 'json_object' }, messages: [ { role: 'system', content: $vars.gpt_reviewer_prompt }, { role: 'user', content: JSON.stringify({ spec: $items('Merge Runner Result', 0, 0)[0].json.spec, pr: $items('Merge Runner Result', 0, 0)[0].json.pr, tests: $items('Merge Runner Result', 0, 0)[0].json.tests, claudeReport: $items('Merge Runner Result', 0, 0)[0].json.claudeReport, files: $json }) } ] }) }}",
+        "options": { "timeout": 180000 }
       },
       "id": "gpt-reviewer",
       "name": "GPT Reviewer",
-      "type": "@n8n/n8n-nodes-langchain.openAi",
-      "typeVersion": 1.6,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [1740, 400]
     },
     {
       "parameters": {
-        "jsCode": "const state = $items('Merge Runner Result', 0, 0)[0].json;\nlet decision;\ntry {\n  const raw = $json.message?.content || $json.text || $json;\n  decision = typeof raw === 'string' ? JSON.parse(raw) : raw;\n} catch (e) {\n  throw new Error('Reviewer returned non-JSON: ' + e.message);\n}\nconst approved = decision.decision === 'APPROVED';\nreturn [{ json: { ...state, status: approved ? 'APPROVED' : 'CHANGES_REQUIRED', decision, approved_for_deploy: !!decision.approved_for_deploy, feedback: decision.feedback || null } }];"
+        "jsCode": "// Parse reviewer JSON from OpenAI HTTP Request response\nconst state = $items('Merge Runner Result', 0, 0)[0].json;\nlet decision;\ntry {\n  const raw = $json.choices?.[0]?.message?.content || $json.message?.content || $json.text || $json;\n  decision = typeof raw === 'string' ? JSON.parse(raw) : raw;\n} catch (e) {\n  throw new Error('Reviewer returned non-JSON: ' + e.message);\n}\nconst approved = decision.decision === 'APPROVED';\nreturn [{ json: { ...state, status: approved ? 'APPROVED' : 'CHANGES_REQUIRED', decision, approved_for_deploy: !!decision.approved_for_deploy, feedback: decision.feedback || null } }];"
       },
       "id": "merge-review",
       "name": "Merge Review",
