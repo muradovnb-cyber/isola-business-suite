@@ -191,7 +191,10 @@ function sweepWorkspaces() {
 
 // ------------------------------ git ops (argv-array everywhere) -----------
 function cloneRepo(dir) {
-  const r = run('git', ['clone', '--depth', '50', REPO_URL, dir], { env: gitEnv() });
+  // Full clone — we need all refs so `checkout -B branch origin/branch`
+  // works even when the branch was created by a previous run. Shallow
+  // clone only carries the default branch and silently breaks resume.
+  const r = run('git', ['clone', REPO_URL, dir], { env: gitEnv() });
   if (!r.ok) throw new Error('git clone failed: ' + redact(r.stderr));
   run('git', ['-C', dir, 'config', 'user.name', 'ISOLA AI Runner']);
   run('git', ['-C', dir, 'config', 'user.email', 'ai-runner@isola.local']);
@@ -199,11 +202,21 @@ function cloneRepo(dir) {
 function checkoutBranch(dir, taskId) {
   if (!TASK_ID_RE.test(taskId)) throw new Error('bad taskId');
   const branch = `agent/${taskId}`;
+  // Ensure remote refs are up to date (in case the branch was pushed
+  // between clone and now, or between attempts).
+  run('git', ['-C', dir, 'fetch', 'origin', `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { env: gitEnv() });
   const remote = run('git', ['-C', dir, 'ls-remote', '--heads', 'origin', branch], { env: gitEnv() });
+  let co;
   if (remote.ok && remote.stdout) {
-    run('git', ['-C', dir, 'checkout', '-B', branch, `origin/${branch}`], { env: gitEnv() });
+    co = run('git', ['-C', dir, 'checkout', '-B', branch, `origin/${branch}`], { env: gitEnv() });
   } else {
-    run('git', ['-C', dir, 'checkout', '-B', branch], { env: gitEnv() });
+    co = run('git', ['-C', dir, 'checkout', '-B', branch], { env: gitEnv() });
+  }
+  if (!co.ok) throw new Error('git checkout failed for branch ' + branch + ': ' + redact(co.stderr));
+  // Confirm we actually landed on the intended branch.
+  const cur = run('git', ['-C', dir, 'rev-parse', '--abbrev-ref', 'HEAD']);
+  if (!cur.ok || cur.stdout !== branch) {
+    throw new Error('branch verify failed: HEAD is ' + cur.stdout + ', expected ' + branch);
   }
   return branch;
 }
