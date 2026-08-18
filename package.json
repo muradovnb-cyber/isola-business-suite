@@ -4,9 +4,13 @@
   "description": "ISOLA Business Suite — корпоративный портал",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "mocha tests/**/*.test.js"
   },
   "engines": {
     "node": ">=16"
+  },
+  "devDependencies": {
+    "mocha": "^10.2.0"
   }
 }
