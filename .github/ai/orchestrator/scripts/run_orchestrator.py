@@ -38,7 +38,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 # --------------------- config ---------------------
-REPO_ROOT = Path(__file__).resolve().parents[3]
+# In GitHub Actions, GITHUB_WORKSPACE is the checkout root; fall back to
+# walking up from __file__ (parents[4] = repo root, since the script is
+# at .github/ai/orchestrator/scripts/run_orchestrator.py — 4 levels deep).
+REPO_ROOT = Path(os.environ.get("GITHUB_WORKSPACE") or Path(__file__).resolve().parents[4])
 STATE_DIR = REPO_ROOT / ".github" / "ai" / "orchestrator"
 EXEC_DIR = STATE_DIR / "executions"
 REVIEW_DIR = STATE_DIR / "reviews"
