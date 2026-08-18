@@ -1,0 +1,18 @@
+{
+  "task_id": "BOOTSTRAP",
+  "run_id": "init",
+  "status": "IDLE",
+  "attempt": 0,
+  "max_attempts": 10,
+  "branch": null,
+  "commit": null,
+  "pr": null,
+  "tests": null,
+  "review": null,
+  "deployment": "NOT_REQUESTED",
+  "next_action": "Waiting for first real task. POST to n8n webhook /webhook/isola-task to start.",
+  "error": null,
+  "started_at": null,
+  "updated_at": "2026-08-18T00:00:00Z",
+  "history": []
+}
