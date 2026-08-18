@@ -1,19 +1,22 @@
 {
   "task_id": "TASK-0001",
-  "run_id": "run-91f4b29e793a",
-  "status": "FAILED",
-  "attempt": 1,
+  "run_id": "run-e5df2bc22eaa",
+  "status": "BLOCKED",
+  "attempt": 5,
   "max_attempts": 5,
   "branch": "agent/TASK-0001",
-  "commit": null,
-  "pr": null,
-  "tests": null,
-  "review": "PENDING",
+  "commit": "e2884e1a9a57560115d6d767f6b5fd11809a79a8",
+  "pr": {
+    "number": 4,
+    "url": "https://github.com/muradovnb-cyber/isola-business-suite/pull/4"
+  },
+  "tests": "FAIL",
+  "review": "CHANGES_REQUIRED",
   "deployment": "NOT_REQUESTED",
-  "next_action": "inspect executions/*.json",
-  "error": "runner PUSH_FAILED",
-  "started_at": "2026-08-18T09:32:36Z",
-  "updated_at": "2026-08-18T09:33:35Z",
+  "next_action": "human decision",
+  "error": "MAX_RETRIES_EXCEEDED",
+  "started_at": "2026-08-18T10:18:57Z",
+  "updated_at": "2026-08-18T10:20:23Z",
   "history": [
     {
       "ts": "2026-08-18T09:32:36Z",
@@ -29,6 +32,91 @@
       "ts": "2026-08-18T09:33:35Z",
       "status": "FAILED",
       "note": "inspect executions/*.json"
+    },
+    {
+      "ts": "2026-08-18T10:18:57Z",
+      "status": "PLANNING",
+      "note": "architect"
+    },
+    {
+      "ts": "2026-08-18T10:19:02Z",
+      "status": "IMPLEMENTING",
+      "note": "runner attempt 1"
+    },
+    {
+      "ts": "2026-08-18T10:20:04Z",
+      "status": "WAITING_REVIEW",
+      "note": "gpt-reviewer"
+    },
+    {
+      "ts": "2026-08-18T10:20:08Z",
+      "status": "CHANGES_REQUIRED",
+      "note": "runner retry attempt 2"
+    },
+    {
+      "ts": "2026-08-18T10:20:08Z",
+      "status": "IMPLEMENTING",
+      "note": "runner attempt 2"
+    },
+    {
+      "ts": "2026-08-18T10:20:09Z",
+      "status": "WAITING_REVIEW",
+      "note": "gpt-reviewer"
+    },
+    {
+      "ts": "2026-08-18T10:20:11Z",
+      "status": "CHANGES_REQUIRED",
+      "note": "runner retry attempt 3"
+    },
+    {
+      "ts": "2026-08-18T10:20:12Z",
+      "status": "IMPLEMENTING",
+      "note": "runner attempt 3"
+    },
+    {
+      "ts": "2026-08-18T10:20:12Z",
+      "status": "WAITING_REVIEW",
+      "note": "gpt-reviewer"
+    },
+    {
+      "ts": "2026-08-18T10:20:15Z",
+      "status": "CHANGES_REQUIRED",
+      "note": "runner retry attempt 4"
+    },
+    {
+      "ts": "2026-08-18T10:20:15Z",
+      "status": "IMPLEMENTING",
+      "note": "runner attempt 4"
+    },
+    {
+      "ts": "2026-08-18T10:20:16Z",
+      "status": "WAITING_REVIEW",
+      "note": "gpt-reviewer"
+    },
+    {
+      "ts": "2026-08-18T10:20:19Z",
+      "status": "CHANGES_REQUIRED",
+      "note": "runner retry attempt 5"
+    },
+    {
+      "ts": "2026-08-18T10:20:19Z",
+      "status": "IMPLEMENTING",
+      "note": "runner attempt 5"
+    },
+    {
+      "ts": "2026-08-18T10:20:20Z",
+      "status": "WAITING_REVIEW",
+      "note": "gpt-reviewer"
+    },
+    {
+      "ts": "2026-08-18T10:20:23Z",
+      "status": "CHANGES_REQUIRED",
+      "note": "runner retry attempt 6"
+    },
+    {
+      "ts": "2026-08-18T10:20:23Z",
+      "status": "BLOCKED",
+      "note": "human decision"
     }
   ]
 }
