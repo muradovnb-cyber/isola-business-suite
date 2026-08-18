@@ -1,0 +1,5 @@
+{
+  "taskId": "TASK-0001",
+  "task": "Prove the GPT ↔ n8n ↔ Claude ↔ GitHub channel end-to-end",
+  "description": "Create a file AI_CHANNEL_TEST.md at the repo root with the exact contents: 'GPT ↔ n8n ↔ Claude ↔ GitHub communication channel operational.' Add one test in tests/ai-channel.test.js that verifies the file exists and contains that string. Open a PR. Do NOT merge. Do NOT deploy."
+}

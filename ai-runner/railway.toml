@@ -1,0 +1,25 @@
+# Railway service config for the ai-runner.
+# Deploy by pointing a NEW Railway service at this subdirectory:
+#   Root Directory:  ai-runner
+#   Build Command:   (leave empty; Dockerfile in the folder is used)
+#   Volume mount:    /workspace  (Railway → Volumes → Add → mount path /workspace)
+#
+# Required env vars (set on the service, not shared with the ISOLA suite app):
+#   ANTHROPIC_API_KEY   — from console.anthropic.com/settings/keys
+#   GH_TOKEN            — GitHub PAT with `repo` + `workflow` scopes
+#   RUNNER_TOKEN        — random 32-hex string, shared secret with n8n
+#
+# Optional:
+#   REPO_URL, REPO_SLUG (default: muradovnb-cyber/isola-business-suite)
+#   CLAUDE_MODEL        (default: claude-sonnet-4-5-20250929)
+#   MAX_TURNS           (default: 25)
+
+[build]
+builder = "DOCKERFILE"
+
+[deploy]
+startCommand = "node server.js"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
+healthcheckPath = "/health"
+healthcheckTimeout = 10

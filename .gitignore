@@ -1,3 +1,6 @@
 node_modules/
 *.pem
 .env
+ai-runner/node_modules/
+ai-runner/package-lock.json
+.claude-flow/
