@@ -1,0 +1,9 @@
+{
+  "task_id": null,
+  "task": null,
+  "description": null,
+  "submitted_by": null,
+  "submitted_at": null,
+  "priority": "normal",
+  "notes": "Empty on purpose — no active task. The n8n webhook Task State node populates this atomically on incoming POST."
+}

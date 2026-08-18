@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/muradovnb-cyber/isola-business-suite/main/.github/ai/orchestrator/schemas/execution.schema.json",
+  "title": "ISOLA Orchestrator Execution Record",
+  "description": "One file per (task_id, run_id, attempt). Append-only history; never overwrite a prior attempt record.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "run_id", "attempt", "started_at", "status"],
+  "properties": {
+    "task_id":       { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$" },
+    "run_id":        { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$" },
+    "attempt":       { "type": "integer", "minimum": 1 },
+    "status":        { "enum": ["READY_FOR_REVIEW","READY_FOR_REVIEW_TESTS_FAILED","NO_CHANGES","SECRET_LEAK","FAILED","PUSH_FAILED","COMMIT_FAILED","APPROVED","CHANGES_REQUIRED","DEPLOYED","DEPLOY_FAILED","BLOCKED"] },
+    "started_at":    { "type": "string", "format": "date-time" },
+    "finished_at":   { "type": ["string","null"], "format": "date-time" },
+    "duration_ms":   { "type": ["integer","null"] },
+    "branch":        { "type": ["string","null"] },
+    "commit":        { "type": ["string","null"] },
+    "pr":            {
+      "type": ["object","null"],
+      "properties": { "number": {"type":["integer","null"]}, "url": {"type":["string","null"]} }
+    },
+    "spec":          { "type": ["object","null"], "description": "GPT Architect output for this run" },
+    "claude_status": { "enum": ["OK","TIMEOUT","NONZERO_EXIT","SIGNAL","SPAWN_ERROR", null] },
+    "claude_report": { "type": ["object","null"] },
+    "tests":         {
+      "type": ["object","null"],
+      "properties": { "ok": {"type":"boolean"}, "skipped": {"type":["string","null"]}, "code": {"type":["integer","null"]}, "output_tail": {"type":["string","null"]} }
+    },
+    "diff_stat":     { "type": ["string","null"] },
+    "review_run_id": { "type": ["string","null"], "description": "Points to reviews/<review_run_id>.json if reviewed" },
+    "feedback":      { "type": ["object","null"], "description": "Reviewer feedback that fed the NEXT attempt" },
+    "error":         { "type": ["string","null"] }
+  }
+}

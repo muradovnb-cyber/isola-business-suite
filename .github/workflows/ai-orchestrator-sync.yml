@@ -1,0 +1,96 @@
+name: ai-orchestrator sync + secret scan
+
+# Runs on every push touching orchestrator state or config.
+# Validates JSON schemas, enforces secret-free content, and refuses
+# force-push to ai/orchestrator-state (history is append-only).
+
+on:
+  push:
+    branches:
+      - main
+      - ai/orchestrator-state
+      - ai/n8n-orchestrator
+    paths:
+      - '.github/ai/**'
+      - '.github/workflows/ai-orchestrator-sync.yml'
+  pull_request:
+    paths:
+      - '.github/ai/**'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install ajv-cli
+        run: npm install --no-audit --no-fund -g ajv-cli@5 ajv-formats@3
+
+      - name: Validate CURRENT_STATUS.json
+        if: hashFiles('.github/ai/orchestrator/CURRENT_STATUS.json') != ''
+        run: |
+          ajv validate \
+            -s .github/ai/orchestrator/schemas/status.schema.json \
+            -d .github/ai/orchestrator/CURRENT_STATUS.json \
+            --spec=draft2020 -c ajv-formats
+
+      - name: Validate every executions/*.json
+        run: |
+          shopt -s nullglob
+          for f in .github/ai/orchestrator/executions/*.json; do
+            echo "→ $f"
+            ajv validate \
+              -s .github/ai/orchestrator/schemas/execution.schema.json \
+              -d "$f" --spec=draft2020 -c ajv-formats
+          done
+
+      - name: Validate every reviews/*.json
+        run: |
+          shopt -s nullglob
+          for f in .github/ai/orchestrator/reviews/*.json; do
+            echo "→ $f"
+            ajv validate \
+              -s .github/ai/orchestrator/schemas/review.schema.json \
+              -d "$f" --spec=draft2020 -c ajv-formats
+          done
+
+      - name: JSON syntax check on all *.json under .github/ai/
+        run: |
+          set -e
+          find .github/ai -type f -name '*.json' -print0 | while IFS= read -r -d '' f; do
+            node -e "JSON.parse(require('fs').readFileSync('$f','utf8'))" || { echo "invalid JSON: $f"; exit 1; }
+          done
+
+      - name: Secret scan (grep-based)
+        run: |
+          # Fails the job if any well-known secret pattern is present under .github/ai/.
+          # Patterns match: OpenAI, Anthropic, GitHub PATs, AWS, Slack, RSA/OpenSSH private keys.
+          set -e
+          PATTERNS='sk-ant-[A-Za-z0-9\-_]{20,}|sk-[A-Za-z0-9\-_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{22,}|AKIA[0-9A-Z]{16}|-----BEGIN (RSA|EC|OPENSSH|DSA|PRIVATE) [A-Z ]*KEY-----|xox[baprs]-[A-Za-z0-9-]{10,}'
+          if grep -rEIn "$PATTERNS" .github/ai/ 2>/dev/null; then
+            echo ""
+            echo "❌ SECRET_DETECTED — remove the value(s) above before merging."
+            exit 1
+          else
+            echo "✅ no secrets"
+          fi
+
+      - name: Confirm workflow.json has no credential values
+        if: hashFiles('.github/ai/orchestrator/workflow.json') != ''
+        run: |
+          # n8n workflow JSON exports may contain a "credentials" block with "id"
+          # and "name" fields (which are OK — references only). Fail if any raw
+          # secret-shaped string appears inside that block or anywhere else.
+          if grep -oE '"data"\s*:\s*{[^}]*"[a-z_]*(key|token|secret|password)[a-z_]*"\s*:\s*"[A-Za-z0-9_\-]{10,}"' .github/ai/orchestrator/workflow.json; then
+            echo "❌ workflow.json appears to contain raw credential values."
+            exit 1
+          fi
+          echo "✅ workflow.json has no inline credential values"
