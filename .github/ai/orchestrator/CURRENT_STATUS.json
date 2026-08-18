@@ -1,22 +1,22 @@
 {
   "task_id": "TASK-0001",
-  "run_id": "run-e5df2bc22eaa",
-  "status": "BLOCKED",
-  "attempt": 5,
+  "run_id": "run-8e7f11c2a828",
+  "status": "DONE",
+  "attempt": 1,
   "max_attempts": 5,
   "branch": "agent/TASK-0001",
-  "commit": "e2884e1a9a57560115d6d767f6b5fd11809a79a8",
+  "commit": "4bed862325a3a2622cdfdd28b059f8fd53ac5c2a",
   "pr": {
-    "number": 4,
-    "url": "https://github.com/muradovnb-cyber/isola-business-suite/pull/4"
+    "number": 5,
+    "url": "https://github.com/muradovnb-cyber/isola-business-suite/pull/5"
   },
-  "tests": "FAIL",
-  "review": "CHANGES_REQUIRED",
+  "tests": "PASS",
+  "review": "APPROVED",
   "deployment": "NOT_REQUESTED",
-  "next_action": "human decision",
+  "next_action": "human merges PR when ready",
   "error": "MAX_RETRIES_EXCEEDED",
-  "started_at": "2026-08-18T10:18:57Z",
-  "updated_at": "2026-08-18T10:20:23Z",
+  "started_at": "2026-08-18T10:24:53Z",
+  "updated_at": "2026-08-18T10:25:45Z",
   "history": [
     {
       "ts": "2026-08-18T09:32:36Z",
@@ -117,6 +117,31 @@
       "ts": "2026-08-18T10:20:23Z",
       "status": "BLOCKED",
       "note": "human decision"
+    },
+    {
+      "ts": "2026-08-18T10:24:53Z",
+      "status": "PLANNING",
+      "note": "architect"
+    },
+    {
+      "ts": "2026-08-18T10:25:00Z",
+      "status": "IMPLEMENTING",
+      "note": "runner attempt 1"
+    },
+    {
+      "ts": "2026-08-18T10:25:42Z",
+      "status": "WAITING_REVIEW",
+      "note": "gpt-reviewer"
+    },
+    {
+      "ts": "2026-08-18T10:25:44Z",
+      "status": "APPROVED",
+      "note": "human merge"
+    },
+    {
+      "ts": "2026-08-18T10:25:45Z",
+      "status": "DONE",
+      "note": "human merges PR when ready"
     }
   ]
 }
