@@ -1,0 +1,102 @@
+name: ai-orchestrator
+
+# Autonomous ISOLA AI development loop, entirely in GitHub Actions.
+# Trigger with the "Run workflow" button on the Actions page, or via API:
+#   gh workflow run ai-orchestrator.yml -f task_id=TASK-XXXX -f task="human description"
+
+on:
+  workflow_dispatch:
+    inputs:
+      task_id:
+        description: 'Task ID (^[A-Za-z0-9_-]{1,80}$)'
+        required: true
+        type: string
+      task:
+        description: 'Human-readable task description'
+        required: true
+        type: string
+      approved_for_deploy:
+        description: 'Allow production deploy after APPROVED? (default false)'
+        required: false
+        default: false
+        type: boolean
+      max_attempts:
+        description: 'Retry cap (default 10)'
+        required: false
+        default: '10'
+        type: string
+
+  repository_dispatch:
+    types: [isola-task]
+
+permissions:
+  contents: write        # commit state to ai/orchestrator-state branch
+  pull-requests: read
+
+concurrency:
+  group: ai-orchestrator-${{ github.event.inputs.task_id || github.event.client_payload.task_id }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout ai/orchestrator-state branch (create if missing)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Ensure state branch exists
+        run: |
+          set -e
+          git config user.name  "isola-orchestrator[bot]"
+          git config user.email "isola-orchestrator@noreply.github.com"
+          if ! git ls-remote --exit-code --heads origin ai/orchestrator-state >/dev/null 2>&1; then
+            git checkout -B ai/orchestrator-state
+            git push -u origin ai/orchestrator-state
+          fi
+          git fetch origin ai/orchestrator-state
+          git checkout ai/orchestrator-state
+          # Fast-forward from main so state branch has the latest scripts + prompts
+          git merge --no-edit origin/main || true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run orchestrator
+        id: orch
+        env:
+          TASK_ID: ${{ github.event.inputs.task_id || github.event.client_payload.task_id }}
+          TASK_TEXT: ${{ github.event.inputs.task || github.event.client_payload.task }}
+          APPROVED_FOR_DEPLOY: ${{ github.event.inputs.approved_for_deploy || github.event.client_payload.approved_for_deploy || 'false' }}
+          MAX_ATTEMPTS: ${{ github.event.inputs.max_attempts || github.event.client_payload.max_attempts || '10' }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          RUNNER_URL: ${{ secrets.RUNNER_URL }}
+          RUNNER_TOKEN: ${{ secrets.RUNNER_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 .github/ai/orchestrator/scripts/run_orchestrator.py
+
+      - name: Commit updated state to ai/orchestrator-state
+        if: always()
+        run: |
+          set -e
+          git add .github/ai/orchestrator/CURRENT_STATUS.json \
+                  .github/ai/orchestrator/CURRENT_TASK.json \
+                  .github/ai/orchestrator/executions/ \
+                  .github/ai/orchestrator/reviews/ \
+                  .github/ai/orchestrator/reports/ 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "no state changes to commit"
+          else
+            TASK_ID='${{ github.event.inputs.task_id || github.event.client_payload.task_id }}'
+            git commit -m "ai-orchestrator: ${TASK_ID} $(python3 -c "import json;print(json.load(open('.github/ai/orchestrator/CURRENT_STATUS.json'))['status'])")"
+            git push origin ai/orchestrator-state
+          fi

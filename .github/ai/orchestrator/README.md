@@ -2,6 +2,8 @@
 
 **GitHub is the single source of truth** for the ISOLA autonomous AI development orchestrator. This directory holds all the state, history, and configuration the pipeline needs. GPT (Architect or Reviewer) should read this directory to understand where the system is; humans can read it to audit.
 
+> **Runtime:** the orchestrator runs as a **GitHub Actions workflow** (`.github/workflows/ai-orchestrator.yml`). n8n is no longer required. Trigger a task via the "Run workflow" button on the Actions page, or with `gh workflow run ai-orchestrator.yml -f task_id=TASK-XXXX -f task="..."`.
+
 ## Directory map
 
 | Path | Purpose | Written by |
