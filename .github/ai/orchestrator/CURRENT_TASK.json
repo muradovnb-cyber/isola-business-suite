@@ -1,9 +1,8 @@
 {
-  "task_id": null,
-  "task": null,
-  "description": null,
-  "submitted_by": null,
-  "submitted_at": null,
-  "priority": "normal",
-  "notes": "Empty on purpose — no active task. The n8n webhook Task State node populates this atomically on incoming POST."
+  "task_id": "TASK-0001",
+  "task": "Create a file AI_CHANNEL_GHA.md at repo root with contents exactly: GitHub Actions orchestrator operational. Add tests/ai-channel-gha.test.js that reads AI_CHANNEL_GHA.md and asserts the exact string via assert.strictEqual. Open PR. Do NOT merge, do NOT deploy.",
+  "description": "Create a file AI_CHANNEL_GHA.md at repo root with contents exactly: GitHub Actions orchestrator operational. Add tests/ai-channel-gha.test.js that reads AI_CHANNEL_GHA.md and asserts the exact string via assert.strictEqual. Open PR. Do NOT merge, do NOT deploy.",
+  "submitted_at": "2026-08-18T09:32:36Z",
+  "submitted_by": "github-actions",
+  "priority": "normal"
 }

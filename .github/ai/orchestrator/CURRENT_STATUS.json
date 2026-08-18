@@ -1,18 +1,34 @@
 {
-  "task_id": "BOOTSTRAP",
-  "run_id": "init",
-  "status": "IDLE",
-  "attempt": 0,
-  "max_attempts": 10,
-  "branch": null,
+  "task_id": "TASK-0001",
+  "run_id": "run-91f4b29e793a",
+  "status": "FAILED",
+  "attempt": 1,
+  "max_attempts": 5,
+  "branch": "agent/TASK-0001",
   "commit": null,
   "pr": null,
   "tests": null,
-  "review": null,
+  "review": "PENDING",
   "deployment": "NOT_REQUESTED",
-  "next_action": "Waiting for first real task. POST to n8n webhook /webhook/isola-task to start.",
-  "error": null,
-  "started_at": null,
-  "updated_at": "2026-08-18T00:00:00Z",
-  "history": []
+  "next_action": "inspect executions/*.json",
+  "error": "runner PUSH_FAILED",
+  "started_at": "2026-08-18T09:32:36Z",
+  "updated_at": "2026-08-18T09:33:35Z",
+  "history": [
+    {
+      "ts": "2026-08-18T09:32:36Z",
+      "status": "PLANNING",
+      "note": "architect"
+    },
+    {
+      "ts": "2026-08-18T09:32:43Z",
+      "status": "IMPLEMENTING",
+      "note": "runner attempt 1"
+    },
+    {
+      "ts": "2026-08-18T09:33:35Z",
+      "status": "FAILED",
+      "note": "inspect executions/*.json"
+    }
+  ]
 }
