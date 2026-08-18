@@ -323,8 +323,11 @@ def main():
         update_status(status="IMPLEMENTING", attempt=attempt, next_action=f"runner attempt {attempt}")
         telegram_notify(f"🟡 CLAUDE_STARTED {task_id} attempt {attempt}")
         print(f"→ ai-runner attempt {attempt}")
+        # IMPORTANT: unique run_id per attempt, otherwise runner idempotency
+        # cache returns the first attempt's result forever.
+        attempt_run_id = f"{run_id}-a{attempt}"
         try:
-            runner_res = call_runner(task_id, run_id, attempt, spec, feedback)
+            runner_res = call_runner(task_id, attempt_run_id, attempt, spec, feedback)
         except Exception as e:
             msg = str(e)[:400]
             update_status(status="FAILED", error=msg, next_action="runner unreachable — check Railway service")
