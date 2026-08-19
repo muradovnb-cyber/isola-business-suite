@@ -1,0 +1,18 @@
+{
+  "id": "TASK-0001",
+  "status": "CANCELLED",
+  "priority": "normal",
+  "source": "owner",
+  "created_at": "2026-08-18T10:24:00Z",
+  "created_by": "muradovnb-cyber",
+  "objective": "Prove the GitHub Actions orchestrator end-to-end (channel smoke test)",
+  "context": "First real task through the fully-autonomous GitHub Actions runtime. Already run manually via workflow_dispatch on 2026-08-18. Marked CANCELLED here so the file-dispatch trigger doesn't re-run it; this file is a historical reference.",
+  "acceptance_criteria": [
+    "AI_CHANNEL_GHA.md exists at repo root containing exactly one line: 'GitHub Actions orchestrator operational.'",
+    "tests/ai-channel-gha.test.js runs via `node tests/ai-channel-gha.test.js` and exits 0",
+    "PR is opened but NOT merged"
+  ],
+  "do_not_change": ["server.js", "index.html", "ai-runner/**", ".github/**"],
+  "deployment_policy": "NO_DEPLOY",
+  "max_attempts": 5
+}

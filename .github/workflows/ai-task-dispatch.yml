@@ -1,0 +1,103 @@
+name: ai-task-dispatch
+
+# Watches .github/ai/tasks/ for newly QUEUED task files and hands each one
+# to ai-orchestrator.yml. This is the "GitHub as task queue" trigger.
+#
+# Contract:
+#   * Task files are immutable submissions (see .github/ai/tasks/README.md).
+#   * Only status=QUEUED files get dispatched.
+#   * Idempotency: the dispatcher fires once per push. If the same file is
+#     re-pushed unchanged, GitHub's push event won't include it in the diff.
+#     Ai-runner also has its own runId idempotency (see ai-runner/server.js).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/ai/tasks/TASK-*.json'
+  workflow_dispatch:
+    inputs:
+      task_file:
+        description: 'Manually re-dispatch a specific task file (e.g. TASK-0002.json)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: write   # required to trigger ai-orchestrator.yml via gh workflow run
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2   # need HEAD~1 for the diff
+
+      - name: Determine which task files changed
+        id: pick
+        run: |
+          set -e
+          if [ -n "${{ github.event.inputs.task_file }}" ]; then
+            files=".github/ai/tasks/${{ github.event.inputs.task_file }}"
+          else
+            files=$(git diff --name-only HEAD~1 HEAD -- '.github/ai/tasks/TASK-*.json' || true)
+          fi
+          echo "files<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$files" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          echo "changed task files:"
+          echo "$files"
+
+      - name: Validate schemas
+        if: steps.pick.outputs.files != ''
+        run: |
+          set -e
+          npm install --no-audit --no-fund --silent -g ajv-cli@5 ajv-formats@3
+          echo "${{ steps.pick.outputs.files }}" | while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            [ ! -f "$f" ] && { echo "missing (deleted?): $f — skipping"; continue; }
+            echo "→ validate $f"
+            ajv validate -s .github/ai/tasks/SCHEMA.json -d "$f" --spec=draft2020 -c ajv-formats
+          done
+
+      - name: Dispatch each QUEUED task to ai-orchestrator
+        if: steps.pick.outputs.files != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          echo "${{ steps.pick.outputs.files }}" | while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            [ ! -f "$f" ] && continue
+
+            id=$(python3 -c "import json;print(json.load(open('$f'))['id'])")
+            status=$(python3 -c "import json;print(json.load(open('$f'))['status'])")
+            objective=$(python3 -c "import json;print(json.load(open('$f'))['objective'])")
+            max_attempts=$(python3 -c "import json;print(json.load(open('$f')).get('max_attempts', 10))")
+
+            # Verify filename matches id (e.g. TASK-0001.json must contain id TASK-0001)
+            expected="$(basename "$f" .json)"
+            if [ "$id" != "$expected" ]; then
+              echo "❌ file $f has id '$id' but filename says '$expected' — refusing to dispatch"
+              exit 1
+            fi
+
+            if [ "$status" != "QUEUED" ]; then
+              echo "→ $id status is $status — skipping"
+              continue
+            fi
+
+            echo "→ dispatching $id"
+            gh workflow run ai-orchestrator.yml \
+              --repo "$GITHUB_REPOSITORY" \
+              --ref main \
+              -f "task_id=$id" \
+              -f "task=$objective" \
+              -f "max_attempts=$max_attempts" \
+              -f "approved_for_deploy=false"
+          done
+
+      - name: Nothing to do
+        if: steps.pick.outputs.files == ''
+        run: echo "no task files changed"
