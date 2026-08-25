@@ -1,8 +1,8 @@
 {
-  "task_id": "TASK-0001",
-  "task": "Create a file AI_CHANNEL_GHA.md at repo root containing exactly the single line: GitHub Actions orchestrator operational. Add tests/ai-channel-gha.test.js runnable as 'node tests/ai-channel-gha.test.js' using ONLY the node built-in 'assert' module (require('assert')) — do NOT add mocha or any other test framework, do NOT modify package.json. The test reads AI_CHANNEL_GHA.md and asserts the exact string. Open PR. Do NOT merge, do NOT deploy.",
-  "description": "Create a file AI_CHANNEL_GHA.md at repo root containing exactly the single line: GitHub Actions orchestrator operational. Add tests/ai-channel-gha.test.js runnable as 'node tests/ai-channel-gha.test.js' using ONLY the node built-in 'assert' module (require('assert')) — do NOT add mocha or any other test framework, do NOT modify package.json. The test reads AI_CHANNEL_GHA.md and asserts the exact string. Open PR. Do NOT merge, do NOT deploy.",
-  "submitted_at": "2026-08-18T10:24:53Z",
+  "task_id": "TASK-9999",
+  "task": "Bridge v2.0 end-to-end smoke — create scripts/bridge-smoke.sh (a shell script that prints exactly one line \"bridge-v2-ok\" to stdout and exits 0) AND tests/bridge-smoke.test.js (Node script using ONLY the built-in \"assert\" module — no new devDependencies — that spawns the shell script and asserts stdout equals \"bridge-v2-ok\\n\" and exit code is 0). Do NOT modify any file outside scripts/ and tests/. Do NOT add anything to package.json. Task id is TASK-9999.",
+  "description": "Bridge v2.0 end-to-end smoke — create scripts/bridge-smoke.sh (a shell script that prints exactly one line \"bridge-v2-ok\" to stdout and exits 0) AND tests/bridge-smoke.test.js (Node script using ONLY the built-in \"assert\" module — no new devDependencies — that spawns the shell script and asserts stdout equals \"bridge-v2-ok\\n\" and exit code is 0). Do NOT modify any file outside scripts/ and tests/. Do NOT add anything to package.json. Task id is TASK-9999.",
+  "submitted_at": "2026-08-25T00:57:34Z",
   "submitted_by": "github-actions",
   "priority": "normal"
 }

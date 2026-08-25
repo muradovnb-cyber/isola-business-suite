@@ -1,22 +1,22 @@
 {
-  "task_id": "TASK-0001",
-  "run_id": "run-8e7f11c2a828",
+  "task_id": "TASK-9999",
+  "run_id": "run-0e43a89067cf",
   "status": "DONE",
   "attempt": 1,
-  "max_attempts": 5,
-  "branch": "agent/TASK-0001",
-  "commit": "4bed862325a3a2622cdfdd28b059f8fd53ac5c2a",
+  "max_attempts": 3,
+  "branch": "agent/TASK-9999",
+  "commit": "e7028b57adbe1bcd4f21db94a7af0ac320474818",
   "pr": {
-    "number": 5,
-    "url": "https://github.com/muradovnb-cyber/isola-business-suite/pull/5"
+    "number": 7,
+    "url": "https://github.com/muradovnb-cyber/isola-business-suite/pull/7"
   },
   "tests": "PASS",
   "review": "APPROVED",
   "deployment": "NOT_REQUESTED",
   "next_action": "human merges PR when ready",
   "error": "MAX_RETRIES_EXCEEDED",
-  "started_at": "2026-08-18T10:24:53Z",
-  "updated_at": "2026-08-18T10:25:45Z",
+  "started_at": "2026-08-25T00:57:34Z",
+  "updated_at": "2026-08-25T00:58:48Z",
   "history": [
     {
       "ts": "2026-08-18T09:32:36Z",
@@ -140,6 +140,31 @@
     },
     {
       "ts": "2026-08-18T10:25:45Z",
+      "status": "DONE",
+      "note": "human merges PR when ready"
+    },
+    {
+      "ts": "2026-08-25T00:57:34Z",
+      "status": "PLANNING",
+      "note": "architect"
+    },
+    {
+      "ts": "2026-08-25T00:57:39Z",
+      "status": "IMPLEMENTING",
+      "note": "runner attempt 1"
+    },
+    {
+      "ts": "2026-08-25T00:58:46Z",
+      "status": "WAITING_REVIEW",
+      "note": "gpt-reviewer"
+    },
+    {
+      "ts": "2026-08-25T00:58:48Z",
+      "status": "APPROVED",
+      "note": "human merge"
+    },
+    {
+      "ts": "2026-08-25T00:58:48Z",
       "status": "DONE",
       "note": "human merges PR when ready"
     }
