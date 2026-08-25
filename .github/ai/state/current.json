@@ -1,0 +1,13 @@
+{
+  "status": "IDLE",
+  "current_task": null,
+  "stage": null,
+  "agent": null,
+  "attempt": 0,
+  "last_commit": null,
+  "last_pr": null,
+  "last_review": null,
+  "blockers": [],
+  "next_action": null,
+  "updated_at": "2026-08-25T00:00:00Z"
+}

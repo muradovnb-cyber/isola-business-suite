@@ -1,0 +1,39 @@
+{
+  "id": "TASK-9999",
+  "status": "CANCELLED",
+  "priority": "low",
+  "source": "owner",
+  "created_at": "2026-08-25T00:00:00Z",
+  "created_by": "muradovnb-cyber",
+  "objective": "Bridge v2.0 end-to-end smoke — write scripts/bridge-smoke.sh printing 'bridge-v2-ok' and a matching Node assert test.",
+  "context": "Exercises the full autonomous pipeline (GPT task → dispatcher → orchestrator → ai-runner → Claude → PR → tests → GPT reviewer → final report) against the new bridge layer. After the run finishes, the following must be true simultaneously:\n\n  - .github/ai/state/current.json.status == 'PASSED'\n  - .github/ai/state/current.json.current_task == 'TASK-9999'\n  - .github/ai/reports/TASK-9999.json exists and validates against .github/ai/reports/schema.json\n  - A PR from branch agent/TASK-9999 is open\n\nCancelled by default so it does not automatically burn OpenAI + Anthropic credits when the bridge PR is merged. To fire the smoke test, change status from 'CANCELLED' to 'QUEUED' in a follow-up PR and merge it.",
+  "files_to_inspect": ["package.json"],
+  "requirements": [
+    "Create scripts/bridge-smoke.sh — a shell script that prints exactly one line: 'bridge-v2-ok' to stdout and exits 0",
+    "Create tests/bridge-smoke.test.js — a Node script using only the built-in 'assert' module (no devDependency additions) that spawns the script and asserts stdout equals 'bridge-v2-ok\\n' and exit code is 0",
+    "Do not modify any file outside scripts/ and tests/"
+  ],
+  "acceptance_criteria": [
+    "bash scripts/bridge-smoke.sh outputs exactly 'bridge-v2-ok' followed by a newline, exit code 0",
+    "node tests/bridge-smoke.test.js exits 0 with no assertion errors",
+    "PR diff touches only scripts/bridge-smoke.sh, tests/bridge-smoke.test.js (and optionally a chmod +x on the script)",
+    "No new entries in package.json.dependencies or devDependencies"
+  ],
+  "tests_required": [
+    "node tests/bridge-smoke.test.js exits 0"
+  ],
+  "security_requirements": [
+    "No secrets or environment values embedded in the script or test",
+    "The script must not touch any file — only print to stdout"
+  ],
+  "do_not_change": [
+    "server.js",
+    "index.html",
+    "hr.html",
+    "package.json",
+    "ai-runner/**",
+    ".github/**"
+  ],
+  "deployment_policy": "NO_DEPLOY",
+  "max_attempts": 5
+}
