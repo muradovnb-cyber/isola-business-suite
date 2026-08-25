@@ -11,8 +11,15 @@
 <meta name="mobile-web-app-capable" content="yes"/>
 <meta name="format-detection" content="telephone=no"/>
 <link rel="icon" type="image/png" href="favicon.png"/>
-<link rel="apple-touch-icon" href="favicon.png"/>
+<link rel="apple-touch-icon" href="apple-touch-icon.png"/>
+<link rel="manifest" href="/manifest.json"/>
 <title>ISOLA Business Suite</title>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{});});
+}
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();window.__installPrompt=e;});
+</script>
 <style>
 /* ══════════════════════════════════════════════════
    🍎 iOS SAFARI AGENT  |  🤖 ANDROID AGENT
@@ -574,15 +581,18 @@ function getItems(){
   return (DB.items && DB.items.length > 0) ? DB.items : ITEMS;
 }
 function initFromServer(){
-  fetch('/api/data?t='+Date.now()) // cache bust
-    .then(function(r){ return r.json(); })
+  fetch('/api/data?t='+Date.now(), {credentials:'include'})
+    .then(function(r){
+      if(r.status===401){ USER=null; try{localStorage.removeItem('sd');}catch(_){} render(); return null; }
+      return r.json();
+    })
     .then(function(resp){
+      if(!resp) return;
       if(resp.ok && resp.data && resp.data.users && resp.data.users.length>0){
         DB = resp.data;
         if(DB.txs) DB.txs=DB.txs.filter(function(t){
           return !(t.note&&t.note.indexOf('[Подотчёт] Выдано ')===0);
         });
-        // Always update localStorage cache
         try{ localStorage.setItem('sd', JSON.stringify(DB)); }catch(e){}
         _lastSyncHash = calcHash(DB);
         if(USER){ var _mr=document.getElementById('mroot'); if(!_mr||!_mr.innerHTML.trim()) rp(); }
@@ -590,28 +600,27 @@ function initFromServer(){
       } else {
         var local=localStorage.getItem('sd');
         if(local){
-          try{
-            DB=JSON.parse(local);
-            if(DB.txs) DB.txs=DB.txs.filter(function(t){
-              return !(t.note&&t.note.indexOf('[Подотчёт] Выдано ')===0);
-            });
-            saveDB();
-          }catch(e){}
+          try{ DB=JSON.parse(local); if(DB.txs) DB.txs=DB.txs.filter(function(t){ return !(t.note&&t.note.indexOf('[Подотчёт] Выдано ')===0);}); }catch(e){}
         }
       }
     })
-    .catch(function(e){
-      try{
-        var local=localStorage.getItem('sd');
-        if(local) DB=JSON.parse(local);
-      }catch(ex){}
+    .catch(function(){
+      try{ var local=localStorage.getItem('sd'); if(local) DB=JSON.parse(local); }catch(ex){}
     });
 }
 function saveDB(){
-  var json=JSON.stringify(DB);
+  // Never POST the users collection through /api/data — the server rejects it,
+  // and it would leak local hashes/salt back. Sanitize before send.
+  var payload={};
+  for(var k in DB){ if(k==='users'||k==='audit_log') continue; payload[k]=DB[k]; }
+  var json=JSON.stringify(payload);
   if(json.length>5*1024*1024){alert('⚠️ База данных переполнена (>5MB)!\nУдалите старые записи.');return;}
-  try{localStorage.setItem('sd',json);}catch(e){if(e.name==='QuotaExceededError') alert('💾 Память браузера переполнена!\nУдалите старые данные.');}
-  if(USER) fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+USER.token},body:json}).catch(function(){});
+  try{localStorage.setItem('sd', JSON.stringify(DB));}catch(e){if(e.name==='QuotaExceededError') alert('💾 Память браузера переполнена!\nУдалите старые данные.');}
+  if(USER){
+    fetch('/api/data',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:json})
+      .then(function(r){ if(r.status===401){ USER=null; try{localStorage.removeItem('sd');}catch(_){} render(); } })
+      .catch(function(){});
+  }
 }
 function nid(a){ var m=0; for(var i=0;i<a.length;i++) if(a[i].id>m) m=a[i].id; return m+1; }
 function fmt(n){ return new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(n||0); }
@@ -686,7 +695,7 @@ function itemsFor(role){
   var res=[];
   for(var i=0;i<DB.items.length;i++){
     var it=DB.items[i];
-    var w=it.who;var vis=w==='all'||role==='director'||role==='accountant'||(Array.isArray(w)?w.indexOf(role)>=0:w===role);if(vis) res.push(it);
+    if(it.who==='all'||it.who===role||role==='director'||role==='accountant') res.push(it);
   }
   return res;
 }
@@ -875,8 +884,8 @@ function loginHTML(){
   }
   return '<div class="lw"><div class="lc">'
     +'<div class="ll"><img src="logo.png" style="width:56px;height:auto;"/></div>'
-    +'<div class="fg"><label>Email</label><input id="le" type="email" value="director@isola.uz" onkeypress="if(event.key===\'Enter\')doLogin()"/></div>'
-    +'<div class="fg"><label>Пароль</label><input id="lp" type="password" value="1234" onkeypress="if(event.key===\'Enter\')doLogin()"/></div>'
+    +'<div class="fg"><label>Email</label><input id="le" type="email" value="director@isola.uz" autocomplete="off" data-lpignore="true" onkeypress="if(event.key===\'Enter\')doLogin()"/></div>'
+    +'<div class="fg"><label>Пароль</label><input id="lp" type="password" value="1234" autocomplete="new-password" data-lpignore="true" data-form-type="other" onkeypress="if(event.key===\'Enter\')doLogin()"/></div>'
     +'<div id="lerr" style="color:#dc2626;font-size:.76rem;margin-bottom:6px;display:none"></div>'
     +'<button class="btn bp bfull" onclick="doLogin()">Войти в систему →</button>'
     +'<div style="margin-top:11px"><div class="dg">'+demos+'</div></div>'
@@ -885,17 +894,39 @@ function loginHTML(){
 }
 function fillDemo(e,p){ document.getElementById('le').value=e; document.getElementById('lp').value=p||'1234'; }
 function doLogin(){
-  var e=document.getElementById('le').value,p=document.getElementById('lp').value,u=null;
-  for(var i=0;i<DB.users.length;i++) if(DB.users[i].e===e&&DB.users[i].p===p){u=DB.users[i];break;}
-  if(u){
-    USER=u;
-    PAGE=u.role==='director'?'ceo':u.role==='accountant'?'txs':u.role==='manager'?'crm':'orders';
-    render();
-  } else {
-    var el=document.getElementById('lerr');
-    el.textContent='Неверный email или пароль';
-    el.style.display='block';
-  }
+  var eEl=document.getElementById('le'),pEl=document.getElementById('lp');
+  var e=(eEl.value||'').trim(),p=pEl.value||'';
+  var errEl=document.getElementById('lerr');
+  errEl.style.display='none';
+  fetch('/api/auth/login',{
+    method:'POST', credentials:'include',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({email:e,password:p})
+  }).then(function(r){ return r.json().then(function(j){return {status:r.status,body:j};}); })
+    .then(function(res){
+      if(res.status===200 && res.body && res.body.ok){
+        try{ pEl.value=''; eEl.value=''; pEl.setAttribute('autocomplete','off'); }catch(_){}
+        USER=res.body.user;
+        PAGE=USER.role==='director'?'ceo':USER.role==='accountant'?'txs':USER.role==='manager'?'crm':'orders';
+        initFromServer();
+        render();
+      } else if(res.status===429){
+        errEl.textContent='Слишком много попыток. Подождите 15 минут.';
+        errEl.style.display='block';
+      } else {
+        errEl.textContent='Неверный email или пароль';
+        errEl.style.display='block';
+      }
+    })
+    .catch(function(){
+      errEl.textContent='Сервер недоступен';
+      errEl.style.display='block';
+    });
+}
+function doLogout(){
+  fetch('/api/auth/logout',{method:'POST',credentials:'include'})
+    .catch(function(){})
+    .then(function(){ USER=null; try{localStorage.removeItem('sd');}catch(_){} render(); });
 }
 
 // ══════════════════════════════════════════════════════
@@ -912,12 +943,12 @@ function getNavs(){
     n.push({s:'⚙️ Данные'},{id:'cps',i:'🏢',l:'Контрагенты'},{id:'rates',i:'💱',l:'Курсы'},{id:'staff',i:'👤',l:'Сотрудники'},{id:'users',i:'⚙️',l:'Управление'},{id:'items',i:'📋',l:'Статьи расходов'});
   } else if(acc){
     n.push({s:'Финансы'},{id:'cashflow',i:'🏦',l:'Баланс счетов'},{id:'txs',i:'💳',l:'Транзакции'},{id:'orders',i:'📦',l:'Заказы'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'items',i:'📋',l:'Статьи расходов'},{id:'asal',i:'💰',l:'Зарплата всех'});
-    n.push({s:'Спецхран'},{id:'warehouse',i:'🏭',l:'Склад'},{id:'inventories',i:'📋',l:'Инвентаризации'});
+    n.push({s:'Спецхран'},{id:'warehouse',i:'🏭',l:'Склад'},{id:'inventories',i:'📋',l:'Инвентаризации'},{id:'sreqs',i:'🔧',l:'Заявки на услуги'});
     n.push({s:'Справочники'},{id:'clients',i:'👥',l:'Клиенты'},{id:'cps',i:'🏢',l:'Контрагенты'},{id:'dir',i:'📖',l:'Справочник'});
     n.push({s:'Личное'},{id:'profile',i:'👤',l:'Профиль'},{id:'sal',i:'💰',l:'Моя зарплата'},{id:'rights',i:'📋',l:'Регламент'},{id:'about',i:'🏢',l:'О компании'});
   } else if(mgr){
     n.push({s:'Продажи'},{id:'crm',i:'🎯',l:'CRM — Сделки'},{id:'orders',i:'📦',l:'Мои заказы'},{id:'clients',i:'👥',l:'Клиенты'},{id:'cps',i:'🏢',l:'Контрагенты'});
-    n.push({s:'Спец'},{id:'warehouse',i:'🏭',l:'Склад'});
+    n.push({s:'Спец'},{id:'warehouse',i:'🏭',l:'Склад'},{id:'sreqs',i:'🔧',l:'Заявки на услуги'});
     n.push({s:'Личное'},{id:'profile',i:'👤',l:'Профиль'},{id:'sal',i:'💰',l:'Зарплата'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'dir',i:'📖',l:'Справочник'},{id:'rights',i:'📋',l:'Регламент'},{id:'about',i:'🏢',l:'О компании'});
   } else {
     n.push({s:'Работа'},{id:'orders',i:'📦',l:'Заказы'},{id:'warehouse',i:'🏭',l:'Склад'},{id:'clients',i:'👥',l:'Клиенты'},{id:'petty',i:'💵',l:'Подотчёт'},{id:'dir',i:'📖',l:'Справочник'});
@@ -998,7 +1029,7 @@ function pageHTML(){
   // Allowed pages per role
   var allowed={
     director:   ['ceo','udash','dash','pl','bal','margin','orders','txs','petty','cashflow','items','staff','crm','asal','sal','profile','about','cps','rates','users','sreqs','clients','warehouse','inventories','logs'],
-    accountant: ['cashflow','txs','orders','petty','items','asal','sal','profile','about','cps','clients','dir','rights','warehouse','inventories'],
+    accountant: ['cashflow','txs','orders','petty','items','asal','sal','profile','about','cps','clients','dir','rights','warehouse','inventories','sreqs'],
     supply:     ['orders','txs','petty','sal','profile','about','sreqs','clients','dir','rights','warehouse','inventories'],
     manager:    ['crm','orders','sal','profile','about','petty','sreqs','clients','dir','rights','cps','warehouse'],
     constructor:['orders','petty','sal','profile','about','sreqs','clients','dir','rights','warehouse'],
@@ -1678,12 +1709,264 @@ function saveSRNew(){
   var pid=mNum('sr-pos')||null;
   var team=mVal('sr-team').trim()||'';
   var it=itemGet(iid);
+  if(SR_EDIT_ID){
+    for(var i=0;i<DB.sreqs.length;i++) if(DB.sreqs[i].id===SR_EDIT_ID){
+      var r=DB.sreqs[i];
+      r.iid=iid;r.supplier=supplier;r.amount=amount;r.deadline=deadline;r.oid=oid;r.pid=pid;r.team=team;r.note=mVal('sr-n')||'';r.desc=it?it.n:r.desc;
+      break;
+    }
+    SR_EDIT_ID=null;
+    saveDB();toast('Заявка обновлена','success');closeModal();rp();return;
+  }
   DB.sreqs.push({id:nid(DB.sreqs),oid:oid,pid:pid,iid:iid,supplier:supplier,amount:amount,deadline:deadline,team:team,by:USER.id,date:today(),note:mVal('sr-n')||'',status:'pending',desc:it?it.n:''});
   saveDB();toast('Заявка создана','success');closeModal();rp();
 }
 function takeSR(id){
   for(var i=0;i<DB.sreqs.length;i++) if(DB.sreqs[i].id===id){DB.sreqs[i].status='taken';break;}
   saveDB();toast('Принято','success');rp();
+}
+function doneSR(id){
+  for(var i=0;i<DB.sreqs.length;i++) if(DB.sreqs[i].id===id){DB.sreqs[i].status='done';break;}
+  saveDB();toast('Заявка выполнена','success');rp();
+}
+var SR_EDIT_ID=null;
+function editSR(id){
+  var r=null; for(var i=0;i<DB.sreqs.length;i++) if(DB.sreqs[i].id===id){r=DB.sreqs[i];break;}
+  if(!r){toast('Заявка не найдена','error');return;}
+  if(r.by!==USER.id&&USER.role!=='director'){toast('Только автор или директор могут редактировать','error');return;}
+  SR_EDIT_ID=id;
+  var isInternal=!!r.toRole;
+  openModal(isInternal?'sr-internal':'sr-new');
+  setTimeout(function(){
+    var m=document.getElementById('mroot'); if(!m) return;
+    var $=function(s){return m.querySelector(s);};
+    if(isInternal){
+      if($('#sri-role')) $('#sri-role').value=r.toRole||'';
+      if($('#sri-title')) $('#sri-title').value=r.desc||'';
+      if($('#sri-desc')) $('#sri-desc').value=r.note||'';
+      if($('#sri-o')&&r.oid){$('#sri-o').value=r.oid;loadSRPositions(r.oid,'sri-pos');setTimeout(function(){if($('#sri-pos')&&r.pid)$('#sri-pos').value=r.pid;},120);}
+      if($('#sri-deadline')) $('#sri-deadline').value=r.deadline||'';
+      if($('#sri-prio')) $('#sri-prio').value=r.prio||'normal';
+    } else {
+      if($('#sr-i')) $('#sr-i').value=r.iid||'';
+      if($('#sr-supplier')) $('#sr-supplier').value=r.supplier||'';
+      if($('#sr-amount')) $('#sr-amount').value=r.amount||'';
+      if($('#sr-deadline')) $('#sr-deadline').value=r.deadline||'';
+      if($('#sr-o')&&r.oid){$('#sr-o').value=r.oid;loadSRPositions(r.oid,'sr-pos');setTimeout(function(){if($('#sr-pos')&&r.pid)$('#sr-pos').value=r.pid;},120);}
+      if($('#sr-team')) $('#sr-team').value=r.team||'';
+      if($('#sr-n')) $('#sr-n').value=r.note||'';
+    }
+    var mt=m.querySelector('.mt'); if(mt) mt.textContent='Редактирование заявки #'+id;
+  },80);
+}
+function _doDeleteSR(id){
+  var linkedTxIds=Array.isArray(DB.txs)?DB.txs.filter(function(t){return t.srId===id;}).map(function(t){return t.id;}):[];
+  var linkedPettyIds=Array.isArray(DB.petty)?DB.petty.filter(function(p){return p.srId===id;}).map(function(p){return p.id;}):[];
+  if(Array.isArray(DB.txs)) DB.txs=DB.txs.filter(function(t){return t.srId!==id;});
+  if(Array.isArray(DB.petty)) DB.petty=DB.petty.filter(function(p){return p.srId!==id;});
+  DB.sreqs=DB.sreqs.filter(function(x){return x.id!==id;});
+  saveDB();
+  fetch('/api/delete',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:'sreqs',ids:[id]})}).catch(function(){});
+  if(linkedTxIds.length) fetch('/api/delete',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:'txs',ids:linkedTxIds})}).catch(function(){});
+  if(linkedPettyIds.length) fetch('/api/delete',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:'petty',ids:linkedPettyIds})}).catch(function(){});
+  var total=linkedTxIds.length+linkedPettyIds.length;
+  toast('Заявка удалена'+(total?' + '+total+' связей':''),'success');rp();
+}
+function deleteSR(id){
+  var r=null; for(var i=0;i<DB.sreqs.length;i++) if(DB.sreqs[i].id===id){r=DB.sreqs[i];break;}
+  if(!r){toast('Заявка не найдена','error');return;}
+  // Director / accountant: direct delete (они и так подтверждающая инстанция)
+  if(USER.role==='director'||USER.role==='accountant'){
+    var lTx=Array.isArray(DB.txs)?DB.txs.filter(function(t){return t.srId===id;}).length:0;
+    var lP=Array.isArray(DB.petty)?DB.petty.filter(function(p){return p.srId===id;}).length:0;
+    if(!confirm('Удалить заявку #'+id+' напрямую?\n\nСвязок: '+(lTx+lP)+' (tx '+lTx+', подотчёт '+lP+')')) return;
+    _doDeleteSR(id);return;
+  }
+  // Author: создаёт ЗАПРОС на удаление
+  if(r.by!==USER.id){toast('Только автор может запросить удаление','error');return;}
+  if(r.pendingDelete){toast('Запрос уже отправлен, ждёт подтверждения','info');return;}
+  var reason=prompt('Запрос на удаление заявки #'+id+'\n\nУкажи причину (для директора/бухгалтера):','');
+  if(reason===null) return;
+  r.pendingDelete={by:USER.id,date:today(),reason:(reason||'').trim()};
+  saveDB();toast('Запрос на удаление отправлен директору и бухгалтеру','success');rp();
+}
+function approveDeleteSR(id){
+  if(USER.role!=='director'&&USER.role!=='accountant'){toast('Нет доступа','error');return;}
+  var r=null; for(var i=0;i<DB.sreqs.length;i++) if(DB.sreqs[i].id===id){r=DB.sreqs[i];break;}
+  if(!r||!r.pendingDelete){toast('Запрос не найден','error');return;}
+  var reqUser=userGet(r.pendingDelete.by);
+  var lTx=Array.isArray(DB.txs)?DB.txs.filter(function(t){return t.srId===id;}).length:0;
+  var lP=Array.isArray(DB.petty)?DB.petty.filter(function(p){return p.srId===id;}).length:0;
+  var msg='ОДОБРИТЬ удаление заявки #'+id+'?\n\nЗапрос от: '+(reqUser?reqUser.n:'?')+'\nПричина: '+(r.pendingDelete.reason||'(не указана)')+'\n\nСвязок: '+(lTx+lP);
+  if(!confirm(msg)) return;
+  _doDeleteSR(id);
+}
+function rejectDeleteSR(id){
+  if(USER.role!=='director'&&USER.role!=='accountant'){toast('Нет доступа','error');return;}
+  var r=null; for(var i=0;i<DB.sreqs.length;i++) if(DB.sreqs[i].id===id){r=DB.sreqs[i];break;}
+  if(!r||!r.pendingDelete){toast('Запрос не найден','error');return;}
+  var reqUser=userGet(r.pendingDelete.by);
+  if(!confirm('Отклонить запрос удаления #'+id+' от '+(reqUser?reqUser.n:'?')+'?')) return;
+  delete r.pendingDelete;
+  saveDB();toast('Запрос отклонён','success');rp();
+}
+function cancelDeleteRequest(id){
+  var r=null; for(var i=0;i<DB.sreqs.length;i++) if(DB.sreqs[i].id===id){r=DB.sreqs[i];break;}
+  if(!r||!r.pendingDelete) return;
+  if(r.pendingDelete.by!==USER.id&&USER.role!=='director'){toast('Нет доступа','error');return;}
+  delete r.pendingDelete;
+  saveDB();toast('Запрос отозван','success');rp();
+}
+function openPaySR(id){
+  if(USER.role!=='director'&&USER.role!=='accountant'){toast('Нет доступа','error');return;}
+  var r=null; for(var i=0;i<DB.sreqs.length;i++) if(DB.sreqs[i].id===id){r=DB.sreqs[i];break;}
+  if(!r){toast('Заявка не найдена','error');return;}
+  if(!(r.amount>0)){toast('У заявки не указана сумма','error');return;}
+  if(r.paid){toast('Уже оплачено','info');return;}
+  var w=userGet(r.by);
+  var ord=ordGet(r.oid);
+  var target=r.toRole?({constructor:'Конструктор',production:'Начальник производства',supply:'Снабженец',manager:'Менеджер'}[r.toRole]||r.toRole):(r.supplier||'—');
+  var body=''
+    +'<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px;margin-bottom:12px;font-size:.85rem">'
+      +'<div>Заявка <b>#'+id+'</b>: '+(r.desc||'—')+'</div>'
+      +'<div style="color:var(--mu);font-size:.75rem;margin-top:4px">Автор: '+(w?w.n:'—')+' · Кому: '+target+(ord?' · Заказ #'+ord.id:'')+'</div>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      +'<div class="fg" style="flex:1;min-width:120px"><label>Сумма к оплате *</label><input type="number" id="pay-sum" value="'+r.amount+'"/></div>'
+      +'<div class="fg" style="flex:1;min-width:120px"><label>Дата платежа</label><input type="date" id="pay-date" value="'+today()+'"/></div>'
+    +'</div>'
+    +'<div class="fg"><label>Счёт списания *</label><select id="pay-acc"><option value="cash">💵 Касса</option><option value="bank">🏦 Банк</option></select></div>'
+    +'<div class="fg"><label>Комментарий</label><input id="pay-note" placeholder="доп. информация..."/></div>';
+  openModalRaw('💰 Оплата заявки #'+id, body, 'savePaySR('+id+')', 'Отмена', '✓ Провести платёж');
+}
+function savePaySR(id){
+  var r=null; for(var i=0;i<DB.sreqs.length;i++) if(DB.sreqs[i].id===id){r=DB.sreqs[i];break;}
+  if(!r){toast('Заявка не найдена','error');closeModal();return;}
+  var sum=+(document.getElementById('pay-sum')||{value:0}).value||0;
+  if(!(sum>0)){toast('Укажите сумму','error');return;}
+  var date=(document.getElementById('pay-date')||{value:today()}).value||today();
+  var acc=(document.getElementById('pay-acc')||{value:'cash'}).value||'cash';
+  var note=(document.getElementById('pay-note')||{value:''}).value||'';
+  var target=r.toRole?({constructor:'Конструктор',production:'Начальник производства',supply:'Снабженец',manager:'Менеджер'}[r.toRole]||r.toRole):(r.supplier||'—');
+  if(!Array.isArray(DB.txs)) DB.txs=[];
+  var txId=nid(DB.txs);
+  DB.txs.push({
+    id:txId,date:date,type:'expense',acc:acc,iid:15,
+    cpid:null,oid:r.oid||null,pid:r.pid||null,srId:id,
+    amt:sum,cur:'UZS',rate:1,uzs:sum,
+    note:'[Заявка #'+id+'] '+(r.desc||'')+' → '+target+(note?' · '+note:''),
+    by:USER.id,debt:false
+  });
+  r.paid=true; r.paidAt=date; r.paidBy=USER.id; r.paidTxId=txId;
+  saveDB();closeModal();toast('Платёж проведён · транзакция #'+txId,'success');rp();
+}
+function _srDeadlineInfo(r){
+  if(!r.deadline) return null;
+  try{
+    var dl=new Date(r.deadline+'T00:00:00');
+    var now=new Date(); now.setHours(0,0,0,0);
+    var days=Math.floor((dl-now)/86400000);
+    if(r.status==='done') return {days:days,label:'выполнено',color:'#64748b'};
+    if(days<0) return {days:days,label:'ПРОСРОЧЕНО на '+(-days)+' дн.',color:'#dc2626',urgent:true};
+    if(days===0) return {days:0,label:'СЕГОДНЯ срок',color:'#dc2626',urgent:true};
+    if(days<=2) return {days:days,label:'через '+days+' дн.',color:'#f59e0b',urgent:true};
+    return {days:days,label:'через '+days+' дн.',color:'#22c55e'};
+  }catch(e){return null;}
+}
+function viewSR(id){
+  var r=null; for(var i=0;i<DB.sreqs.length;i++) if(DB.sreqs[i].id===id){r=DB.sreqs[i];break;}
+  if(!r){toast('Заявка не найдена','error');return;}
+  var w=userGet(r.by),it=itemGet(r.iid),ord=ordGet(r.oid);
+  var ROLE_LBL={constructor:'Конструктор',production:'Начальник производства',supply:'Снабженец',manager:'Менеджер'};
+  var stTxt=r.status==='pending'?'⏸ Ожидает':r.status==='taken'?'✓ Принято':'✅ Выполнено';
+  var prioTxt=r.prio==='urgent'?'🔥 Срочно':r.prio==='high'?'⚠ Высокий':'· Обычный';
+  var toTxt=r.toRole?(ROLE_LBL[r.toRole]||r.toRole):(r.supplier||'—');
+  var posTxt='—';
+  if(r.pid&&ord&&Array.isArray(ord.positions)){
+    var p=ord.positions.find(function(x){return x.id===r.pid;});
+    if(p) posTxt=p.name+' · '+(p.qty||1)+'×'+fmt(p.price||0);
+  }
+  var dlInfo=_srDeadlineInfo(r);
+  var dlHtml=r.deadline?fmtD(r.deadline)+(dlInfo?'  <span style="color:'+dlInfo.color+';font-weight:600">('+dlInfo.label+')</span>':''):'—';
+  var linkedTx=Array.isArray(DB.txs)?DB.txs.filter(function(t){return t.srId===id;}):[];
+  var linkedPetty=Array.isArray(DB.petty)?DB.petty.filter(function(p){return p.srId===id;}):[];
+  var linksHtml='';
+  if(linkedTx.length){
+    linksHtml+='<div style="margin-top:8px"><b>💳 Связанные транзакции:</b><ul style="margin:4px 0 0 18px;font-size:.86rem">';
+    linkedTx.forEach(function(t){linksHtml+='<li>#'+t.id+' · '+fmtD(t.date)+' · '+fmt(t.sum_uzs||0)+' UZS — '+(t.note||'')+'</li>';});
+    linksHtml+='</ul></div>';
+  }
+  if(linkedPetty.length){
+    linksHtml+='<div style="margin-top:8px"><b>💵 Подотчёт:</b><ul style="margin:4px 0 0 18px;font-size:.86rem">';
+    linkedPetty.forEach(function(p){linksHtml+='<li>#'+p.id+' · '+fmtD(p.date)+' · '+fmt(p.sum_uzs||0)+' UZS · '+(p.status||'')+'</li>';});
+    linksHtml+='</ul></div>';
+  }
+  if(!linksHtml) linksHtml='<div style="margin-top:8px;color:var(--mu);font-size:.85rem">Финансовых связей нет</div>';
+  var pdHtml='';
+  if(r.pendingDelete){
+    var pu=userGet(r.pendingDelete.by);
+    pdHtml='<div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:10px;margin-top:10px;color:#dc2626"><b>⏳ Запрос на удаление</b><br/>От: '+(pu?pu.n:'?')+' · '+fmtD(r.pendingDelete.date)+'<br/>Причина: '+(r.pendingDelete.reason||'—')+'</div>';
+  }
+  function fld(k,v){return '<div style="display:flex;padding:6px 0;border-bottom:1px solid var(--bd)"><div style="min-width:130px;color:var(--mu);font-size:.86rem">'+k+'</div><div style="flex:1;font-size:.9rem"><b>'+(v||'—')+'</b></div></div>';}
+  var body=''
+    +fld('№',r.id)
+    +fld('Дата создания',fmtD(r.date))
+    +fld('Автор',(w?w.n:'—'))
+    +fld('Кому',toTxt)
+    +fld('Заказ',ord?'#'+ord.id+' '+ord.title:'—')
+    +fld('Позиция',posTxt)
+    +fld('Услуга/тема',it?it.n:(r.desc||'—'))
+    +fld('Описание',r.note||'—')
+    +(r.amount?fld('Сумма',fmt(r.amount)+' UZS'):'')
+    +fld('Срок',dlHtml)
+    +fld('Приоритет',prioTxt)
+    +fld('Статус',stTxt)
+    +(r.team?fld('Бригада',r.team):'')
+    +linksHtml
+    +pdHtml;
+  var canManage=(USER.role==='director'||USER.role==='accountant'||r.by===USER.id);
+  var actionButtons='';
+  if(canManage&&!r.pendingDelete) actionButtons=btn('bs','✎ Изменить','closeModal();editSR('+r.id+')')+' '+btn('bd','✕ Удалить','closeModal();deleteSR('+r.id+')');
+  openModalRaw('📋 Заявка #'+r.id, body+(actionButtons?'<div style="margin-top:14px;text-align:right">'+actionButtons+'</div>':''), null, 'Закрыть');
+}
+function loadSRPositions(orderId,targetId){
+  var mroot=document.getElementById('mroot');
+  var sel=mroot?mroot.querySelector('#'+targetId):document.getElementById(targetId);
+  if(!sel) return;
+  var oid=+orderId;
+  if(!oid){ sel.innerHTML='<option value="">— сначала выберите заказ —</option>'; return; }
+  var ord=ordGet(oid);
+  var pos=(ord&&Array.isArray(ord.positions))?ord.positions:[];
+  if(!pos.length){ sel.innerHTML='<option value="">— в заказе нет позиций —</option>'; return; }
+  var html='<option value="">— не выбрана —</option>';
+  for(var i=0;i<pos.length;i++){
+    var p=pos[i];
+    var lbl=(p.name||'позиция')+' · '+(p.qty||1)+'×'+fmt(p.price||0);
+    html+='<option value="'+p.id+'">'+lbl+'</option>';
+  }
+  sel.innerHTML=html;
+}
+function saveSRInternal(){
+  var toRole=mVal('sri-role');
+  if(!toRole){toast('Выберите специалиста','error');return;}
+  var title=(mVal('sri-title')||'').trim();
+  if(!title){toast('Укажите тему','error');return;}
+  var desc=(mVal('sri-desc')||'').trim();
+  var oid=mNum('sri-o')||null;
+  var pid=mNum('sri-pos')||null;
+  var deadline=mVal('sri-deadline')||'';
+  var prio=mVal('sri-prio')||'normal';
+  if(SR_EDIT_ID){
+    for(var i=0;i<DB.sreqs.length;i++) if(DB.sreqs[i].id===SR_EDIT_ID){
+      var r=DB.sreqs[i];
+      r.toRole=toRole;r.desc=title;r.note=desc;r.oid=oid;r.pid=pid;r.deadline=deadline;r.prio=prio;
+      break;
+    }
+    SR_EDIT_ID=null;
+    saveDB();toast('Заявка обновлена','success');closeModal();rp();return;
+  }
+  DB.sreqs.push({id:nid(DB.sreqs),oid:oid,pid:pid,by:USER.id,toRole:toRole,date:today(),deadline:deadline,prio:prio,desc:title,note:desc,status:'pending'});
+  saveDB();toast('Заявка отправлена','success');closeModal();rp();
 }
 
 // ── ДЕДЛАЙН И КОММЕНТАРИИ ────────────────────────────────────────────
@@ -2803,16 +3086,15 @@ function pgAbout(){
 // ══════════════════════════════════════════════════════
 function pgClients(){
   var isDir=USER.role==='director'||USER.role==='accountant';
+  var isMgr=USER.role==='manager';
   var clients=DB.cps.filter(function(c){return c.type==='client';});
-  var totalRec=0;
-  var cards='';
+  var totalRec=0,totalSumAll=0;
+  var rows='';
   for(var i=0;i<clients.length;i++){
     var cl=clients[i];
-    // Find orders for this client
-    var orders=DB.orders.filter(function(o){return o.cpid===cl.id;});
+    var orders=DB.orders.filter(function(o){return o.cpid===cl.id&&o.status!=='cancelled';});
     var totalSum=0,totalPaid=0,openOrders=0;
     for(var j=0;j<orders.length;j++){
-      if(orders[j].status==='cancelled') continue;
       totalSum+=orders[j].uzs||orders[j].total||0;
       totalPaid+=orders[j].paid||0;
       if(orders[j].status!=='closed') openOrders++;
@@ -2820,77 +3102,44 @@ function pgClients(){
     var receivable=totalSum-totalPaid;
     if(receivable<0) receivable=0;
     totalRec+=receivable;
-    var recColor=receivable>0?'color:#ef4444;font-weight:700':'color:var(--gr2);font-weight:700';
-    var orderRows='';
-    for(var k=0;k<orders.length;k++){
-      var o=orders[k]; if(o.status==='cancelled') continue;
-      var oSum=o.uzs||o.total||0;
-      var oPaid=o.paid||0;
-      var oPct=oSum>0?Math.round(oPaid/oSum*100):0;
-      var sColor={'active':'var(--ac)','closed':'var(--gr2)','new':'var(--mu)'}[o.status]||'var(--mu)';
-      var sLabel={'active':'В работе','closed':'Закрыт','new':'Новый'}[o.status]||o.status;
-      orderRows+='<tr>'
-        +'<td style="font-size:.8rem"><b>'+(o.title||o.name||'Заказ #'+o.id)+'</b></td>'
-        +'<td style="font-size:.78rem;color:'+sColor+'">'+sLabel+'</td>'
-        +'<td style="font-size:.78rem">'+fmt(oSum)+'</td>'
-        +'<td style="font-size:.78rem"><div style="background:#e2e8f0;border-radius:4px;height:6px;width:70px;display:inline-block;vertical-align:middle"><div style="background:var(--gr2);border-radius:4px;height:6px;width:'+oPct+'%"></div></div> <span>'+oPct+'%</span></td>'
-        +'<td style="font-size:.78rem;'+(oSum-oPaid>0?'color:#ef4444':'color:var(--gr2)')+'">'+fmt(Math.max(0,oSum-oPaid))+'</td>'
-        +'</tr>';
-    }
-    cards+='<div class="cc" style="padding:0;overflow:hidden" data-n="'+cl.n.toLowerCase()+'" data-fio="'+(cl.fio||'').toLowerCase()+'">'
-      +'<div style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);padding:16px 20px;display:flex;align-items:center;gap:12px">'
-      +'<div style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:800;color:#fff;flex-shrink:0">'+inits(cl.n)+'</div>'
-      +'<div style="flex:1;min-width:0">'
-      +'<div style="font-weight:800;color:#fff;font-size:.95rem">'+cl.n+'</div>'
-      +(cl.fio?'<div style="font-size:.72rem;color:rgba(255,255,255,.7);margin-top:2px">'+cl.fio+'</div>':'')
-      +'</div>'
-      +(isDir||USER.role==='manager'?'<button onclick="openClientM('+cl.id+')" style="background:rgba(255,255,255,.2);border:none;border-radius:6px;color:#fff;cursor:pointer;padding:4px 8px;font-size:.72rem" title="Редактировать">✏️</button>':''
-      +(isDir?'<button onclick="deleteClient('+cl.id+','+JSON.stringify(cl.n)+')" style="background:rgba(239,68,68,.3);border:none;border-radius:6px;color:#fff;cursor:pointer;padding:4px 8px;font-size:.72rem;margin-left:4px" title="Удалить">🗑️</button>':''))
-      +(isDir&&receivable>0?'<div style="background:rgba(255,255,255,.15);border-radius:8px;padding:6px 10px;text-align:right;flex-shrink:0">'
-        +'<div style="font-size:.6rem;color:rgba(255,255,255,.7)">Долг</div>'
-        +'<div style="font-size:.82rem;font-weight:700;color:#fca5a5">'+fmt(receivable)+'</div>'
-        +'</div>':'')
-      +'</div>'
-      +'<div style="padding:14px 20px">'
-      +(cl.ph?'<div style="font-size:.8rem;color:var(--mu);margin-bottom:10px">📞 <a href="tel:'+cl.ph+'" style="color:var(--ac)">'+cl.ph+'</a></div>':'')
-      +'<div style="display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap">'
-      +'<div style="text-align:center"><div style="font-size:1.1rem;font-weight:800;color:var(--ac)">'+orders.filter(function(o){return o.status!=='cancelled';}).length+'</div><div style="font-size:.65rem;color:var(--mu)">заказов</div></div>'
-      +'<div style="text-align:center"><div style="font-size:1.1rem;font-weight:800;color:var(--gr2)">'+fmt(totalSum)+'</div><div style="font-size:.65rem;color:var(--mu)">сумма</div></div>'
-      +(isDir?'<div style="text-align:center"><div style="font-size:1.1rem;font-weight:800;'+(receivable>0?'color:#ef4444':'color:var(--gr2)')+'">'+fmt(receivable)+'</div><div style="font-size:.65rem;color:var(--mu)">долг</div></div>':'')
-      +'</div>'
-      +(orderRows?'<div class="tw" style="margin-top:4px"><table style="width:100%;font-size:.75rem"><thead><tr>'
-        +'<th style="text-align:left;padding:4px 6px;color:var(--mu)">Заказ</th>'
-        +'<th style="text-align:left;padding:4px 6px;color:var(--mu)">Статус</th>'
-        +'<th style="text-align:left;padding:4px 6px;color:var(--mu)">Сумма</th>'
-        +'<th style="text-align:left;padding:4px 6px;color:var(--mu)">Оплата</th>'
-        +(isDir?'<th style="text-align:left;padding:4px 6px;color:var(--mu)">Остаток</th>':'')
-        +'</tr></thead><tbody>'+orderRows+'</tbody></table></div>'
-        :'<div style="font-size:.8rem;color:var(--mu);text-align:center;padding:8px 0">Нет заказов</div>')
-      +'</div>'
-      +'</div>';
+    totalSumAll+=totalSum;
+    var canEdit=isDir||isMgr;
+    var editBtn=canEdit?btn('bg0 bsm','✎','openClientM('+cl.id+')'):'';
+    var delBtn=isDir?btn('bd bsm','✕','deleteClient('+cl.id+','+JSON.stringify(cl.n)+')'):'';
+    rows+='<tr class="cl-row" data-n="'+cl.n.toLowerCase()+'" data-fio="'+(cl.fio||'').toLowerCase()+'">'
+      +'<td><b>'+cl.n+'</b>'+(cl.fio?'<div style="font-size:.7rem;color:var(--mu)">'+cl.fio+'</div>':'')+'</td>'
+      +'<td>'+(cl.ph?'<a href="tel:'+cl.ph+'" style="color:var(--ac)">'+cl.ph+'</a>':'—')+'</td>'
+      +'<td style="text-align:center">'+orders.length+(openOrders?' <span style="color:var(--or2);font-size:.7rem">('+openOrders+' в раб.)</span>':'')+'</td>'
+      +'<td class="ap" style="font-weight:600">'+fmt(totalSum)+'</td>'
+      +'<td class="'+(receivable>0?'an':'ap')+'" style="font-weight:700">'+fmt(receivable)+'</td>'
+      +(canEdit||isDir?'<td style="white-space:nowrap">'+editBtn+' '+delBtn+'</td>':'')
+      +'</tr>';
   }
-  if(!cards) cards='<div style="text-align:center;padding:48px;color:var(--mu)"><div style="font-size:2rem;margin-bottom:8px">👥</div><div>Клиентов пока нет</div><div style="font-size:.8rem;margin-top:6px">Добавьте клиентов в разделе «Контрагенты»</div></div>';
-  var summary=isDir?'<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px">'
-    +'<div class="cc" style="flex:1;min-width:140px;padding:16px;text-align:center"><div style="font-size:1.4rem;font-weight:800;color:var(--ac)">'+clients.length+'</div><div style="font-size:.75rem;color:var(--mu)">клиентов</div></div>'
-    +'<div class="cc" style="flex:1;min-width:140px;padding:16px;text-align:center"><div style="font-size:1.4rem;font-weight:800;color:var(--gr2)">'+fmt(totalRec)+'</div><div style="font-size:.75rem;color:var(--mu)">общий долг</div></div>'
+  var canEditAny=isDir||isMgr;
+  var cols=5+(canEditAny||isDir?1:0);
+  var summary=isDir?'<div class="kg">'
+    +'<div class="kc bl"><div class="kl">Клиентов</div><div class="kv">'+clients.length+'</div><div class="ks">всего</div></div>'
+    +'<div class="kc gn"><div class="kl">Общая сумма</div><div class="kv">'+fmt(totalSumAll)+'</div><div class="ks">по заказам</div></div>'
+    +'<div class="kc rd"><div class="kl">Долг</div><div class="kv">'+fmt(totalRec)+'</div><div class="ks">суммарно</div></div>'
     +'</div>':'';
-  var canAdd=USER.role==='director'||USER.role==='manager';
-  return '<div class="ph"><div class="pt">Клиенты</div>'
-    +'<div style="display:flex;align-items:center;gap:8px">'
-    +'<div style="font-size:.8rem;color:var(--mu)">'+clients.length+' клиентов</div>'
-    +(canAdd?btn('bp','+ Добавить клиента','openClientM()'):'')
-    +'</div></div>'
+  var canAdd=isDir||isMgr;
+  return '<div class="ph"><div class="pt">Клиенты</div>'+(canAdd?btn('bp','+ Добавить клиента','openClientM()'):'')+'</div>'
     +summary
     +'<input class="srch" id="clsrch" placeholder="🔍 Поиск по имени, контакту..." oninput="filterClients()">'
-    +'<div id="clients-grid" class="kg" style="grid-template-columns:repeat(auto-fill,minmax(340px,1fr))">'+cards+'</div>';
+    +'<div class="tc"><div class="tw"><table><thead><tr>'
+      +'<th>Клиент</th><th>Телефон</th><th style="text-align:center">Заказы</th><th>Сумма</th><th>Долг</th>'
+      +(canEditAny||isDir?'<th></th>':'')
+    +'</tr></thead><tbody id="cl-tbody">'
+      +(rows||'<tr class="er"><td colspan="'+cols+'">Клиентов пока нет — нажмите «+ Добавить клиента»</td></tr>')
+    +'</tbody></table></div></div>';
 }
 function filterClients(){
   var q=((document.getElementById('clsrch')||{}).value||'').toLowerCase().trim();
-  var cards=document.querySelectorAll('#clients-grid>[data-n]');
-  for(var i=0;i<cards.length;i++){
-    var c=cards[i];
-    var match=!q||c.dataset.n.indexOf(q)>-1||c.dataset.fio.indexOf(q)>-1;
-    c.style.display=match?'':'none';
+  var rows=document.querySelectorAll('.cl-row');
+  for(var i=0;i<rows.length;i++){
+    var r=rows[i];
+    var match=!q||r.dataset.n.indexOf(q)>-1||r.dataset.fio.indexOf(q)>-1;
+    r.style.display=match?'':'none';
   }
 }
 function openClientM(editId){
@@ -2942,13 +3191,14 @@ function pgCPs(){
   var rows='';
   for(var i=0;i<DB.cps.length;i++){
     var c=DB.cps[i];
-    var tb={client:'bg-b',supplier:'bg-g',service:'bg-p'}[c.type]||'bg-gr';
-    var tl={client:'Клиент',supplier:'Поставщик',service:'Услуги'}[c.type]||c.type;
+    if(c.type==='client') continue; // клиенты — на отдельной странице
+    var tb={supplier:'bg-g',service:'bg-p'}[c.type]||'bg-gr';
+    var tl={supplier:'Поставщик',service:'Услуги'}[c.type]||c.type;
     var debt=debtCP(c.id);
-    var typCell=isDir&&(c.type==='supplier'||c.type==='service')
+    var typCell=isDir
       ?'<td><span style="cursor:pointer" title="Нажмите для смены типа" onclick="toggleCpType('+c.id+')">'+bdg(tb,tl+' ⇄')+'</span></td>'
       :'<td>'+bdg(tb,tl)+'</td>';
-    rows+='<tr class="cp-row" data-n="'+c.n.toLowerCase()+'" data-fio="'+(c.fio||'').toLowerCase()+'" data-note="'+(c.note||'').toLowerCase()+'">'
+    rows+='<tr class="cp-row" data-n="'+c.n.toLowerCase()+'" data-fio="'+(c.fio||'').toLowerCase()+'" data-note="'+(c.note||'').toLowerCase()+'" data-type="'+c.type+'">'
       +'<td><b>'+c.n+'</b></td>'
       +'<td style="font-size:.74rem;color:var(--mu)">'+(c.fio||'—')+'</td>'
       +typCell
@@ -2958,13 +3208,12 @@ function pgCPs(){
       +'</tr>';
   }
   var cols=5+(showS?1:0)+(isDir?1:0);
-  return '<div class="ph"><div class="pt">Контрагенты</div>'+btn('bp','+ Добавить','openCpM()')+'</div>'
+  return '<div class="ph"><div class="pt">Контрагенты · Поставщики и Услуги</div>'+btn('bp','+ Добавить','openCpM()')+'</div>'
     +'<input class="srch" id="cpsrch" placeholder="🔍 Поиск по названию, контакту..." oninput="filterCPs()">'
     +(isDir?'<div style="display:flex;gap:6px;padding:4px 12px 8px;flex-wrap:wrap">'
       +'<button class="bsm bp" onclick="filterCPtype(\'all\',this)">Все</button>'
       +'<button class="bsm" onclick="filterCPtype(\'supplier\',this)">Поставщики</button>'
       +'<button class="bsm" onclick="filterCPtype(\'service\',this)">Услуги</button>'
-      +'<button class="bsm" onclick="filterCPtype(\'client\',this)">Клиенты</button>'
       +'</div>':'')
     +'<div class="tc"><div class="tw"><table><thead><tr><th>Название</th><th>ФИО</th><th>Тип</th><th>Телефон</th>'+(showS?'<th>Долг</th>':'')+(isDir?'<th></th>':'')+'</tr></thead><tbody id="cps-tbody">'+(rows||'<tr class="er"><td colspan="'+cols+'">Нет</td></tr>')+'</tbody></table></div></div>';
 }
@@ -2983,7 +3232,6 @@ function openCpEdit(id){
   openModalRaw('Редактировать контрагента',
     '<div class="fg"><label>Название *</label><input id="cp-n" value="'+c.n+'"/></div>'
     +'<div class="fg"><label>Тип</label><select id="cp-t">'
-    +'<option value="client"'+(c.type==='client'?' selected':'')+'>Клиент</option>'
     +'<option value="supplier"'+(c.type==='supplier'?' selected':'')+'>Поставщик</option>'
     +'<option value="service"'+(c.type==='service'?' selected':'')+'>Услуги</option>'
     +'</select></div>'
@@ -3009,7 +3257,7 @@ function saveCpEdit(id){
 }
 function filterCPtype(type,btn){
   document.querySelectorAll('.cp-row').forEach(function(r){
-    r.style.display=(type==='all'||r.querySelector('td:nth-child(3)').textContent.indexOf(type==='supplier'?'Поставщик':type==='service'?'Услуги':'Клиент')>-1)?'':'none';
+    r.style.display=(type==='all'||r.dataset.type===type)?'':'none';
   });
 }
 function filterCPs(){
@@ -3033,16 +3281,17 @@ function filterCPs(){
 function openCpM(){
   openModalRaw('Новый контрагент',
     '<div class="fg"><label>Название *</label><input id="cp-n" placeholder="МеталлБаза"/></div>'
-    +'<div class="fg"><label>Тип</label><select id="cp-t"><option value="client">Клиент</option><option value="supplier">Поставщик</option><option value="service">Услуги</option></select></div>'
+    +'<div class="fg"><label>Тип</label><select id="cp-t"><option value="supplier">Поставщик</option><option value="service">Услуги</option></select></div>'
     +'<div class="fg"><label>ФИО / контакт</label><input id="cp-f" placeholder="Иванов Иван"/></div>'
     +'<div class="fg"><label>Телефон</label><input id="cp-p" type="tel" placeholder="+998 90 ..."/></div>'
-    +'<div class="fg"><label>Примечание</label><input id="cp-nt"/></div>',
+    +'<div class="fg"><label>Примечание</label><input id="cp-nt"/></div>'
+    +'<div style="font-size:.72rem;color:var(--mu);margin-top:6px">💡 Клиентов добавляйте в разделе «Клиенты»</div>',
     'saveCpNew()');
 }
 function saveCpNew(){
   var n=(document.getElementById('cp-n')||{value:''}).value.trim();
   if(!n){toast('Укажите название','error');return;}
-  DB.cps.push({id:nid(DB.cps),n:n,org:n,fio:(document.getElementById('cp-f')||{value:''}).value||'',type:(document.getElementById('cp-t')||{value:'client'}).value||'client',ph:(document.getElementById('cp-p')||{value:''}).value||'',note:(document.getElementById('cp-nt')||{value:''}).value||''});
+  DB.cps.push({id:nid(DB.cps),n:n,org:n,fio:(document.getElementById('cp-f')||{value:''}).value||'',type:(document.getElementById('cp-t')||{value:'supplier'}).value||'supplier',ph:(document.getElementById('cp-p')||{value:''}).value||'',note:(document.getElementById('cp-nt')||{value:''}).value||''});
   saveDB();toast('Добавлено','success');closeModal();rp();
 }
 
@@ -3706,7 +3955,7 @@ function openReportM(issueId){
   if(!issue) return;
   _reportIssueId=issueId;
   _reportIssueAmt=issue.amt;
-  _reportLines=[{cp:'',note:'',amt:0}];
+  _reportLines=[{cp:'',note:'',amt:0,oid:null,pid:null,qty:null}];
   renderReportM();
 }
 
@@ -3729,26 +3978,64 @@ function renderReportM(){
   var remain=_reportIssueAmt-totalSpent;
   var balColor=remain<0?'var(--rd2)':remain===0?'var(--gr2)':'var(--or2)';
 
+  // Build orders options (active only)
+  var orderOpts='<option value="">— без привязки —</option>';
+  var activeOrders=(DB.orders||[]).filter(function(o){return o.status==='active';});
+  for(var oi=0;oi<activeOrders.length;oi++){
+    var oo=activeOrders[oi];
+    orderOpts+='<option value="'+oo.id+'">#'+oo.id+' '+(oo.title||'').replace(/"/g,'&quot;').slice(0,40)+'</option>';
+  }
+
   // Build rows HTML safely without inline event strings with quotes
   var rowsHtml='';
   for(var i=0;i<_reportLines.length;i++){
     var ln=_reportLines[i];
     // Build select with current value selected
     var selOpts=cpOpts.split('value="'+ln.cp+'"').join('value="'+ln.cp+'" selected');
+    var oSelOpts=orderOpts.split('value="'+(ln.oid||'')+'"').join('value="'+(ln.oid||'')+'" selected');
+    // Position options depend on selected order
+    var posSelOpts='<option value="">— не выбрана —</option>';
+    if(ln.oid){
+      var ord=null; for(var oj=0;oj<(DB.orders||[]).length;oj++) if(DB.orders[oj].id===+ln.oid){ord=DB.orders[oj];break;}
+      if(ord&&Array.isArray(ord.positions)){
+        for(var pi=0;pi<ord.positions.length;pi++){
+          var pp=ord.positions[pi];
+          var sel=(+ln.pid===pp.id)?' selected':'';
+          posSelOpts+='<option value="'+pp.id+'"'+sel+'>'+(pp.name||'').replace(/"/g,'&quot;')+'</option>';
+        }
+      }
+    }
+    var qty=ln.qty||'';
+    var unitHint='';
+    if(ln.qty&&ln.amt){
+      var up=Math.round(ln.amt/ln.qty);
+      unitHint='<div style="font-size:.65rem;color:var(--mu);margin-top:2px">'+ln.qty+'×'+fmt(up)+' сум</div>';
+    }
     var delBtn=_reportLines.length>1
       ?('<button class="btn bd bsm" style="margin-bottom:4px;flex-shrink:0" '
         +'onclick="rpRemove('+i+')">&#10005;</button>')
       :'<div style="width:28px"></div>';
-    rowsHtml+='<div style="display:flex;gap:6px;align-items:flex-end;margin-bottom:8px;flex-wrap:wrap">'
+    rowsHtml+='<div style="border:1px solid var(--bd);border-radius:10px;padding:10px;margin-bottom:10px;background:#fafafa">'
+      +'<div style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;margin-bottom:6px">'
       +'<div class="fg" style="flex:2;min-width:160px"><label>Поставщик / цель</label>'
       +'<select data-ri="'+i+'" data-rf="cp" onchange="rpEv(this)">'+selOpts+'</select></div>'
-      +'<div class="fg" style="flex:2;min-width:140px"><label>Что купил / описание</label>'
-      +'<input placeholder="ЛДСП 6 листов, краска..." value="'+ln.note+'" '
+      +'<div class="fg" style="flex:2;min-width:160px"><label>Заказ (для чего)</label>'
+      +'<select data-ri="'+i+'" data-rf="oid" onchange="rpEvOrder(this)">'+oSelOpts+'</select></div>'
+      +'<div class="fg" style="flex:2;min-width:140px"><label>Позиция заказа</label>'
+      +'<select data-ri="'+i+'" data-rf="pid" onchange="rpEv(this)"'+(ln.oid?'':' disabled')+'>'+posSelOpts+'</select></div>'
+      +'</div>'
+      +'<div style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap">'
+      +'<div class="fg" style="flex:3;min-width:180px"><label>Что купил / описание</label>'
+      +'<input placeholder="Петли, ЛДСП, краска..." value="'+(ln.note||'').replace(/"/g,'&quot;')+'" '
       +'data-ri="'+i+'" data-rf="note" onchange="rpEv(this)"/></div>'
-      +'<div class="fg" style="flex:1;min-width:100px"><label>Сумма *</label>'
+      +'<div class="fg" style="flex:1;min-width:80px"><label>Кол-во</label>'
+      +'<input type="number" placeholder="1" value="'+qty+'" '
+      +'data-ri="'+i+'" data-rf="qty" oninput="rpEvQty(this)"/></div>'
+      +'<div class="fg" style="flex:1;min-width:110px"><label>Сумма * (всего)</label>'
       +'<input type="number" placeholder="0" value="'+(ln.amt||'')+'" '
-      +'data-ri="'+i+'" data-rf="amt" oninput="rpEvAmt(this)"/></div>'
-      +delBtn+'</div>';
+      +'data-ri="'+i+'" data-rf="amt" oninput="rpEvAmt(this)"/>'+unitHint+'</div>'
+      +delBtn+'</div>'
+      +'</div>';
   }
 
   var html2='<input type="hidden" id="rp-issue-id" value="'+_reportIssueId+'"/>'
@@ -3784,11 +4071,25 @@ function rpEvAmt(el){
   var idx=+el.getAttribute('data-ri');
   if(_reportLines[idx]) _reportLines[idx].amt=+(el.value)||0;
   rpRecalc();
+  // Refresh unit-price hint by re-rendering only if qty was set
+  if(_reportLines[idx]&&_reportLines[idx].qty) renderReportM();
+}
+function rpEvQty(el){
+  var idx=+el.getAttribute('data-ri');
+  if(_reportLines[idx]) _reportLines[idx].qty=+(el.value)||null;
+  renderReportM();
+}
+function rpEvOrder(el){
+  var idx=+el.getAttribute('data-ri');
+  if(!_reportLines[idx]) return;
+  _reportLines[idx].oid=el.value?+el.value:null;
+  _reportLines[idx].pid=null;
+  renderReportM();
 }
 function rpLineEv(el){rpEv(el);}
 function rpLineEvAmt(el){rpEvAmt(el);}
-function rpAdd(){ _reportLines.push({cp:'',note:'',amt:0}); renderReportM(); }
-function rpRemove(i){ _reportLines.splice(i,1); if(!_reportLines.length) _reportLines=[{cp:'',note:'',amt:0}]; renderReportM(); }
+function rpAdd(){ _reportLines.push({cp:'',note:'',amt:0,oid:null,pid:null,qty:null}); renderReportM(); }
+function rpRemove(i){ _reportLines.splice(i,1); if(!_reportLines.length) _reportLines=[{cp:'',note:'',amt:0,oid:null,pid:null,qty:null}]; renderReportM(); }
 
 function submitReport(){
   var issueId=+(document.getElementById('rp-issue-id')||{value:0}).value||_reportIssueId;
@@ -3802,12 +4103,27 @@ function submitReport(){
 
   if(!DB.petty) DB.petty=[];
 
+  // Helper: describe order/position/qty for readable note
+  function _lineOrderTxt(ln){
+    var out='';
+    if(ln.oid){
+      var o=null; for(var oi=0;oi<(DB.orders||[]).length;oi++) if(DB.orders[oi].id===+ln.oid){o=DB.orders[oi];break;}
+      if(o){out+='для заказа #'+o.id+' «'+((o.title||'').slice(0,25))+'»';}
+      if(ln.pid&&o&&Array.isArray(o.positions)){
+        var p=null; for(var pi=0;pi<o.positions.length;pi++) if(o.positions[pi].id===+ln.pid){p=o.positions[pi];break;}
+        if(p) out+=' (позиция: '+p.name+')';
+      }
+    }
+    if(ln.qty){out=(out?out+' · ':'')+ln.qty+' шт';}
+    return out;
+  }
   // Build summary note
   var lines=[];
   for(var i=0;i<_reportLines.length;i++){
     var ln=_reportLines[i];
     if(!ln.amt) continue;
-    lines.push((ln.cp?ln.cp+': ':'')+( ln.note?ln.note+' — ':'')+fmt(ln.amt)+' сум');
+    var otxt=_lineOrderTxt(ln);
+    lines.push((ln.cp?ln.cp+': ':'')+( ln.note?ln.note+' — ':'')+fmt(ln.amt)+' сум'+(otxt?' · '+otxt:''));
   }
   var summaryNote=lines.join(' | ');
 
@@ -3815,10 +4131,12 @@ function submitReport(){
   for(var i=0;i<_reportLines.length;i++){
     var ln=_reportLines[i];
     if(!ln.amt) continue;
+    var otxt=_lineOrderTxt(ln);
     DB.petty.push({
       id:nid(DB.petty),empId:USER.id,date:date,type:'expense',
-      amt:ln.amt,note:(ln.cp?ln.cp+(ln.note?' — '+ln.note:''):ln.note||'Расход'),
-      status:'reported',issueId:issueId,by:USER.id
+      amt:ln.amt,note:(ln.cp?ln.cp+(ln.note?' — '+ln.note:''):ln.note||'Расход')+(otxt?' · '+otxt:''),
+      status:'reported',issueId:issueId,by:USER.id,
+      oid:ln.oid||null,pid:ln.pid||null,qty:ln.qty||null
     });
   }
 
@@ -3834,10 +4152,12 @@ function submitReport(){
     // Find the original issue account
     var issueAcc='cash';
     for(var ix=0;ix<DB.petty.length;ix++) if(DB.petty[ix].id===issueId&&DB.petty[ix].type==='issued'){issueAcc=DB.petty[ix].acc||'cash';break;}
+    var otxt=_lineOrderTxt(ln);
     DB.txs.push({
       id:nid(DB.txs),date:date,type:'expense',acc:issueAcc,iid:15,
-      cpid:cpid,oid:null,amt:ln.amt,cur:'UZS',rate:1,uzs:ln.amt,
-      note:'[Подотчёт] '+(ln.cp?ln.cp+': ':'')+( ln.note||''),
+      cpid:cpid,oid:ln.oid||null,pid:ln.pid||null,qty:ln.qty||null,
+      amt:ln.amt,cur:'UZS',rate:1,uzs:ln.amt,
+      note:'[Подотчёт] '+(ln.cp?ln.cp+': ':'')+( ln.note||'')+(otxt?' · '+otxt:''),
       by:USER.id,debt:false
     });
   }
@@ -3920,27 +4240,108 @@ function delPetty(id){
 // ══════════════════════════════════════════════════════
 function pgSreqs(){
   if(!DB.items||DB.items.length===0) DB.items=JSON.parse(JSON.stringify(ITEMS));
+  if(!Array.isArray(DB.sreqs)) DB.sreqs=[];
+  if(!Array.isArray(DB.orders)) DB.orders=[];
+  if(!Array.isArray(DB.cps)) DB.cps=[];
   var role=USER.role;
-  var myReqs=role==='supply'?DB.sreqs:DB.sreqs.filter(function(r){return r.by===USER.id;});
-  var sorted=[].concat(myReqs).sort(function(a,b){return b.id-a.id;});
+  var myReqs=DB.sreqs.filter(function(r){
+    if(role==='director'||role==='accountant') return true;
+    if(role==='supply') return !r.toRole || r.toRole==='supply';
+    if(r.toRole) return r.toRole===role || r.by===USER.id;
+    return r.by===USER.id;
+  });
+  var pendingDelCount=DB.sreqs.filter(function(r){return r.pendingDelete;}).length;
+  // Deadline warnings: overdue OR ≤2 days AND not done
+  var deadlineWarn=DB.sreqs.filter(function(r){
+    if(r.status==='done'||!r.deadline) return false;
+    var info=_srDeadlineInfo(r);
+    return info&&info.urgent;
+  });
+  // Payable list — done, has amount, not yet paid
+  var payable=DB.sreqs.filter(function(r){
+    return r.status==='done'&&(r.amount||0)>0&&!r.paid;
+  });
+  var payableTotal=payable.reduce(function(a,r){return a+(r.amount||0);},0);
+  var sorted=[].concat(myReqs).sort(function(a,b){
+    if(a.pendingDelete&&!b.pendingDelete) return -1;
+    if(!a.pendingDelete&&b.pendingDelete) return 1;
+    return b.id-a.id;
+  });
+  var ROLE_LBL={constructor:'Конструктор',production:'Начальник производства',supply:'Снабженец',manager:'Менеджер'};
   var rows='';
   for(var i=0;i<sorted.length;i++){
     var r=sorted[i],w=userGet(r.by),it=itemGet(r.iid),ord=ordGet(r.oid);
     var stBdg=r.status==='pending'?bdg('bg-o','Ожидает'):r.status==='taken'?bdg('bg-g','Принято'):bdg('bg-b','Выполнено');
-    var actCell=role==='supply'&&r.status==='pending'?'<td>'+btn('bp bsm','Принять','takeSR('+r.id+')')+'</td>':'<td></td>';
-    rows+='<tr><td>'+fmtD(r.date)+'</td><td>'+(w?w.n:'—')+'</td><td>'+(ord?'#'+ord.id+' '+ord.title.slice(0,15):'—')+'</td><td>'+(it?it.n:r.desc||'—')+'</td><td>'+(r.supplier||r.note||'—')+'</td><td>'+stBdg+'</td>'+actCell+'</tr>';
+    if(r.paid) stBdg=bdg('bg-b','💰 Оплачено');
+    if(r.pendingDelete) stBdg=bdg('bg-r','⏳ запрос на удаление');
+    var dlInfo=_srDeadlineInfo(r);
+    var dlMark='';
+    if(dlInfo&&dlInfo.urgent) dlMark=' <span style="color:'+dlInfo.color+';font-weight:700;font-size:.7rem">⏰ '+dlInfo.label+'</span>';
+    var toCell=r.toRole?(ROLE_LBL[r.toRole]||r.toRole):(r.supplier||'Подрядчик');
+    var isRecipient=r.toRole===role && r.by!==USER.id;
+    var isApprover=(role==='director'||role==='accountant');
+    var isAuthor=(r.by===USER.id);
+    var actHTML=btn('bs bsm','📋','event.stopPropagation();viewSR('+r.id+')')+' ';
+    var rowClick=' onclick="viewSR('+r.id+')" style="cursor:pointer';
+    var amtHtml=(r.amount||0)>0
+      ?'<b>'+fmt(r.amount)+'</b>'+(r.paid?' <span style="color:var(--gr2);font-size:.7rem">✓</span>':'')
+      :'<span style="color:var(--mu)">—</span>';
+    if(r.pendingDelete){
+      var reqU=userGet(r.pendingDelete.by);
+      var pdNote='<div style="font-size:.7rem;color:#dc2626;margin-top:4px">⏳ '+(reqU?reqU.n:'?')+(r.pendingDelete.reason?': "'+r.pendingDelete.reason+'"':'')+'</div>';
+      if(isApprover){
+        actHTML+=btn('bg bsm','✓ Одобрить','event.stopPropagation();approveDeleteSR('+r.id+')')+' '+btn('bd bsm','✕ Отклонить','event.stopPropagation();rejectDeleteSR('+r.id+')');
+      } else if(isAuthor){
+        actHTML+=btn('bs bsm','Отозвать','event.stopPropagation();cancelDeleteRequest('+r.id+')');
+      }
+      var noteCell=(r.note||'—')+pdNote;
+      rows+='<tr'+rowClick+';background:rgba(239,68,68,.08)"><td>'+fmtD(r.date)+'</td><td>'+(w?w.n:'—')+'</td><td>'+toCell+'</td><td>'+(ord?'#'+ord.id+' '+ord.title.slice(0,15):'—')+'</td><td>'+(it?it.n:r.desc||'—')+dlMark+'</td><td>'+noteCell+'</td><td style="text-align:right">'+amtHtml+'</td><td>'+stBdg+'</td><td style="white-space:nowrap" onclick="event.stopPropagation()">'+actHTML+'</td></tr>';
+      continue;
+    }
+    if(role==='supply'&&!r.toRole&&r.status==='pending') actHTML+=btn('bp bsm','Принять','event.stopPropagation();takeSR('+r.id+')')+' ';
+    else if(isRecipient&&r.status==='pending') actHTML+=btn('bp bsm','Принять','event.stopPropagation();takeSR('+r.id+')')+' ';
+    else if(isRecipient&&r.status==='taken') actHTML+=btn('bg bsm','Выполнено','event.stopPropagation();doneSR('+r.id+')')+' ';
+    // Кнопка «Оплатить» бухгалтеру/директору
+    if(isApprover&&(r.amount||0)>0&&r.status==='done'&&!r.paid){
+      actHTML+=btn('bp bsm','💰 Оплатить','event.stopPropagation();openPaySR('+r.id+')')+' ';
+    }
+    var canManage=(isApprover||isAuthor);
+    if(canManage) actHTML+=btn('bs bsm','✎','event.stopPropagation();editSR('+r.id+')')+' '+btn('bd bsm','✕','event.stopPropagation();deleteSR('+r.id+')');
+    var rowBg=(dlInfo&&dlInfo.urgent)?';background:rgba(245,158,11,.06)':'';
+    if(isApprover&&(r.amount||0)>0&&r.status==='done'&&!r.paid) rowBg=';background:rgba(34,197,94,.06)';
+    rows+='<tr'+rowClick+rowBg+'"><td>'+fmtD(r.date)+'</td><td>'+(w?w.n:'—')+'</td><td>'+toCell+'</td><td>'+(ord?'#'+ord.id+' '+ord.title.slice(0,15):'—')+'</td><td>'+(it?it.n:r.desc||'—')+dlMark+'</td><td>'+(r.note||'—')+'</td><td style="text-align:right">'+amtHtml+'</td><td>'+stBdg+'</td><td style="white-space:nowrap" onclick="event.stopPropagation()">'+actHTML+'</td></tr>';
+  }
+  var banner='';
+  if((role==='director'||role==='accountant')&&pendingDelCount>0){
+    banner+='<div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:10px 14px;margin:8px 0;color:#dc2626;font-weight:600">⏳ '+pendingDelCount+' запрос(ов) на удаление ждут вашего решения</div>';
+  }
+  if((role==='director'||role==='accountant')&&deadlineWarn.length>0){
+    var overdueN=deadlineWarn.filter(function(r){var i=_srDeadlineInfo(r);return i&&i.days<0;}).length;
+    var todayN=deadlineWarn.filter(function(r){var i=_srDeadlineInfo(r);return i&&i.days===0;}).length;
+    var soonN=deadlineWarn.length-overdueN-todayN;
+    banner+='<div style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.4);border-radius:8px;padding:10px 14px;margin:8px 0;color:#b45309;font-weight:600">⏰ Внимание к срокам: '
+      +(overdueN?overdueN+' просрочено · ':'')
+      +(todayN?todayN+' сегодня · ':'')
+      +(soonN?soonN+' ≤2 дн.':'')
+      +'</div>';
+  }
+  if((role==='director'||role==='accountant')&&payable.length>0){
+    banner+='<div style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.4);border-radius:8px;padding:10px 14px;margin:8px 0;color:#166534;font-weight:600">💰 К оплате по заявкам: <b>'+fmt(payableTotal)+' UZS</b> ('+payable.length+' шт.) · выполнены, оплата не проведена</div>';
   }
   var canCreateSR=['manager','constructor','production','supply'].indexOf(role)>-1;
-  var addBtn=canCreateSR?btn('bp','+ Добавить заявку','openModal(\'sr-new\')'):'';
+  var addBtn=canCreateSR?btn('bp','+ Подрядчику','openModal(\'sr-new\')'):'';
+  var addInternalBtn=btn('bp','+ Заявка специалисту','openModal(\'sr-internal\')');
+  addBtn=addBtn+' '+addInternalBtn;
   // Услуги для данной роли: sub==='svc' и who совпадает с ролью или 'all'
-  var svcItems=getItems().filter(function(it){if(it.sub!=='svc') return false; var w=it.who; return w==='all'||(Array.isArray(w)?w.indexOf(role)>=0:w===role);});
+  var svcItems=getItems().filter(function(it){return it.sub==='svc'&&(it.who===role||it.who==='all');});
   // Для снабженца — все svc позиции
   if(role==='supply') svcItems=getItems().filter(function(it){return it.sub==='svc';});
   // Поставщики услуг: тип 'service' или supplier с заметкой об услугах
   var svcCPs=DB.cps.filter(function(c){return c.type==='service';});
   if(!svcCPs.length) svcCPs=DB.cps.filter(function(c){return c.type==='supplier';});
   return '<div class="ph"><div class="pt">Заявки на услуги</div>'+addBtn+'</div>'
-    +'<div class="tc"><div class="tw"><table><thead><tr><th>Дата</th><th>От кого</th><th>Заказ</th><th>Услуга</th><th>Подрядчик</th><th>Статус</th><th></th></tr></thead><tbody>'+(rows||'<tr class="er"><td colspan="7">Нет заявок</td></tr>')+'</tbody></table></div></div>'
+    +banner
+    +'<div class="tc"><div class="tw"><table><thead><tr><th>Дата</th><th>От кого</th><th>Кому</th><th>Заказ</th><th>Услуга / Тема</th><th>Описание</th><th style="text-align:right">Сумма</th><th>Статус</th><th></th></tr></thead><tbody>'+(rows||'<tr class="er"><td colspan="9">Нет заявок</td></tr>')+'</tbody></table></div></div>'
     +'<div id="m-sr-new" style="display:none">'
     +'<div class="fg"><label>Услуга *</label><select id="sr-i"><option value="">— выберите —</option>'+optList(svcItems,function(it){return it.id;},function(it){return it.n;})+'</select></div>'
     +'<div class="fg"><label>Поставщик / Подрядчик *</label><select id="sr-supplier"><option value="">— выберите —</option>'+svcCPs.map(function(c){return '<option value="'+c.n+'">'+c.n+'</option>';}).join('')+'</select></div>'
@@ -3948,10 +4349,27 @@ function pgSreqs(){
     +'<div class="fg" style="flex:1;min-width:120px"><label>Сумма заявки</label><input type="number" id="sr-amount" placeholder="0"/></div>'
     +'<div class="fg" style="flex:1;min-width:120px"><label>Сроки</label><input type="date" id="sr-deadline"/></div>'
     +'</div>'
-    +'<div class="fg"><label>Заказ (необязательно)</label><select id="sr-o"><option value="">— без привязки —</option>'+optList(DB.orders.filter(function(o){return o.status==='active';}),function(o){return o.id;},function(o){return '#'+o.id+' '+o.title;})+'</select></div>'
-    +'<div class="fg"><label>Позиция заказа</label><select id="sr-pos"><option value="">— не выбрана —</option></select></div>'
+    +'<div class="fg"><label>Заказ (необязательно)</label><select id="sr-o" onchange="loadSRPositions(this.value,\'sr-pos\')"><option value="">— без привязки —</option>'+optList(DB.orders.filter(function(o){return o.status==='active';}),function(o){return o.id;},function(o){return '#'+o.id+' '+o.title;})+'</select></div>'
+    +'<div class="fg"><label>Позиция заказа</label><select id="sr-pos"><option value="">— сначала выберите заказ —</option></select></div>'
     +'<div class="fg"><label>Ответственная бригада</label><input id="sr-team" placeholder="Название бригады"/></div>'
     +'<div class="fg"><label>Примечание</label><input id="sr-n" placeholder="Дополнительная информация..."/></div>'
+    +'</div>'
+    +'<div id="m-sr-internal" style="display:none">'
+    +'<div class="fg"><label>Кому *</label><select id="sri-role">'
+      +'<option value="">— выберите специалиста —</option>'
+      +'<option value="constructor">🔧 Конструктору</option>'
+      +'<option value="production">🏭 Начальнику производства</option>'
+      +'<option value="supply">📦 Снабженцу</option>'
+      +'<option value="manager">🎯 Менеджеру</option>'
+    +'</select></div>'
+    +'<div class="fg"><label>Тема / что нужно *</label><input id="sri-title" placeholder="Например: рассчитать металлокаркас"/></div>'
+    +'<div class="fg"><label>Подробное описание</label><textarea id="sri-desc" rows="3" placeholder="Детали, ссылки, размеры..." style="width:100%;font-family:inherit;padding:8px;border:1px solid var(--bd);border-radius:8px"></textarea></div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    +'<div class="fg" style="flex:1;min-width:140px"><label>Заказ (необязательно)</label><select id="sri-o" onchange="loadSRPositions(this.value,\'sri-pos\')"><option value="">— без привязки —</option>'+optList(DB.orders.filter(function(o){return o.status==='active';}),function(o){return o.id;},function(o){return '#'+o.id+' '+o.title;})+'</select></div>'
+    +'<div class="fg" style="flex:1;min-width:140px"><label>Срок</label><input type="date" id="sri-deadline"/></div>'
+    +'</div>'
+    +'<div class="fg"><label>Позиция заказа</label><select id="sri-pos"><option value="">— сначала выберите заказ —</option></select></div>'
+    +'<div class="fg"><label>Приоритет</label><select id="sri-prio"><option value="normal">Обычный</option><option value="high">Высокий</option><option value="urgent">Срочно</option></select></div>'
     +'</div>';
 }
 
@@ -3963,6 +4381,7 @@ var M_CFGS = {
   'order-new': {t:'Новый заказ',   s:'saveOrderNew()'},
   'tx-new':    {t:'Новый платёж',  s:'saveTxNew()'},
   'sr-new':    {t:'Заявка на услугу', s:'saveSRNew()'},
+  'sr-internal': {t:'Заявка специалисту', s:'saveSRInternal()'},
 };
 function openModal(id){
   var cfg=M_CFGS[id]; if(!cfg) return;
@@ -3990,13 +4409,13 @@ function openModalRaw(title,body,save,cancel,saveLabel){
     +'<div class="modal"><div class="mh"><div class="mt">'+title+'</div>'+btn('bg0 bic','✕','closeModal()')+'</div>'
     +'<div class="mb2">'+body+'</div>'+footer+'</div></div>';
 }
-function closeModal(){ var r=document.getElementById('mroot'); if(r) r.innerHTML=''; }
+function closeModal(){ var r=document.getElementById('mroot'); if(r) r.innerHTML=''; SR_EDIT_ID=null; }
 document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeModal(); });
 
 // ══════════════════════════════════════════════════════
-// INIT
+// INIT — session restore happens at end of body script (after loader block)
 // ══════════════════════════════════════════════════════
-render();
+// (bare render() removed — initial render is triggered by session probe below)
 </script>
 
 <div id="ibar" style="display:none;position:fixed;top:calc(env(safe-area-inset-top,0px)+58px);left:12px;right:12px;z-index:299;background:#1e2227;border:1px solid rgba(140,180,245,.25);border-radius:14px;padding:11px 13px;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.4);">
@@ -4033,10 +4452,10 @@ function calcHash(db){
 }
 function doSync(){
   if(!USER) return;
-  fetch('/api/data')
-    .then(function(r){return r.json();})
+  fetch('/api/data',{credentials:'include'})
+    .then(function(r){ if(r.status===401){ USER=null; try{localStorage.removeItem('sd');}catch(_){} render(); return null; } return r.json(); })
     .then(function(resp){
-      if(!resp.ok||!resp.data) return;
+      if(!resp || !resp.ok || !resp.data) return;
       var newHash = calcHash(resp.data);
       if(newHash !== _lastSyncHash && _lastSyncHash !== ''){
         DB = resp.data;
@@ -4064,9 +4483,21 @@ window.addEventListener('focus', function(){
   initFromServer();
 });
 
+// Session restore + initial data fetch. If session valid → USER set from server, then load DB.
+fetch('/api/auth/me',{credentials:'include'})
+  .then(function(r){ return r.ok ? r.json() : {ok:false}; })
+  .then(function(j){
+    if(j && j.ok && j.user){
+      USER = j.user;
+      PAGE = USER.role==='director'?'ceo':USER.role==='accountant'?'txs':USER.role==='manager'?'crm':'orders';
+      initFromServer();
+    }
+    render();
+  })
+  .catch(function(){ render(); });
+
 if('serviceWorker' in navigator){
-  initFromServer();
-window.addEventListener('load',function(){
+  window.addEventListener('load',function(){
     navigator.serviceWorker.register('/sw.js').catch(function(){});
   });
 }
