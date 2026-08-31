@@ -1,22 +1,22 @@
 {
-  "task_id": "TASK-9999",
-  "run_id": "run-0e43a89067cf",
+  "task_id": "TASK-CHATGPT-E2E",
+  "run_id": "run-44a52335c44b",
   "status": "DONE",
   "attempt": 1,
   "max_attempts": 3,
-  "branch": "agent/TASK-9999",
-  "commit": "e7028b57adbe1bcd4f21db94a7af0ac320474818",
+  "branch": "agent/TASK-CHATGPT-E2E",
+  "commit": "b4c5f8ff7f2b5d98c7802717a8d81b74e1f1006f",
   "pr": {
-    "number": 7,
-    "url": "https://github.com/muradovnb-cyber/isola-business-suite/pull/7"
+    "number": 10,
+    "url": "https://github.com/muradovnb-cyber/isola-business-suite/pull/10"
   },
   "tests": "PASS",
   "review": "APPROVED",
   "deployment": "NOT_REQUESTED",
   "next_action": "human merges PR when ready",
   "error": "MAX_RETRIES_EXCEEDED",
-  "started_at": "2026-08-25T00:57:34Z",
-  "updated_at": "2026-08-25T00:58:48Z",
+  "started_at": "2026-08-31T16:00:34Z",
+  "updated_at": "2026-08-31T16:02:06Z",
   "history": [
     {
       "ts": "2026-08-18T09:32:36Z",
@@ -165,6 +165,31 @@
     },
     {
       "ts": "2026-08-25T00:58:48Z",
+      "status": "DONE",
+      "note": "human merges PR when ready"
+    },
+    {
+      "ts": "2026-08-31T16:00:34Z",
+      "status": "PLANNING",
+      "note": "architect"
+    },
+    {
+      "ts": "2026-08-31T16:00:39Z",
+      "status": "IMPLEMENTING",
+      "note": "runner attempt 1"
+    },
+    {
+      "ts": "2026-08-31T16:02:03Z",
+      "status": "WAITING_REVIEW",
+      "note": "gpt-reviewer"
+    },
+    {
+      "ts": "2026-08-31T16:02:05Z",
+      "status": "APPROVED",
+      "note": "human merge"
+    },
+    {
+      "ts": "2026-08-31T16:02:06Z",
       "status": "DONE",
       "note": "human merges PR when ready"
     }

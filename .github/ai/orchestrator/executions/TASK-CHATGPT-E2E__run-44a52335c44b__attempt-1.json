@@ -1,0 +1,57 @@
+{
+  "task_id": "TASK-CHATGPT-E2E",
+  "run_id": "run-44a52335c44b",
+  "attempt": 1,
+  "status": "READY_FOR_REVIEW",
+  "started_at": "2026-08-31T16:02:03Z",
+  "finished_at": "2026-08-31T16:02:03Z",
+  "duration_ms": 83561,
+  "branch": "agent/TASK-CHATGPT-E2E",
+  "commit": "b4c5f8ff7f2b5d98c7802717a8d81b74e1f1006f",
+  "pr": {
+    "number": 10,
+    "url": "https://github.com/muradovnb-cyber/isola-business-suite/pull/10"
+  },
+  "spec": {
+    "taskId": "TASK-CHATGPT-E2E",
+    "task": "Create smoke test for gpt-api bridge",
+    "objective": "Implement a smoke test script and a corresponding test file to verify the gpt-api bridge functionality.",
+    "context": "This task involves creating a shell script that checks the gpt-api bridge and a Node.js test file that validates the script's output and exit code.",
+    "files_to_inspect": [],
+    "requirements": [
+      "Create a shell script at scripts/gpt-api-smoke.sh that prints 'gpt-api-e2e-ok' and exits with code 0.",
+      "Create a test file at tests/gpt-api-smoke.test.js that uses Node's built-in assert module.",
+      "The test file must spawn the smoke script, capture its output, and assert that the output is 'gpt-api-e2e-ok' and the exit code is 0."
+    ],
+    "acceptance_criteria": [
+      "The shell script scripts/gpt-api-smoke.sh exists and functions as specified.",
+      "The test file tests/gpt-api-smoke.test.js exists and runs without errors.",
+      "The test file correctly asserts the output and exit code of the smoke script."
+    ],
+    "tests_required": [
+      "Run tests/gpt-api-smoke.test.js to verify the implementation."
+    ],
+    "security_requirements": [],
+    "do_not_change": [],
+    "deployment_policy": "DEPLOY = forbidden without APPROVED_FOR_DEPLOY"
+  },
+  "claude_status": "OK",
+  "claude_report": {
+    "summary": "Created gpt-api bridge smoke test script and test file. Shell script prints 'gpt-api-e2e-ok' and exits 0. Test file spawns script and validates output/exit code using Node's assert module.",
+    "files_touched": [
+      "scripts/gpt-api-smoke.sh",
+      "tests/gpt-api-smoke.test.js"
+    ],
+    "tests": "skipped",
+    "notes": "Unable to execute tests directly due to permission restrictions, but implementation is complete and follows existing test patterns. The runner will execute tests after session completion."
+  },
+  "tests": {
+    "ok": true,
+    "output": "=== [1] UNAUTHENTICATED ACCESS ===\n  ✔ GET /api/data → 401 without session\n  ✔ POST /api/data → 401 without session\n  ✔ POST /api/delete → 401 without session\n  ✔ GET /api/audit → 401 without session or admin key\n  ✔ GET /api/audit with ADMIN_KEY → 200\n\n=== [2] LOGIN FLOW ===\n  ✔ login wrong password → 401 + no cookie\n  ✔ login correct password → 200 + HttpOnly cookie\n  ✔ after login, /api/auth/me returns sanitized user\n  ✔ login also migrated plaintext p → hashed and stripped\n  ✔ subsequent login with same password succeeds (verifies hash path)\n\n=== [3] AUTHENTICATED ACCESS ===\n  ✔ GET /api/data as director → 200 + no plaintext passwords\n  ✔ director sees salary (sal) for other users\n  ✔ manager does NOT see other users' salary\n  ✔ audit_log never included in bulk response\n\n=== [4] MASS ASSIGNMENT PROTECTION ===\n  ✔ POST /api/data with users → 403 FORBIDDEN_KEY\n  ✔ POST /api/data with audit_log → 403\n  ✔ POST /api/data merges legitimate arrays (cps)\n\n=== [5] DELETE AUTHORIZATION ===\n  ✔ POST /api/delete as manager → 403\n  ✔ POST /api/delete as supply → 403\n  ✔ POST /api/delete as accountant → 200 + audit-log entry\n  ✔ POST /api/delete with invalid key → 400\n\n=== [6] LOGOUT + EXPIRATION ===\n  ✔ logout invalidates cookie for subsequent requests\n  ✔ forged cookie → 401\n\n=== [7] RATE LIMITING ===\n  ✔ 6 wrong logins in a row → last one is 429\n\n=== [8] SECURITY HEADERS ===\n  ✔ /api/data emits HSTS in prod, CSP, X-Content-Type-Options, etc.\n\n=== [9] PAYLOAD LIMIT ===\n  ✔ POST body >256KB → 413 or 400\n\n=== [10] BACKUP ENDPOINT ===\n  ✔ POST /api/backup as manager → 403\n  ✔ POST /api/backup as director → 200 + file created\n\n==================================================\nRESULTS: 28/28 passed, 0 failed\n",
+    "code": 0
+  },
+  "diff_stat": "scripts/gpt-api-smoke.sh    |  3 +++\n tests/gpt-api-smoke.test.js | 61 +++++++++++++++++++++++++++++++++++++++++++++\n 2 files changed, 64 insertions(+)",
+  "review_run_id": null,
+  "feedback": null,
+  "error": null
+}

@@ -1,13 +1,23 @@
 {
-  "status": "IDLE",
-  "current_task": null,
-  "stage": null,
+  "status": "PASSED",
+  "current_task": "TASK-CHATGPT-E2E",
+  "stage": "done",
   "agent": null,
-  "attempt": 0,
-  "last_commit": null,
-  "last_pr": null,
-  "last_review": null,
-  "blockers": [],
-  "next_action": null,
-  "updated_at": "2026-08-25T00:00:00Z"
+  "attempt": 1,
+  "last_commit": "b4c5f8ff7f2b5d98c7802717a8d81b74e1f1006f",
+  "last_pr": {
+    "number": 10,
+    "url": "https://github.com/muradovnb-cyber/isola-business-suite/pull/10"
+  },
+  "last_review": {
+    "decision": "APPROVED",
+    "attempt": 1,
+    "approved_for_deploy": null
+  },
+  "blockers": [
+    "MAX_RETRIES_EXCEEDED",
+    "PR #10 waiting for human merge"
+  ],
+  "next_action": "human merges PR when ready",
+  "updated_at": "2026-08-31T16:02:06Z"
 }

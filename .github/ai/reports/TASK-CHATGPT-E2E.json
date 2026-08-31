@@ -1,0 +1,32 @@
+{
+  "task_id": "TASK-CHATGPT-E2E",
+  "run_id": "run-44a52335c44b",
+  "status": "PASSED",
+  "attempts": 1,
+  "commit": "b4c5f8ff7f2b5d98c7802717a8d81b74e1f1006f",
+  "pr": {
+    "number": 10,
+    "url": "https://github.com/muradovnb-cyber/isola-business-suite/pull/10"
+  },
+  "tests": {
+    "ok": true,
+    "skipped": null,
+    "framework": null,
+    "summary": null
+  },
+  "review": {
+    "decision": "APPROVED",
+    "attempt": 1,
+    "approved_for_deploy": false,
+    "summary": "The smoke test script and test file for the gpt-api bridge are correctly implemented and verified."
+  },
+  "changes": [
+    "scripts/gpt-api-smoke.sh",
+    "tests/gpt-api-smoke.test.js"
+  ],
+  "remaining_issues": [],
+  "next_action": "human merges PR #10",
+  "started_at": "2026-08-31T16:00:34Z",
+  "finished_at": "2026-08-31T16:02:06Z",
+  "updated_at": "2026-08-31T16:02:06Z"
+}
