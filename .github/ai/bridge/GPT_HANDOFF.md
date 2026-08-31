@@ -12,31 +12,80 @@
 
 | Thing | Value |
 |---|---|
+| **GPT Orchestrator API (this is where GPT talks)** | **`https://gpt-api-production-0e69.up.railway.app`** |
+| GPT API OpenAPI schema (import into Custom GPT) | [`.github/ai/bridge/openapi.yaml`](openapi.yaml) |
+| GPT API auth | `Authorization: Bearer <GPT_ORCHESTRATOR_TOKEN>` (owner-set, in Railway env only) |
 | GitHub repo | `muradovnb-cyber/isola-business-suite` |
-| Default branch | `main` |
+| Default branch | `main` (ruleset "Protect main" active, id 21921236) |
 | State branch (runtime, machine-written) | `ai/orchestrator-state` |
-| GitHub REST API base | `https://api.github.com` |
 | Raw content base (state branch) | `https://raw.githubusercontent.com/muradovnb-cyber/isola-business-suite/ai/orchestrator-state/` |
 | Raw content base (main) | `https://raw.githubusercontent.com/muradovnb-cyber/isola-business-suite/main/` |
 | Runner health | `https://ai-runner-production-4c3d.up.railway.app/health` |
 | Production ISOLA (do not touch without approval) | `https://isola-suite-production.up.railway.app/` |
-| Handoff contract version | **2.0** |
+| Handoff contract version | **2.1** |
 
-## 1. Interface at a glance
+## 0.1 Preferred channel: **use the API, not raw GitHub**
+
+Since 2026-08-31, GPT should talk to the ISOLA orchestrator via the HTTPS
+**GPT Orchestrator API** — a small isolated Railway service that wraps the
+GitHub REST API + `repository_dispatch` in a stable REST surface. This exists
+because the ChatGPT built-in GitHub connector (a GitHub App) does not have
+`Contents: write` permission granted to it by OpenAI, so it can only read.
+
+The raw `raw.githubusercontent.com` URLs below still work and are documented
+in §3, but the API endpoints in §1 are the recommended path — they hide the
+branch topology, do server-side schema validation, enforce `deployment_policy:
+NO_DEPLOY`, apply rate limits, and use a token whose scope is separable
+from any GitHub PAT.
+
+## 1. Interface at a glance — via the GPT Orchestrator API
+
+Every operation below is one HTTPS call with `Authorization: Bearer <token>`.
 
 | GPT wants to… | Do this |
 |---|---|
-| **Submit a new task** | Open a PR against `main` that adds `.github/ai/tasks/TASK-<slug>.json` with `status: "QUEUED"`. On merge, the dispatcher fires the orchestrator automatically. |
-| **Read the live state** | `GET {raw-state}/.github/ai/state/current.json` |
-| **Read a per-task final report** | `GET {raw-state}/.github/ai/reports/TASK-<id>.json` |
-| **Read attempt-by-attempt history** | `GET {api}/repos/muradovnb-cyber/isola-business-suite/contents/.github/ai/orchestrator/executions?ref=ai/orchestrator-state` |
-| **Read a reviewer decision** | `GET {raw-state}/.github/ai/orchestrator/reviews/<task_id>__<run_id>__attempt-<N>.json` |
-| **Find the PR the orchestrator opened** | `GET {api}/repos/muradovnb-cyber/isola-business-suite/pulls?head=muradovnb-cyber:agent/<task_id>` |
-| **Get the diff for that PR** | `GET {api}/repos/…/pulls/<number>/files` (or `.diff` accept header on the PR URL) |
-| **Cancel a queued (not yet dispatched) task** | Open a PR that changes the task file's `.status` from `"QUEUED"` to `"CANCELLED"`. |
+| **Submit a new task + start it** | `POST /api/gpt/tasks` with the task payload (see §2). The API validates the schema, opens an audit-trail PR, and fires the orchestrator via `repository_dispatch` immediately — no merge needed. Returns `{task_id, branch, commit, pr, dispatch_fired}`. |
+| **Read live state** | `GET /api/gpt/status` — projection with `status`, `current_task`, `stage`, `agent`, `attempt`, `last_pr`, `last_review`, `blockers`, `next_action`, `updated_at`. |
+| **Read a per-task final report** | `GET /api/gpt/reports/<id>` — the consolidated per-task summary once the run is terminal. |
+| **Read a task + its attempt indexes** | `GET /api/gpt/tasks/<id>` — task JSON + names of every `executions/*.json` and `reviews/*.json` file for it. |
+| **List submitted tasks** | `GET /api/gpt/tasks` — everything under `.github/ai/tasks/` on `main`. |
+| **Re-fire a task the orchestrator finished** | `POST /api/gpt/tasks/<id>/run`. |
 | **Abort a running task** | Not GPT-doable — needs the owner. See §7. |
 
-## 2. Submitting a task — canonical payload
+The direct-GitHub read paths (`raw.githubusercontent.com/…`) are still valid,
+but the API path is stable across branch topology changes and does not require
+GPT to know internal paths.
+
+## 2. Submitting a task — POST /api/gpt/tasks
+
+```bash
+curl -sS -X POST https://gpt-api-production-0e69.up.railway.app/api/gpt/tasks \
+  -H "Authorization: Bearer $GPT_ORCHESTRATOR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id":        "TASK-0100",
+    "objective": "one-line what to do (5-500 chars)",
+    "context":   "background the executor should know",
+    "files_to_inspect":     ["path/one.js"],
+    "requirements":         ["Rule 1", "Rule 2"],
+    "acceptance_criteria":  ["Verifiable predicate 1"],
+    "tests_required":       ["node tests/thing.test.js exits 0"],
+    "security_requirements":["no plaintext secrets"],
+    "do_not_change":        ["server.js","index.html","ai-runner/**",".github/**","gpt-api/**"],
+    "max_attempts": 10
+}'
+```
+
+Server-side always enforces (client cannot override):
+- `status: "QUEUED"`
+- `deployment_policy: "NO_DEPLOY"`
+- `max_attempts` capped at 10
+
+Returns `201 { task_id, branch, commit, pr:{number,url}, dispatch_fired, poll:{status,report,task} }`.
+
+Rate limit: 10 writes/min. Idempotency: second call with same `id` → `409 TASK_ALREADY_EXISTS`.
+
+### 2.1 Legacy — canonical payload as a task file
 
 Filename: `.github/ai/tasks/TASK-<slug>.json`
 Slug pattern: `[A-Za-z0-9_-]{1,72}`. **`.id` must equal the filename stem** (`TASK-0042.json` → `"id": "TASK-0042"`); the dispatcher refuses mismatches.
