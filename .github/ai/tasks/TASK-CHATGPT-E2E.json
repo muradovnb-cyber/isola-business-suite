@@ -1,0 +1,40 @@
+{
+  "status": "QUEUED",
+  "priority": "normal",
+  "source": "gpt-api",
+  "created_at": "2026-08-31T16:00:20.021Z",
+  "created_by": "gpt-orchestrator-api",
+  "id": "TASK-CHATGPT-E2E",
+  "objective": "E2E via new gpt-api bridge: create scripts/gpt-api-smoke.sh (prints \"gpt-api-e2e-ok\" exit 0) + tests/gpt-api-smoke.test.js (Node built-in assert, spawns script, asserts stdout and exit code).",
+  "context": "Proves the ChatGPT → HTTPS API → GitHub → orchestrator → Claude → PR → GPT reviewer chain works without any owner-in-the-loop message relay.",
+  "files_to_inspect": [
+    "package.json"
+  ],
+  "requirements": [
+    "scripts/gpt-api-smoke.sh prints exactly gpt-api-e2e-ok\\n and exit 0",
+    "tests/gpt-api-smoke.test.js uses only built-in assert",
+    "do not modify package.json"
+  ],
+  "acceptance_criteria": [
+    "bash scripts/gpt-api-smoke.sh outputs exactly gpt-api-e2e-ok followed by newline, exit 0",
+    "node tests/gpt-api-smoke.test.js exits 0",
+    "PR diff touches only scripts/gpt-api-smoke.sh and tests/gpt-api-smoke.test.js"
+  ],
+  "tests_required": [
+    "node tests/gpt-api-smoke.test.js exits 0"
+  ],
+  "security_requirements": [
+    "no secrets in files"
+  ],
+  "do_not_change": [
+    "server.js",
+    "index.html",
+    "hr.html",
+    "package.json",
+    "ai-runner/**",
+    ".github/**",
+    "gpt-api/**"
+  ],
+  "max_attempts": 3,
+  "deployment_policy": "NO_DEPLOY"
+}
