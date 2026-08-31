@@ -63,15 +63,18 @@ function requireGithubPat(res) {
 
 async function gh(method, pathOrUrl, body) {
   const url = pathOrUrl.startsWith('http') ? pathOrUrl : `https://api.github.com${pathOrUrl}`;
+  const headers = {
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    'User-Agent': `gpt-orchestrator-api/${VERSION}`,
+    ...(body ? { 'Content-Type': 'application/json' } : {})
+  };
+  // Only send Authorization when we have a real token. Sending an empty
+  // Bearer header makes GitHub 401 even on public-repo read paths.
+  if (GITHUB_PAT) headers['Authorization'] = `Bearer ${GITHUB_PAT}`;
   const r = await fetch(url, {
     method,
-    headers: {
-      'Accept': 'application/vnd.github+json',
-      'Authorization': `Bearer ${GITHUB_PAT}`,
-      'X-GitHub-Api-Version': '2022-11-28',
-      'User-Agent': `gpt-orchestrator-api/${VERSION}`,
-      ...(body ? { 'Content-Type': 'application/json' } : {})
-    },
+    headers,
     body: body ? JSON.stringify(body) : undefined
   });
   const text = await r.text();
