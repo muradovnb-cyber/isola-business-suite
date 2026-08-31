@@ -1,0 +1,18 @@
+{
+  "id": "TASK-9998",
+  "status": "CANCELLED",
+  "priority": "low",
+  "source": "audit-probe",
+  "created_at": "2026-08-25T12:00:00Z",
+  "created_by": "live-audit",
+  "objective": "Audit-time schema+dispatcher probe (never dispatched because CANCELLED)",
+  "context": "This file exists only to prove that a write actor (like ChatGPT) can create a branch + file + PR without touching main. Delete after audit.",
+  "files_to_inspect": [],
+  "requirements": [],
+  "acceptance_criteria": [],
+  "tests_required": [],
+  "security_requirements": [],
+  "do_not_change": [],
+  "deployment_policy": "NO_DEPLOY",
+  "max_attempts": 1
+}
