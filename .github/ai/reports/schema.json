@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/muradovnb-cyber/isola-business-suite/main/.github/ai/reports/schema.json",
+  "title": "ISOLA Orchestrator — per-task consolidated report",
+  "description": "One file per task, overwritten on each terminal run. Lives on the ai/orchestrator-state branch. Contract v2.0.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "run_id", "status", "attempts", "updated_at"],
+  "properties": {
+    "task_id":  { "type": "string", "pattern": "^TASK-[A-Za-z0-9_-]{1,72}$" },
+    "run_id":   { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$" },
+    "status":   { "enum": ["PASSED", "BLOCKED", "FAILED"] },
+    "attempts": { "type": "integer", "minimum": 0, "maximum": 20 },
+    "commit":   { "type": ["string", "null"], "pattern": "^[0-9a-f]{7,40}$" },
+    "pr":       {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "properties": {
+            "number": { "type": ["integer", "null"] },
+            "url":    { "type": ["string", "null"] }
+          }
+        }
+      ]
+    },
+    "tests":    {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "properties": {
+            "ok":        { "type": ["boolean", "null"] },
+            "skipped":   { "type": ["boolean", "null"] },
+            "framework": { "type": ["string", "null"] },
+            "summary":   { "type": ["string", "null"] }
+          }
+        }
+      ]
+    },
+    "review":   {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "properties": {
+            "decision":            { "enum": ["APPROVED", "CHANGES_REQUIRED", "BLOCKED", null] },
+            "attempt":             { "type": ["integer", "null"] },
+            "approved_for_deploy": { "type": ["boolean", "null"] },
+            "summary":             { "type": ["string", "null"], "maxLength": 2000 }
+          }
+        }
+      ]
+    },
+    "changes":          { "type": "array", "items": { "type": "string" }, "maxItems": 500 },
+    "remaining_issues": { "type": "array", "items": { "type": "string", "maxLength": 500 }, "maxItems": 50 },
+    "next_action":      { "type": ["string", "null"], "maxLength": 500 },
+    "started_at":       { "type": ["string", "null"], "format": "date-time" },
+    "finished_at":      { "type": ["string", "null"], "format": "date-time" },
+    "updated_at":       { "type": "string", "format": "date-time" }
+  }
+}

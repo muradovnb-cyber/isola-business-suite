@@ -9,7 +9,7 @@ on:
     branches:
       - main
       - ai/orchestrator-state
-      - ai/n8n-orchestrator
+      - ai/task-queue
     paths:
       - '.github/ai/**'
       - '.github/workflows/ai-orchestrator-sync.yml'
@@ -62,6 +62,56 @@ jobs:
               -d "$f" --spec=draft2020 -c ajv-formats
           done
 
+      - name: Validate GPT-facing state projection (bridge v2.0)
+        if: hashFiles('.github/ai/state/current.json') != ''
+        run: |
+          ajv validate \
+            -s .github/ai/state/schema.json \
+            -d .github/ai/state/current.json \
+            --spec=draft2020 -c ajv-formats
+
+      - name: Validate every reports/TASK-*.json (bridge v2.0)
+        run: |
+          shopt -s nullglob
+          for f in .github/ai/reports/TASK-*.json; do
+            echo "→ $f"
+            ajv validate \
+              -s .github/ai/reports/schema.json \
+              -d "$f" --spec=draft2020 -c ajv-formats
+          done
+
+      - name: Validate every tasks/TASK-*.json + enforce id==filename
+        run: |
+          shopt -s nullglob
+          for f in .github/ai/tasks/TASK-*.json; do
+            echo "→ $f"
+            ajv validate \
+              -s .github/ai/tasks/SCHEMA.json \
+              -d "$f" --spec=draft2020 -c ajv-formats
+            expected=$(basename "$f" .json)
+            actual=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$f','utf8')).id)")
+            if [ "$expected" != "$actual" ]; then
+              echo "❌ $f has id '$actual' but filename says '$expected'"
+              exit 1
+            fi
+          done
+
+      - name: Validate every tasks/TASK-*.json + verify id matches filename
+        run: |
+          shopt -s nullglob
+          for f in .github/ai/tasks/TASK-*.json; do
+            echo "→ $f"
+            ajv validate \
+              -s .github/ai/tasks/SCHEMA.json \
+              -d "$f" --spec=draft2020 -c ajv-formats
+            expected="$(basename "$f" .json)"
+            actual="$(node -e "console.log(JSON.parse(require('fs').readFileSync('$f','utf8')).id)")"
+            if [ "$expected" != "$actual" ]; then
+              echo "❌ $f has id='$actual' but filename says '$expected'"
+              exit 1
+            fi
+          done
+
       - name: JSON syntax check on all *.json under .github/ai/
         run: |
           set -e
@@ -83,14 +133,14 @@ jobs:
             echo "✅ no secrets"
           fi
 
-      - name: Confirm workflow.json has no credential values
-        if: hashFiles('.github/ai/orchestrator/workflow.json') != ''
+      - name: Confirm bridge/ contains no credential-shaped values
         run: |
-          # n8n workflow JSON exports may contain a "credentials" block with "id"
-          # and "name" fields (which are OK — references only). Fail if any raw
-          # secret-shaped string appears inside that block or anywhere else.
-          if grep -oE '"data"\s*:\s*{[^}]*"[a-z_]*(key|token|secret|password)[a-z_]*"\s*:\s*"[A-Za-z0-9_\-]{10,}"' .github/ai/orchestrator/workflow.json; then
-            echo "❌ workflow.json appears to contain raw credential values."
+          # Belt-and-braces: repeat the secret scan focused only on bridge/,
+          # since that dir is the public GPT contract and must never regress.
+          set -e
+          PATTERNS='sk-ant-[A-Za-z0-9\-_]{20,}|sk-[A-Za-z0-9\-_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{22,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,}'
+          if grep -rEIn "$PATTERNS" .github/ai/bridge/ 2>/dev/null; then
+            echo "❌ credential-shaped string in .github/ai/bridge/"
             exit 1
           fi
-          echo "✅ workflow.json has no inline credential values"
+          echo "✅ bridge/ is credential-free"

@@ -88,15 +88,21 @@ jobs:
         if: always()
         run: |
           set -e
+          # Internal (detailed) state — unchanged paths.
           git add .github/ai/orchestrator/CURRENT_STATUS.json \
                   .github/ai/orchestrator/CURRENT_TASK.json \
                   .github/ai/orchestrator/executions/ \
                   .github/ai/orchestrator/reviews/ \
                   .github/ai/orchestrator/reports/ 2>/dev/null || true
+          # GPT-facing bridge — projection + per-task report (contract v2.0)
+          # see .github/ai/bridge/GPT_HANDOFF.md
+          git add .github/ai/state/current.json \
+                  .github/ai/reports/ 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "no state changes to commit"
           else
             TASK_ID='${{ github.event.inputs.task_id || github.event.client_payload.task_id }}'
-            git commit -m "ai-orchestrator: ${TASK_ID} $(python3 -c "import json;print(json.load(open('.github/ai/orchestrator/CURRENT_STATUS.json'))['status'])")"
+            GPT_STATUS=$(python3 -c "import json;print(json.load(open('.github/ai/state/current.json'))['status'])" 2>/dev/null || echo "UNKNOWN")
+            git commit -m "ai-orchestrator: ${TASK_ID} ${GPT_STATUS}"
             git push origin ai/orchestrator-state
           fi

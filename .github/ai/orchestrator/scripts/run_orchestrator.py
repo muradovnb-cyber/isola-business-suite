@@ -42,10 +42,14 @@ from pathlib import Path
 # walking up from __file__ (parents[4] = repo root, since the script is
 # at .github/ai/orchestrator/scripts/run_orchestrator.py — 4 levels deep).
 REPO_ROOT = Path(os.environ.get("GITHUB_WORKSPACE") or Path(__file__).resolve().parents[4])
-STATE_DIR = REPO_ROOT / ".github" / "ai" / "orchestrator"
+AI_ROOT = REPO_ROOT / ".github" / "ai"
+STATE_DIR = AI_ROOT / "orchestrator"                # rich internal state (unchanged)
 EXEC_DIR = STATE_DIR / "executions"
 REVIEW_DIR = STATE_DIR / "reviews"
-REPORT_DIR = STATE_DIR / "reports"
+REPORT_DIR = STATE_DIR / "reports"                  # internal legacy report dir (kept)
+# --- GPT-facing bridge layer (contract v2.0) ---
+BRIDGE_STATE_FILE = AI_ROOT / "state" / "current.json"      # projection for GPT
+BRIDGE_REPORTS_DIR = AI_ROOT / "reports"                    # per-task final report
 
 OPENAI_API = "https://api.openai.com/v1/chat/completions"
 ARCHITECT_MODEL = "gpt-4o-mini"
@@ -228,7 +232,11 @@ def telegram_notify(text: str):
 # --------------------- State I/O ---------------------
 
 def update_status(**fields):
-    """Overwrite CURRENT_STATUS.json with the passed keys merged in."""
+    """Overwrite CURRENT_STATUS.json with the passed keys merged in.
+
+    Also writes the GPT-facing projection at .github/ai/state/current.json
+    (contract v2.0 — see .github/ai/bridge/GPT_HANDOFF.md).
+    """
     path = STATE_DIR / "CURRENT_STATUS.json"
     cur = read_json(path, {})
     cur.update(fields)
@@ -237,6 +245,129 @@ def update_status(**fields):
     hist.append({"ts": cur["updated_at"], "status": cur.get("status"), "note": fields.get("next_action") or ""})
     cur["history"] = hist[-100:]
     write_json(path, cur)
+    _write_bridge_projection(cur)
+
+
+# --- Mapping tables between internal status and GPT-facing projection ---
+_STATUS_MAP = {
+    "IDLE":              "IDLE",
+    "PENDING":           "QUEUED",
+    "PLANNING":          "RUNNING",
+    "IMPLEMENTING":      "RUNNING",
+    "TESTING":           "RUNNING",
+    "WAITING_REVIEW":    "REVIEW",
+    "CHANGES_REQUIRED":  "FIXING",
+    "APPROVED":          "PASSED",
+    "DEPLOYING":         "PASSED",
+    "DONE":              "PASSED",
+    "BLOCKED":           "BLOCKED",
+    "FAILED":            "FAILED",
+}
+_STAGE_MAP = {
+    "PENDING":           None,
+    "PLANNING":          "planning",
+    "IMPLEMENTING":      "implementing",
+    "TESTING":           "testing",
+    "WAITING_REVIEW":    "reviewer",
+    "CHANGES_REQUIRED":  "reviewer",
+    "APPROVED":          "done",
+    "DEPLOYING":         "done",
+    "DONE":              "done",
+    "BLOCKED":           None,
+    "FAILED":            None,
+    "IDLE":              None,
+}
+_AGENT_MAP = {
+    "PLANNING":          "gpt-architect",
+    "IMPLEMENTING":      "claude-runner",
+    "TESTING":           "claude-runner",
+    "WAITING_REVIEW":    "gpt-reviewer",
+    "CHANGES_REQUIRED":  "gpt-reviewer",
+}
+
+
+def _write_bridge_projection(cur: dict) -> None:
+    """Project CURRENT_STATUS.json to .github/ai/state/current.json (v2.0 shape)."""
+    internal_status = cur.get("status") or "IDLE"
+    gpt_status = _STATUS_MAP.get(internal_status, "RUNNING")
+    is_terminal_or_idle = gpt_status in ("PASSED", "BLOCKED", "FAILED", "IDLE")
+
+    review_obj = None
+    review_state = cur.get("review")
+    if review_state in ("APPROVED", "CHANGES_REQUIRED", "BLOCKED"):
+        review_obj = {
+            "decision": review_state,
+            "attempt":  int(cur.get("attempt") or 1),
+            "approved_for_deploy": None,
+        }
+
+    blockers = []
+    err = cur.get("error")
+    if err:
+        blockers.append(str(err)[:500])
+    if gpt_status == "PASSED" and (cur.get("pr") or {}).get("number"):
+        blockers.append(f"PR #{cur['pr']['number']} waiting for human merge")
+
+    projection = {
+        "status":       gpt_status,
+        "current_task": cur.get("task_id") if not (is_terminal_or_idle and gpt_status == "IDLE") else None,
+        "stage":        _STAGE_MAP.get(internal_status),
+        "agent":        _AGENT_MAP.get(internal_status),
+        "attempt":      int(cur.get("attempt") or 0),
+        "last_commit":  (cur.get("commit") or None),
+        "last_pr":      cur.get("pr") if cur.get("pr") else None,
+        "last_review":  review_obj,
+        "blockers":     blockers,
+        "next_action":  cur.get("next_action"),
+        "updated_at":   cur.get("updated_at") or utcnow(),
+    }
+    # If the projected task id doesn't look like TASK-*, drop it — schema rejects otherwise.
+    ct = projection["current_task"]
+    if ct and not re.match(r"^TASK-[A-Za-z0-9_-]{1,72}$", ct):
+        projection["current_task"] = None
+
+    write_json(BRIDGE_STATE_FILE, projection)
+
+
+def write_final_report(task_id: str, run_id: str, gpt_status: str, *,
+                       attempts: int, commit: str | None, pr: dict | None,
+                       tests: dict | None, review: dict | None,
+                       changes: list[str], remaining_issues: list[str],
+                       next_action: str | None, started_at: str | None) -> None:
+    """Write the one-per-task consolidated report to .github/ai/reports/TASK-*.json (v2.0)."""
+    tests_obj = None
+    if tests is not None:
+        tests_obj = {
+            "ok":        bool(tests.get("ok")) if "ok" in tests else None,
+            "skipped":   bool(tests.get("skipped")) if "skipped" in tests else None,
+            "framework": tests.get("framework"),
+            "summary":   tests.get("summary") or tests.get("stdout") or None,
+        }
+    review_obj = None
+    if review is not None:
+        review_obj = {
+            "decision":            review.get("decision"),
+            "attempt":             review.get("attempt"),
+            "approved_for_deploy": review.get("approved_for_deploy"),
+            "summary":             (review.get("summary") or "")[:2000] or None,
+        }
+    payload = {
+        "task_id":  task_id,
+        "run_id":   run_id,
+        "status":   gpt_status,
+        "attempts": attempts,
+        "commit":   commit,
+        "pr":       pr,
+        "tests":    tests_obj,
+        "review":   review_obj,
+        "changes":  list(changes or [])[:500],
+        "remaining_issues": list(remaining_issues or [])[:50],
+        "next_action":  next_action,
+        "started_at":   started_at,
+        "finished_at":  utcnow(),
+        "updated_at":   utcnow(),
+    }
+    write_json(BRIDGE_REPORTS_DIR / f"{task_id}.json", payload)
 
 
 def write_execution(task_id: str, run_id: str, attempt: int, record: dict):
@@ -295,6 +426,31 @@ def main():
     print(f"→ task={task_id} run={run_id} max_attempts={MAX_ATTEMPTS}")
     telegram_notify(f"🟡 TASK_STARTED {task_id} (run {run_id})")
 
+    started_at = utcnow()
+    # Context accumulated across attempts, used by _finalize on any exit path.
+    run_ctx = {
+        "attempts": 0,
+        "commit":   None,
+        "pr":       None,
+        "tests":    None,
+        "review":   None,
+        "changes":  [],
+    }
+
+    def _finalize(gpt_status: str, next_action: str, remaining: list[str] | None = None) -> None:
+        """Write the per-task consolidated report before terminal exit."""
+        try:
+            write_final_report(
+                task_id, run_id, gpt_status,
+                attempts=int(run_ctx["attempts"]),
+                commit=run_ctx["commit"], pr=run_ctx["pr"],
+                tests=run_ctx["tests"], review=run_ctx["review"],
+                changes=run_ctx["changes"], remaining_issues=remaining or [],
+                next_action=next_action, started_at=started_at,
+            )
+        except Exception as _e:
+            print(f"[final-report] non-fatal: {_e}", file=sys.stderr)
+
     write_json(STATE_DIR / "CURRENT_TASK.json", {
         "task_id": task_id, "task": task_text, "description": task_text,
         "submitted_at": utcnow(), "submitted_by": "github-actions", "priority": "normal",
@@ -313,6 +469,7 @@ def main():
     except Exception as e:
         msg = str(e)[:400]
         update_status(status="FAILED", error=msg, next_action="fix architect call")
+        _finalize("FAILED", "fix architect call", remaining=[msg])
         telegram_notify(f"🔴 BLOCKED at ARCHITECT: {msg}")
         sys.exit(f"architect: {msg}")
     print(f"→ spec.objective: {(spec.get('objective') or '')[:80]}")
@@ -331,11 +488,24 @@ def main():
         except Exception as e:
             msg = str(e)[:400]
             update_status(status="FAILED", error=msg, next_action="runner unreachable — check Railway service")
+            run_ctx["attempts"] = attempt
+            _finalize("FAILED", "runner unreachable — check Railway service", remaining=[msg])
             telegram_notify(f"🔴 RUNNER_UNREACHABLE {task_id}: {msg}")
             sys.exit(f"runner: {msg}")
 
         runner_status = runner_res.get("status", "UNKNOWN")
         print(f"→ runner returned: {runner_status}")
+        # Accumulate context for the eventual final-report write.
+        run_ctx["attempts"] = attempt
+        run_ctx["commit"]   = runner_res.get("commit") or run_ctx["commit"]
+        run_ctx["pr"]       = runner_res.get("pr") or run_ctx["pr"]
+        run_ctx["tests"]    = runner_res.get("tests") or run_ctx["tests"]
+        cr = runner_res.get("claudeReport") or {}
+        touched = cr.get("files_touched") if isinstance(cr, dict) else None
+        if isinstance(touched, list):
+            for f in touched:
+                if isinstance(f, str) and f not in run_ctx["changes"]:
+                    run_ctx["changes"].append(f)
 
         write_execution(task_id, run_id, attempt, {
             "task_id": task_id, "run_id": run_id, "attempt": attempt,
@@ -358,11 +528,13 @@ def main():
 
         if runner_status in ("SECRET_LEAK", "FAILED", "PUSH_FAILED", "COMMIT_FAILED"):
             update_status(status="FAILED", error=f"runner {runner_status}", next_action="inspect executions/*.json")
+            _finalize("FAILED", "inspect executions/*.json", remaining=[f"runner {runner_status}"])
             telegram_notify(f"🔴 RUNNER_{runner_status} {task_id}")
             sys.exit(f"runner status {runner_status}")
 
         if runner_status == "NO_CHANGES":
             update_status(status="BLOCKED", error="Claude produced no changes", next_action="revise task text")
+            _finalize("BLOCKED", "revise task text", remaining=["Claude produced no changes"])
             telegram_notify(f"🔴 NO_CHANGES {task_id}")
             sys.exit(2)
 
@@ -384,6 +556,7 @@ def main():
         except Exception as e:
             msg = str(e)[:400]
             update_status(status="FAILED", error=msg, next_action="reviewer call failed")
+            _finalize("FAILED", "reviewer call failed", remaining=[msg])
             telegram_notify(f"🔴 REVIEWER_FAILED {task_id}: {msg}")
             sys.exit(f"reviewer: {msg}")
 
@@ -408,6 +581,13 @@ def main():
                 telegram_notify(f"⚠ APPROVED_FOR_DEPLOY {task_id} — deploy step is manual by design; enable it explicitly in workflow.")
             update_status(status="DONE", next_action="human merges PR when ready")
             telegram_notify(f"🟢 DONE {task_id}")
+            run_ctx["review"] = {
+                "decision": "APPROVED",
+                "attempt": attempt,
+                "approved_for_deploy": bool(review.get("approved_for_deploy")),
+                "summary": review.get("summary"),
+            }
+            _finalize("PASSED", f"human merges PR #{pr_number}" if pr_number else "human merges PR when ready")
             print("→ APPROVED, exiting 0")
             return 0
 
@@ -421,11 +601,19 @@ def main():
 
         # BLOCKED from reviewer explicitly
         update_status(status="BLOCKED", review="BLOCKED", error=review.get("summary"), next_action="human decision")
+        run_ctx["review"] = {
+            "decision": "BLOCKED",
+            "attempt": attempt,
+            "approved_for_deploy": False,
+            "summary": review.get("summary"),
+        }
+        _finalize("BLOCKED", "human decision", remaining=[review.get("summary") or "reviewer BLOCKED"])
         telegram_notify(f"🔴 REVIEWER_BLOCKED {task_id}")
         sys.exit(2)
 
     # Retry cap
     update_status(status="BLOCKED", error="MAX_RETRIES_EXCEEDED", next_action="human decision")
+    _finalize("BLOCKED", "human decision", remaining=[f"MAX_RETRIES_EXCEEDED after {MAX_ATTEMPTS} attempts"])
     telegram_notify(f"🔴 MAX_RETRIES_EXCEEDED {task_id} after {MAX_ATTEMPTS} attempts")
     sys.exit(2)
 
