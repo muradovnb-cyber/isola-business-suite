@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ISOLA Orchestrator Task (embedded copy of .github/ai/tasks/SCHEMA.json)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "objective"],
+  "properties": {
+    "id":          { "type": "string", "pattern": "^TASK-[A-Za-z0-9_-]{1,72}$" },
+    "status":      { "enum": ["QUEUED", "CANCELLED"], "default": "QUEUED" },
+    "priority":    { "enum": ["low", "normal", "high"], "default": "normal" },
+    "source":      { "type": "string" },
+    "created_at":  { "type": "string", "format": "date-time" },
+    "created_by":  { "type": ["string", "null"] },
+    "objective":   { "type": "string", "minLength": 5, "maxLength": 500 },
+    "context":     { "type": "string", "maxLength": 4000 },
+    "files_to_inspect": { "type": "array", "items": { "type": "string" }, "maxItems": 50 },
+    "requirements":     { "type": "array", "items": { "type": "string" }, "maxItems": 50 },
+    "acceptance_criteria": { "type": "array", "items": { "type": "string" }, "maxItems": 50 },
+    "tests_required":   { "type": "array", "items": { "type": "string" }, "maxItems": 50 },
+    "security_requirements": { "type": "array", "items": { "type": "string" }, "maxItems": 50 },
+    "do_not_change":    { "type": "array", "items": { "type": "string" }, "maxItems": 50 },
+    "deployment_policy": { "enum": ["NO_DEPLOY", "APPROVED_FOR_DEPLOY_MANUAL"], "default": "NO_DEPLOY" },
+    "max_attempts": { "type": "integer", "minimum": 1, "maximum": 20, "default": 10 }
+  }
+}

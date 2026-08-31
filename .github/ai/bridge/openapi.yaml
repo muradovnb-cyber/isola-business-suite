@@ -1,0 +1,219 @@
+openapi: 3.1.0
+info:
+  title: ISOLA GPT Orchestrator API
+  description: |
+    HTTPS bridge letting GPT create ISOLA orchestrator tasks and read pipeline
+    state without a human message-relay. Backs onto the existing GitHub
+    Actions orchestrator + Claude runner. **Not** a new orchestrator.
+
+    Import this file as a Custom GPT Action. Authentication is Bearer token
+    (a value distinct from any GitHub PAT / Anthropic key). The owner
+    provisions the token in Railway env; it is never in git.
+  version: '0.1.0'
+  contact:
+    name: See .github/ai/bridge/GPT_HANDOFF.md in the repository.
+servers:
+  - url: https://gpt-api-production.up.railway.app
+    description: production (Railway)
+security:
+  - BearerAuth: []
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Service liveness. Unauthenticated.
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:      { type: boolean }
+                  version: { type: string }
+                  repo:    { type: string }
+  /api/gpt/status:
+    get:
+      operationId: getStatus
+      summary: Live orchestrator status projection (bridge v2.0 shape).
+      responses:
+        '200': { $ref: '#/components/responses/StatusOK' }
+        '401': { $ref: '#/components/responses/AuthError' }
+        '404': { description: State branch not yet populated }
+  /api/gpt/tasks:
+    get:
+      operationId: listTasks
+      summary: List task files on `main`.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count: { type: integer }
+                  tasks:
+                    type: array
+                    items: { $ref: '#/components/schemas/TaskSummary' }
+        '401': { $ref: '#/components/responses/AuthError' }
+    post:
+      operationId: createTask
+      summary: Create a task file on a `gpt/<id>` branch, open PR, fire orchestrator.
+      description: |
+        Server-side enforces `status: "QUEUED"` and `deployment_policy: "NO_DEPLOY"`.
+        Fires `repository_dispatch` immediately — no need to merge the PR
+        for the orchestrator to start.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaskDraft' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreateTaskResult' }
+        '400': { description: schema error or secret-shape detected }
+        '401': { $ref: '#/components/responses/AuthError' }
+        '409': { description: task already exists }
+        '429': { description: rate-limited (10/min) }
+        '502': { description: upstream GitHub error }
+        '500': { description: service misconfigured (GITHUB_PAT missing) }
+  /api/gpt/tasks/{id}:
+    get:
+      operationId: getTask
+      summary: Read a task file plus indexes of its execution + review attempts.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, pattern: '^TASK-[A-Za-z0-9_-]{1,72}$' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task: { type: object }
+                  attempts:
+                    type: object
+                    properties:
+                      executions:
+                        type: array
+                        items: { type: string }
+                      reviews:
+                        type: array
+                        items: { type: string }
+        '401': { $ref: '#/components/responses/AuthError' }
+        '404': { description: task not found }
+  /api/gpt/tasks/{id}/run:
+    post:
+      operationId: rerunTask
+      summary: Re-fire the orchestrator for an existing task.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: dispatch fired }
+        '401': { $ref: '#/components/responses/AuthError' }
+        '404': { description: task not found }
+        '409': { description: task already running }
+        '429': { description: rate-limited (10/min) }
+  /api/gpt/reports/{id}:
+    get:
+      operationId: getReport
+      summary: Consolidated per-task final report.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: report JSON per reports/schema.json }
+        '401': { $ref: '#/components/responses/AuthError' }
+        '404': { description: no report yet }
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+  responses:
+    AuthError:
+      description: Missing or invalid Bearer token.
+    StatusOK:
+      description: Current state projection.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              source: { type: string }
+              state:
+                type: object
+                properties:
+                  status:       { enum: [IDLE, QUEUED, RUNNING, REVIEW, FIXING, PASSED, BLOCKED, FAILED] }
+                  current_task: { type: [string, 'null'] }
+                  stage:        { type: [string, 'null'] }
+                  agent:        { type: [string, 'null'] }
+                  attempt:      { type: integer }
+                  last_commit:  { type: [string, 'null'] }
+                  last_pr:      { type: [object, 'null'] }
+                  last_review:  { type: [object, 'null'] }
+                  blockers:     { type: array, items: { type: string } }
+                  next_action:  { type: [string, 'null'] }
+                  updated_at:   { type: string }
+  schemas:
+    TaskDraft:
+      type: object
+      required: [id, objective]
+      properties:
+        id:                     { type: string, pattern: '^TASK-[A-Za-z0-9_-]{1,72}$' }
+        objective:              { type: string, minLength: 5, maxLength: 500 }
+        context:                { type: string, maxLength: 4000 }
+        files_to_inspect:       { type: array, items: { type: string }, maxItems: 50 }
+        requirements:           { type: array, items: { type: string }, maxItems: 50 }
+        acceptance_criteria:    { type: array, items: { type: string }, maxItems: 50 }
+        tests_required:         { type: array, items: { type: string }, maxItems: 50 }
+        security_requirements:  { type: array, items: { type: string }, maxItems: 50 }
+        do_not_change:          { type: array, items: { type: string }, maxItems: 50 }
+        max_attempts:           { type: integer, minimum: 1, maximum: 10 }
+        priority:               { enum: [low, normal, high] }
+        source:                 { type: string }
+        created_by:             { type: string }
+    TaskSummary:
+      type: object
+      properties:
+        id:         { type: string }
+        status:     { enum: [QUEUED, CANCELLED] }
+        priority:   { type: string }
+        objective:  { type: string }
+        created_at: { type: string }
+        source:     { type: string }
+        path:       { type: string }
+    CreateTaskResult:
+      type: object
+      properties:
+        task_id:         { type: string }
+        branch:          { type: string }
+        commit:          { type: string }
+        pr:
+          type: [object, 'null']
+          properties:
+            number: { type: integer }
+            url:    { type: string }
+        dispatch_fired:  { type: boolean }
+        dispatch_status: { type: integer }
+        poll:
+          type: object
+          properties:
+            status: { type: string }
+            report: { type: string }
+            task:   { type: string }
