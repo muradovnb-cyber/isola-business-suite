@@ -68,6 +68,10 @@ app.use(helmet({
     directives: {
       // Frontend uses inline scripts and inline styles heavily. Keep it working but restrict domains.
       'script-src': ["'self'", "'unsafe-inline'"],
+      // Every button in index.html/hr.html uses onclick="..." — without this
+      // directive helmet's default `script-src-attr 'none'` silently kills
+      // every click handler in the UI (login button included).
+      'script-src-attr': ["'unsafe-inline'"],
       'style-src': ["'self'", "'unsafe-inline'"],
       'img-src': ["'self'", 'data:'],
       'connect-src': ["'self'"],
