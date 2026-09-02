@@ -540,6 +540,182 @@ app.get('/api/audit/file/:name', auditAuth, (req, res) => {
 
 app.get('/api/health', (req, res) => res.json({ ok: true, ts: Date.now(), tg: tg.hasToken }));
 
+// ==========================================================================
+// BANK SMS INTEGRATION (Asia Alliance Bank — AAB_UZ)
+// ==========================================================================
+// Flow:
+//   iOS Shortcut → POST /api/bank/sms with { text } and X-Bank-Secret
+//   → parse, insert draft tx (status:PENDING) → Telegram msg with buttons
+//   Telegram webhook → POST /api/telegram/webhook with callback_query
+//   → set tx.iid (expense) or tx.inc_cat (income), status:CATEGORIZED,
+//     edit the Telegram card in place.
+const bankSms = require('./bank-sms');
+const BANK_SMS_SECRET = (process.env.BANK_SMS_SECRET || '').trim();
+const TG_WEBHOOK_SECRET = (process.env.TG_WEBHOOK_SECRET || '').trim();
+
+// Rate-limit the SMS endpoint separately so a runaway Shortcut can't drown us.
+const smsLimiter = rateLimit({
+  windowMs: 60_000, max: 30, standardHeaders: true, legacyHeaders: false,
+  message: { ok: false, error: 'too many SMS', code: 'RATE_LIMITED' },
+});
+
+function ipoolAsUZS(amount) { return { amt: amount, cur: 'UZS', rate: 1, uzs: amount }; }
+
+app.post('/api/bank/sms', smsLimiter, async (req, res) => {
+  try {
+    if (!BANK_SMS_SECRET) return res.status(500).json({ ok: false, error: 'BANK_SMS_SECRET not set', code: 'MISCONFIGURED' });
+    const provided = (req.get('x-bank-secret') || req.body?.secret || '').trim();
+    if (provided.length !== BANK_SMS_SECRET.length ||
+        !require('crypto').timingSafeEqual(Buffer.from(provided), Buffer.from(BANK_SMS_SECRET))) {
+      return res.status(401).json({ ok: false, error: 'auth', code: 'AUTH_INVALID' });
+    }
+    const text = String(req.body?.text || '').slice(0, 2000);
+    if (!text) return res.status(400).json({ ok: false, error: 'no text', code: 'BAD_REQUEST' });
+
+    const parsed = bankSms.parseAAB(text);
+    if (!parsed) return res.json({ ok: true, ignored: true, reason: 'not a tx SMS (OTP or unknown)' });
+    if (parsed.amount == null) return res.status(400).json({ ok: false, error: 'could not parse amount', code: 'PARSE_FAIL' });
+
+    // Dedup + insert under the lock so a race-storm of duplicate SMS never
+    // creates two rows.
+    const result = await withLock(async () => {
+      const db = readDB();
+      db.txs = db.txs || [];
+      const dup = db.txs.find((t) => t.sms_hash === parsed.hash);
+      if (dup) return { ok: true, duplicate: true, tx_id: dup.id };
+
+      const nextId = 1 + (db.txs.reduce((m, t) => Math.max(m, +t.id || 0), 0));
+      const tx = {
+        id: nextId,
+        date: bankSms.today(),
+        type: parsed.type,                     // 'income' | 'expense'
+        acc: 'bank',
+        iid: null,                             // set on categorization (expense)
+        inc_cat: null,                         // set on categorization (income)
+        cpid: null,
+        oid: null,
+        amt: parsed.amount, cur: 'UZS', rate: 1, uzs: parsed.amount,
+        note: [parsed.counterparty, parsed.purpose].filter(Boolean).join(' — '),
+        by: 0,                                 // 0 = bot/system
+        debt: false,
+        // bank-sms metadata
+        status: 'PENDING',
+        source: 'sms-aab',
+        sms_hash: parsed.hash,
+        sms_meta: {
+          counterparty: parsed.counterparty,
+          purpose: parsed.purpose,
+          op_code: parsed.opCode,
+          balance_after: parsed.balance,
+        },
+        tg_msg_id: null,
+        tg_chat_id: null,
+      };
+      db.txs.push(tx);
+      await writeAtomic(db);
+      return { ok: true, tx };
+    });
+
+    if (result.duplicate) return res.json(result);
+
+    // Send Telegram card with inline keyboard. Best-effort — a Telegram
+    // outage should not prevent the SMS from being recorded.
+    const tx = result.tx;
+    try {
+      const card = bankSms.buildPendingCard(parsed, tx.id);
+      const kb   = bankSms.buildKeyboard(tx.id, parsed.type === 'income');
+      const sent = await tg.sendWithButtons(null, card, kb);
+      if (sent && sent.ok) {
+        await withLock(async () => {
+          const db2 = readDB();
+          const t2 = (db2.txs || []).find((x) => x.id === tx.id);
+          if (t2) { t2.tg_msg_id = sent.message_id; t2.tg_chat_id = sent.chat_id; await writeAtomic(db2); }
+        });
+      }
+    } catch (e) {
+      console.error('[bank-sms] telegram send failed:', e.message);
+    }
+
+    res.status(201).json({ ok: true, tx_id: tx.id, type: tx.type, amount: tx.amt });
+  } catch (e) {
+    console.error('[bank-sms] fail:', e.message);
+    res.status(500).json({ ok: false, error: 'internal', code: 'INTERNAL' });
+  }
+});
+
+// Telegram webhook. Optional secret via secret_token header (setWebhook
+// registers this — Telegram then sends it as X-Telegram-Bot-Api-Secret-Token).
+app.post('/api/telegram/webhook', async (req, res) => {
+  try {
+    if (TG_WEBHOOK_SECRET) {
+      const provided = req.get('x-telegram-bot-api-secret-token') || '';
+      if (provided !== TG_WEBHOOK_SECRET) return res.status(401).end();
+    }
+    const update = req.body || {};
+    const cq = update.callback_query;
+    if (!cq) return res.status(200).json({ ok: true });
+
+    const data = String(cq.data || '');
+    const m = data.match(/^bs:cat:(\d+):(.+)$/);
+    if (!m) {
+      await tg.answerCallbackQuery(cq.id, 'Неизвестное действие');
+      return res.status(200).json({ ok: true });
+    }
+    const txId = parseInt(m[1], 10);
+    const catCode = m[2];
+
+    const outcome = await withLock(async () => {
+      const db = readDB();
+      const tx = (db.txs || []).find((t) => t.id === txId);
+      if (!tx) return { ok: false, reason: 'not found' };
+      // Only tolerate this callback against a bank-sms-created tx that is
+      // still awaiting a category. This guards against callbacks with
+      // spoofed data pointing at unrelated (or already-final) rows.
+      if (tx.source !== 'sms-aab') return { ok: false, reason: 'wrong source' };
+      if (tx.status === 'CATEGORIZED') return { ok: true, tx, already: true };
+      if (tx.status !== 'PENDING') return { ok: false, reason: 'wrong status' };
+
+      const isIncome = tx.type === 'income';
+      // Validate catCode against the appropriate list — reject cross-type.
+      const validList = isIncome ? bankSms.INCOME_CATS : bankSms.EXPENSE_CATS;
+      const wantId = isIncome ? String(catCode) : parseInt(catCode, 10);
+      if (!validList.some((c) => c.id === wantId)) return { ok: false, reason: 'unknown category' };
+
+      if (isIncome) tx.inc_cat = catCode;
+      else tx.iid = parseInt(catCode, 10);
+      tx.status = 'CATEGORIZED';
+      tx.categorized_at = new Date().toISOString();
+      tx.categorized_by = cq.from ? (cq.from.username || String(cq.from.id)) : 'telegram';
+      await writeAtomic(db);
+      return { ok: true, tx, isIncome };
+    });
+
+    if (!outcome.ok) {
+      await tg.answerCallbackQuery(cq.id, 'Транзакция не найдена');
+      return res.status(200).json({ ok: true });
+    }
+
+    const catName = bankSms.catNameById(outcome.tx.type === 'income', catCode);
+    await tg.answerCallbackQuery(cq.id, outcome.already ? 'Уже отмечено' : `→ ${catName}`);
+
+    // Edit the original card in place, removing buttons and adding checkmark.
+    if (cq.message && cq.message.chat && cq.message.message_id) {
+      const parsedShape = {
+        type: outcome.tx.type,
+        amount: outcome.tx.amt,
+        counterparty: outcome.tx.sms_meta && outcome.tx.sms_meta.counterparty,
+        purpose: outcome.tx.sms_meta && outcome.tx.sms_meta.purpose,
+      };
+      const newText = bankSms.buildCategorizedCard(parsedShape, catName, outcome.tx.categorized_by);
+      await tg.editMessageText(cq.message.chat.id, cq.message.message_id, newText, [], {});
+    }
+    res.status(200).json({ ok: true });
+  } catch (e) {
+    console.error('[tg-webhook] fail:', e.message);
+    res.status(200).json({ ok: false, error: 'internal' });
+  }
+});
+
 // Trigger a manual backup (director only, useful before risky ops)
 app.post('/api/backup', writeLimiter, requireAuth, requireRole('director'), (req, res) => {
   const f = backupNow('manual');
