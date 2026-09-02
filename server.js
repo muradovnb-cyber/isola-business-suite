@@ -550,8 +550,11 @@ app.get('/api/health', (req, res) => res.json({ ok: true, ts: Date.now(), tg: tg
 //   → set tx.iid (expense) or tx.inc_cat (income), status:CATEGORIZED,
 //     edit the Telegram card in place.
 const bankSms = require('./bank-sms');
+const cash = require('./cash-tracker');
 const BANK_SMS_SECRET = (process.env.BANK_SMS_SECRET || '').trim();
 const TG_WEBHOOK_SECRET = (process.env.TG_WEBHOOK_SECRET || '').trim();
+const CASH_GROUP_CHAT_ID = (process.env.CASH_GROUP_CHAT_ID || '').trim(); // e.g. "-1001234567890"
+const USD_RATE_DEFAULT = parseFloat(process.env.USD_RATE_DEFAULT || '12700');
 
 // Rate-limit the SMS endpoint separately so a runaway Shortcut can't drown us.
 const smsLimiter = rateLimit({
@@ -652,6 +655,109 @@ app.post('/api/telegram/webhook', async (req, res) => {
       if (provided !== TG_WEBHOOK_SECRET) return res.status(401).end();
     }
     const update = req.body || {};
+
+    // ============================================================
+    // Group-message branch — cash log ("Касса исола" group)
+    // ============================================================
+    const msg = update.message;
+    if (msg && (msg.chat && (msg.chat.type === 'group' || msg.chat.type === 'supergroup'))) {
+      const gcid = String(msg.chat.id);
+      // Auto-detect helper: if CASH_GROUP_CHAT_ID isn't set, echo the id back
+      // so owner can wire it into env. Only fires once per message.
+      if (!CASH_GROUP_CHAT_ID) {
+        console.log('[cash-detect] group message from chat_id=' + gcid + ' title=' + (msg.chat.title || '?') + ' from=' + (msg.from && msg.from.username));
+        try {
+          await tg.sendWithButtons(gcid,
+            'ℹ️ Chat ID этой группы: `' + gcid + '`\n\nПерешли это боту-владельцу, он выставит `CASH_GROUP_CHAT_ID` в env и я оживу.',
+            [], { parseMode: 'Markdown' });
+        } catch (_) {}
+        return res.status(200).json({ ok: true, detected: gcid });
+      }
+      if (gcid !== CASH_GROUP_CHAT_ID) {
+        console.log('[cash] ignoring group message from non-authorised chat_id=' + gcid);
+        return res.status(200).json({ ok: true, ignored: true, reason: 'wrong_group' });
+      }
+
+      const parsed = cash.parseCashMessage(msg);
+      if (!parsed.ok) {
+        console.log('[cash] ignore: ' + parsed.ignore_reason + ' text=' + (msg.text || '').slice(0, 60));
+        return res.status(200).json({ ok: true, ignored: true, reason: parsed.ignore_reason });
+      }
+
+      // Create a PENDING cash tx immediately. Currency + amount-in-UZS come
+      // later after owner confirms via buttons (unless already unambiguous).
+      const result = await withLock(async () => {
+        const db = readDB();
+        db.txs = db.txs || [];
+        const nextId = 1 + (db.txs.reduce((m, t) => Math.max(m, +t.id || 0), 0));
+        const tx = {
+          id: nextId, date: cash.today(),
+          type: parsed.type, acc: 'cash',
+          iid: null, inc_cat: null, cpid: null, oid: null,
+          amt: parsed.amount, cur: parsed.currency || 'UZS', rate: 1, uzs: parsed.amount,
+          note: parsed.description,
+          by: 0, debt: false,
+          status: 'PENDING',
+          source: 'tg-cash',
+          cash_meta: {
+            raw_text: msg.text,
+            amount_raw: parsed.amount_raw,
+            currency_source: parsed.currency_source,
+            ambiguous_uzs: parsed.ambiguousUZS,
+            is_under_report: parsed.isUnderReport,
+            suggested_item: parsed.suggestedItem,
+            tg_from: msg.from && msg.from.username,
+            tg_msg_id: msg.message_id,
+          },
+          tg_msg_id: null, tg_chat_id: null,
+        };
+        db.txs.push(tx);
+        await writeAtomic(db);
+        return tx;
+      });
+
+      // Decide next UI step:
+      //   1. Currency unspecified AND amount looks ambiguous → ask currency
+      //   2. Currency known (USD or unambiguous UZS) → show category picker
+      let sent;
+      if (!parsed.currency && parsed.ambiguousUZS) {
+        const card = cash.buildCurrencyPromptCard(parsed, result.id);
+        const kb   = cash.buildCurrencyPromptKeyboard(result.id);
+        sent = await tg.sendWithButtons(gcid, card, kb, { parseMode: 'Markdown' });
+      } else {
+        const uzsAmount = parsed.currency === 'USD'
+          ? Math.round(parsed.amount * USD_RATE_DEFAULT)
+          : parsed.amount;
+        // Persist rate so the tx UZS field is correct.
+        await withLock(async () => {
+          const db2 = readDB();
+          const t2 = (db2.txs || []).find((x) => x.id === result.id);
+          if (t2) {
+            t2.uzs = uzsAmount;
+            if (parsed.currency === 'USD') t2.rate = USD_RATE_DEFAULT;
+            await writeAtomic(db2);
+          }
+        });
+        const card = cash.buildCashCard(parsed, result.id, uzsAmount, { wasThousands: false });
+        const kb   = cash.buildCashKeyboard(result.id, parsed.type === 'income',
+                                            parsed.suggestedItem ? parsed.suggestedItem.iid : null);
+        sent = await tg.sendWithButtons(gcid, card, kb, { parseMode: 'Markdown' });
+      }
+
+      // Remember the message id so callback flow can editMessageText.
+      if (sent && sent.ok) {
+        await withLock(async () => {
+          const db3 = readDB();
+          const t3 = (db3.txs || []).find((x) => x.id === result.id);
+          if (t3) { t3.tg_msg_id = sent.message_id; t3.tg_chat_id = sent.chat_id; await writeAtomic(db3); }
+        });
+      }
+      return res.status(200).json({ ok: true, tx_id: result.id });
+    }
+
+    // ============================================================
+    // Callback-query branch — used by bank-SMS and cash flows both.
+    // ============================================================
     const cq = update.callback_query;
     if (!cq) return res.status(200).json({ ok: true });
 
@@ -659,6 +765,132 @@ app.post('/api/telegram/webhook', async (req, res) => {
     const who = cq.from ? (cq.from.username || String(cq.from.id)) : 'telegram';
     const chatId = cq.message && cq.message.chat && cq.message.chat.id;
     const msgId  = cq.message && cq.message.message_id;
+
+    // ============================================================
+    // CASH callbacks (cash:cur / cash:cat / cash:cancel)
+    // ============================================================
+
+    // cash:cur:<txId>:<UZS|USD|UZS_K>  — user picked the currency for an ambiguous amount
+    const curM = data.match(/^cash:cur:(\d+):(UZS|USD|UZS_K)$/);
+    if (curM) {
+      const txId = parseInt(curM[1], 10);
+      const choice = curM[2];
+      const outcome = await withLock(async () => {
+        const db = readDB();
+        const tx = (db.txs || []).find((t) => t.id === txId);
+        if (!tx || tx.source !== 'tg-cash' || tx.status !== 'PENDING') return { ok: false };
+        const orig = tx.amt;
+        if (choice === 'USD') {
+          tx.cur = 'USD'; tx.rate = USD_RATE_DEFAULT; tx.uzs = Math.round(orig * USD_RATE_DEFAULT);
+        } else if (choice === 'UZS_K') {
+          tx.cur = 'UZS'; tx.rate = 1; tx.uzs = orig * 1000; tx.amt = orig * 1000;
+          if (tx.cash_meta) tx.cash_meta.was_thousands = true;
+        } else {
+          tx.cur = 'UZS'; tx.rate = 1; tx.uzs = orig;
+        }
+        await writeAtomic(db);
+        return { ok: true, tx };
+      });
+      if (!outcome.ok) {
+        await tg.answerCallbackQuery(cq.id, 'Транзакция уже обработана');
+        return res.status(200).json({ ok: true });
+      }
+      const tx = outcome.tx;
+      const parsedShape = {
+        type: tx.type, amount: tx.amt, currency: tx.cur,
+        description: tx.note,
+        suggestedItem: tx.cash_meta && tx.cash_meta.suggested_item,
+      };
+      const card = cash.buildCashCard(parsedShape, tx.id, tx.uzs, { wasThousands: choice === 'UZS_K' });
+      const kb   = cash.buildCashKeyboard(tx.id, tx.type === 'income',
+                                          parsedShape.suggestedItem ? parsedShape.suggestedItem.iid : null);
+      if (chatId && msgId) await tg.editMessageText(chatId, msgId, card, kb, { parseMode: 'Markdown' });
+      await tg.answerCallbackQuery(cq.id, choice === 'UZS_K' ? '×1000' : choice);
+      return res.status(200).json({ ok: true });
+    }
+
+    // cash:cancel:<txId> — delete a pending draft
+    const cashCancelM = data.match(/^cash:cancel:(\d+)$/);
+    if (cashCancelM) {
+      const txId = parseInt(cashCancelM[1], 10);
+      await withLock(async () => {
+        const db = readDB();
+        const before = (db.txs || []).length;
+        db.txs = (db.txs || []).filter((t) => !(t.id === txId && t.source === 'tg-cash' && t.status === 'PENDING'));
+        if ((db.txs || []).length !== before) await writeAtomic(db);
+      });
+      if (chatId && msgId) await tg.editMessageText(chatId, msgId, '❌ Отменено', [], {});
+      await tg.answerCallbackQuery(cq.id, 'Отменено');
+      return res.status(200).json({ ok: true });
+    }
+
+    // cash:cat:<txId>:<catCode>  — finalize with category (or 'under_report')
+    const cashCatM = data.match(/^cash:cat:(\d+):(.+)$/);
+    if (cashCatM) {
+      const txId = parseInt(cashCatM[1], 10);
+      const catCode = cashCatM[2];
+
+      const outcome = await withLock(async () => {
+        const db = readDB();
+        const tx = (db.txs || []).find((t) => t.id === txId);
+        if (!tx || tx.source !== 'tg-cash') return { ok: false, reason: 'not found' };
+        if (tx.status === 'CATEGORIZED') return { ok: true, already: true, tx };
+        if (tx.status !== 'PENDING') return { ok: false, reason: 'wrong status' };
+
+        const isIncome = tx.type === 'income';
+
+        // "Под отчёт" — write a petty entry instead of a normal categorized tx.
+        if (!isIncome && catCode === 'under_report') {
+          tx.iid = null;
+          tx.status = 'CATEGORIZED';
+          tx.source = 'tg-cash-under-report';    // separate for downstream sorting
+          tx.categorized_at = new Date().toISOString();
+          tx.categorized_by = who;
+          // Also insert into petty ledger so the "Подотчётные средства" module shows it.
+          db.petty = db.petty || [];
+          const nextPettyId = 1 + db.petty.reduce((m, p) => Math.max(m, +p.id || 0), 0);
+          db.petty.push({
+            id: nextPettyId, date: tx.date,
+            eid: null,                                  // employee id — owner sets later
+            desc: tx.note,
+            uzs: tx.uzs,
+            source: 'tg-cash',
+            source_tx_id: tx.id,
+            status: 'issued',
+            by: 0,
+            created_at: new Date().toISOString(),
+          });
+          await writeAtomic(db);
+          return { ok: true, tx, under_report: true };
+        }
+
+        // Normal categorize
+        const validList = isIncome ? cash.CASH_INCOME_CATS : cash.CASH_EXPENSE_CATS.filter((c) => c.id !== 'under_report');
+        const wantId = isIncome ? String(catCode) : parseInt(catCode, 10);
+        if (!validList.some((c) => c.id === wantId)) return { ok: false, reason: 'unknown category' };
+
+        if (isIncome) tx.inc_cat = catCode;
+        else tx.iid = parseInt(catCode, 10);
+        tx.status = 'CATEGORIZED';
+        tx.categorized_at = new Date().toISOString();
+        tx.categorized_by = who;
+        await writeAtomic(db);
+        return { ok: true, tx };
+      });
+
+      if (!outcome.ok) {
+        await tg.answerCallbackQuery(cq.id, 'Транзакция не найдена');
+        return res.status(200).json({ ok: true });
+      }
+      const catName = outcome.under_report ? '📒 Под отчёт (petty)' : cash.catNameById(outcome.tx.type === 'income', catCode);
+      await tg.answerCallbackQuery(cq.id, outcome.already ? 'Уже отмечено' : ('→ ' + catName));
+      if (chatId && msgId) {
+        const parsedShape = { type: outcome.tx.type, description: outcome.tx.note };
+        const done = cash.buildCategorizedCard(parsedShape, outcome.tx.uzs, catName, who);
+        await tg.editMessageText(chatId, msgId, done, [], { parseMode: 'Markdown' });
+      }
+      return res.status(200).json({ ok: true });
+    }
 
     // -------- Cancel cashout: bs:cancel-cashout:<txId> — restore main keyboard --------
     const cancelM = data.match(/^bs:cancel-cashout:(\d+)$/);
