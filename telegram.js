@@ -45,4 +45,64 @@ async function send(chatId, text, opts = {}) {
   return results;
 }
 
-module.exports = { send, hasToken: !!TOKEN };
+// Send a single message (no chunking) with optional inline keyboard.
+// Returns { ok, message_id, chat_id, error? } — needed so the bank-sms
+// flow can later editMessageText once the user taps a category button.
+async function sendWithButtons(chatId, text, buttons, opts = {}) {
+  if (!API) return { ok: false, error: 'no_token' };
+  const cid = chatId || DEFAULT_CHAT;
+  if (!cid) return { ok: false, error: 'no_chat_id' };
+  const body = {
+    chat_id: cid,
+    text: text.slice(0, 3900),
+    parse_mode: opts.parseMode || 'Markdown',
+    disable_web_page_preview: true,
+  };
+  if (buttons && buttons.length) body.reply_markup = { inline_keyboard: buttons };
+  const r = await fetch(`${API}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const j = await r.json();
+  if (!j.ok) return { ok: false, error: j.description || 'send_failed', raw: j };
+  return { ok: true, message_id: j.result.message_id, chat_id: j.result.chat.id };
+}
+
+async function editMessageText(chatId, messageId, text, buttons, opts = {}) {
+  if (!API) return { ok: false, error: 'no_token' };
+  const body = {
+    chat_id: chatId,
+    message_id: messageId,
+    text: text.slice(0, 3900),
+    parse_mode: opts.parseMode || 'Markdown',
+    disable_web_page_preview: true,
+  };
+  if (buttons) body.reply_markup = { inline_keyboard: buttons };
+  const r = await fetch(`${API}/editMessageText`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const j = await r.json();
+  return j;
+}
+
+async function answerCallbackQuery(callbackId, text) {
+  if (!API) return { ok: false };
+  const r = await fetch(`${API}/answerCallbackQuery`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ callback_query_id: callbackId, text: (text || '').slice(0, 200) }),
+  });
+  return r.json();
+}
+
+module.exports = {
+  send,
+  sendWithButtons,
+  editMessageText,
+  answerCallbackQuery,
+  hasToken: !!TOKEN,
+  defaultChat: DEFAULT_CHAT,
+};
