@@ -678,7 +678,9 @@ app.post('/api/telegram/webhook', async (req, res) => {
         return res.status(200).json({ ok: true, ignored: true, reason: 'wrong_group' });
       }
 
-      const parsed = cash.parseCashMessage(msg);
+      // Read users so we can match employee names in the free-form text.
+      const dbForParse = readDB();
+      const parsed = cash.parseCashMessage(msg, dbForParse.users || []);
       if (!parsed.ok) {
         console.log('[cash] ignore: ' + parsed.ignore_reason + ' text=' + (msg.text || '').slice(0, 60));
         return res.status(200).json({ ok: true, ignored: true, reason: parsed.ignore_reason });
@@ -694,6 +696,7 @@ app.post('/api/telegram/webhook', async (req, res) => {
           id: nextId, date: cash.today(),
           type: parsed.type, acc: 'cash',
           iid: null, inc_cat: null, cpid: null, oid: null,
+          emp_uid: parsed.suggestedEmployee ? parsed.suggestedEmployee.id : null,
           amt: parsed.amount, cur: parsed.currency || 'UZS', rate: 1, uzs: parsed.amount,
           note: parsed.description,
           by: 0, debt: false,
@@ -706,6 +709,7 @@ app.post('/api/telegram/webhook', async (req, res) => {
             ambiguous_uzs: parsed.ambiguousUZS,
             is_under_report: parsed.isUnderReport,
             suggested_item: parsed.suggestedItem,
+            suggested_employee: parsed.suggestedEmployee,
             tg_from: msg.from && msg.from.username,
             tg_msg_id: msg.message_id,
           },
@@ -851,7 +855,7 @@ app.post('/api/telegram/webhook', async (req, res) => {
           const nextPettyId = 1 + db.petty.reduce((m, p) => Math.max(m, +p.id || 0), 0);
           db.petty.push({
             id: nextPettyId, date: tx.date,
-            eid: null,                                  // employee id — owner sets later
+            eid: tx.emp_uid || null,                    // auto-matched employee (or owner sets)
             desc: tx.note,
             uzs: tx.uzs,
             source: 'tg-cash',
@@ -886,7 +890,9 @@ app.post('/api/telegram/webhook', async (req, res) => {
       await tg.answerCallbackQuery(cq.id, outcome.already ? 'Уже отмечено' : ('→ ' + catName));
       if (chatId && msgId) {
         const parsedShape = { type: outcome.tx.type, description: outcome.tx.note };
-        const done = cash.buildCategorizedCard(parsedShape, outcome.tx.uzs, catName, who);
+        const empName = outcome.tx.cash_meta && outcome.tx.cash_meta.suggested_employee
+          ? outcome.tx.cash_meta.suggested_employee.name : null;
+        const done = cash.buildCategorizedCard(parsedShape, outcome.tx.uzs, catName, who, empName);
         await tg.editMessageText(chatId, msgId, done, [], { parseMode: 'Markdown' });
       }
       return res.status(200).json({ ok: true });

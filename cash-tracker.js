@@ -127,10 +127,45 @@ function suggestItem(description) {
   return null;
 }
 
+// Fuzzy-match an employee by fragment of first/last name.
+// Owner writes short forms: "килич" for Киличбек, "нуриддин" for Мурадов Нуриддин,
+// "абдурауф" for Абдурауф Шарипов. We treat any 4+-char prefix of any first-
+// or last-name token as a hit. Multiple hits (unlikely with our 10-user roster)
+// → return the longest match to bias toward "нуриддин" over just "н".
+function normalizeCyr(s) {
+  return String(s || '').toLowerCase().replace(/ё/g, 'е');
+}
+
+function matchEmployee(text, users) {
+  if (!Array.isArray(users) || !users.length) return null;
+  const t = normalizeCyr(text);
+  let best = null;
+  for (const u of users) {
+    const full = normalizeCyr(u.n || u.name || '');
+    if (!full) continue;
+    // Split on whitespace/punctuation.
+    for (const token of full.split(/[\s,.-]+/)) {
+      if (token.length < 4) continue; // avoid "ака" (respectful ака ≠ name)
+      // Progressive prefix match: 4..full length.
+      for (let n = Math.min(token.length, 8); n >= 4; n--) {
+        const prefix = token.slice(0, n);
+        // Word-boundary-ish: text must have this prefix preceded by non-letter or start.
+        const re = new RegExp('(?:^|[^а-яa-z])' + prefix + '[а-яa-z]*', 'i');
+        if (re.test(t)) {
+          const score = n;
+          if (!best || score > best.score) best = { id: u.id, name: u.n || u.name, score, matched: prefix };
+          break;
+        }
+      }
+    }
+  }
+  return best;
+}
+
 // Master parser. Returns:
 //   { ok, ignore, ignore_reason?, amount, amount_raw, currency, currency_source,
-//     description, isUnderReport, suggestedItem, ambiguousUZS, type }
-function parseCashMessage(msg) {
+//     description, isUnderReport, suggestedItem, suggestedEmployee, ambiguousUZS, type }
+function parseCashMessage(msg, users) {
   if (!msg || typeof msg.text !== 'string' || !msg.text.trim()) {
     return { ok: false, ignore: true, ignore_reason: 'no text' };
   }
@@ -162,6 +197,7 @@ function parseCashMessage(msg) {
     description,
     isUnderReport: isUnder,
     suggestedItem: suggested,              // { iid, n } | null
+    suggestedEmployee: matchEmployee(text, users), // { id, name, matched } | null
     type,                                  // 'expense' | 'income'
   };
 }
@@ -234,13 +270,14 @@ const CASH_INCOME_CATS = [
 function buildCashCard(parsed, txId, uzsAmount, extra) {
   const dir = parsed.type === 'income' ? '⬇️ Приход' : '⬆️ Расход';
   const suggested = parsed.suggestedItem ? '\nПредположительно: *' + parsed.suggestedItem.n + '*' : '';
+  const emp = parsed.suggestedEmployee ? '\n👤 Сотрудник: *' + parsed.suggestedEmployee.name + '*' : '';
   const currLabel = parsed.currency === 'USD'
     ? ` (${parsed.amount} USD)`
     : (extra && extra.wasThousands ? ' (введено «' + parsed.amount + '», ×1000)' : '');
   return [
     dir + ' *' + fmtMoney(uzsAmount, 'UZS') + '*' + currLabel,
     parsed.description ? '_' + parsed.description + '_' : null,
-    suggested,
+    emp + suggested,
     '',
     'Выбери статью:',
   ].filter(Boolean).join('\n');
@@ -272,11 +309,12 @@ function catNameById(isIncome, catId) {
   return hit ? hit.n : String(catId);
 }
 
-function buildCategorizedCard(parsed, uzsAmount, catName, by) {
+function buildCategorizedCard(parsed, uzsAmount, catName, by, empName) {
   const dir = parsed.type === 'income' ? '⬇️ Приход' : '⬆️ Расход';
   return [
     '✅ ' + dir + ' *' + fmtMoney(uzsAmount, 'UZS') + '*',
     parsed.description ? '_' + parsed.description + '_' : null,
+    empName ? '👤 ' + empName : null,
     'Статья: *' + catName + '*',
     by ? '_by ' + by + '_' : null,
   ].filter(Boolean).join('\n');
@@ -288,6 +326,7 @@ module.exports = {
   extractAmount,
   detectCurrency,
   suggestItem,
+  matchEmployee,
   fmtMoney,
   today,
   buildCurrencyPromptCard,
