@@ -45,6 +45,22 @@ function normalize(text) {
     .trim();
 }
 
+// Owner can reset cash opening balance by typing e.g.
+//   "касса баланс 45 000 000"
+//   "нал остаток 30м"           (10-power suffix accepted: к/тыс=×1000, м/млн=×1_000_000)
+// Returns { newBalance } or null.
+function parseBalanceCommand(text) {
+  const s = String(text || '').toLowerCase().replace(/[ё]/g, 'е');
+  if (!/(касса|нал(?:ичн)?)\s*(баланс|остаток|=)/i.test(s)) return null;
+  const m = s.match(/(касса|нал(?:ичн)?)\s*(?:баланс|остаток|=)\s*(\d+(?:[ ]\d{3})*(?:[.,]\d+)?)\s*(к|тыс|м|млн)?/i);
+  if (!m) return null;
+  let n = parseFloat(m[2].replace(/\s/g, '').replace(',', '.'));
+  const suf = (m[3] || '').toLowerCase();
+  if (suf === 'к' || suf === 'тыс') n *= 1000;
+  else if (suf === 'м' || suf === 'млн') n *= 1_000_000;
+  return { newBalance: Math.round(n) };
+}
+
 function isForwarded(msg) {
   return Boolean(
     msg && (msg.forward_from || msg.forward_from_chat ||
@@ -396,6 +412,7 @@ function buildCategorizedCard(parsed, uzsAmount, catName, by, empName, orderLabe
 
 module.exports = {
   parseCashMessage,
+  parseBalanceCommand,
   isForwarded,
   extractAmount,
   detectCurrency,

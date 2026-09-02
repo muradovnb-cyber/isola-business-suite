@@ -1306,6 +1306,7 @@ function pgOrders(){
     +'<div id="ord-wrap"><div class="tc"><div class="tw"><table><thead>'+thead+'</thead><tbody>'+(rows||'<tr class="er"><td colspan="'+colspan+'">Нет заказов</td></tr>')+'</tbody></table></div></div></div>'
     +'<div id="m-order-new" style="display:none">'
     +'<div class="fg"><label>Название *</label><input id="on-t" placeholder="Кухонный гарнитур..."/></div>'
+    +'<div class="fg"><label>№ договора *</label><input id="on-cn" placeholder="например 24/08 или 2026-042"/></div>'
     +'<div class="fg"><label>Клиент *</label><select id="on-c"><option value="">— выберите —</option>'+optList(DB.cps.filter(function(c){return c.type==='client';}),function(c){return c.id;},function(c){return c.n;})+'</select></div>'
     +'<div class="g2">'
     +'<div class="fg"><label>Менеджер</label><select id="on-m"><option value="">— нет —</option>'+optList(DB.users.filter(function(u){return u.role==='manager';}),function(u){return u.id;},function(u){return u.n;})+'</select></div>'
@@ -1454,12 +1455,16 @@ function saveEditPositions(oid){
 }
 function saveOrderNew(){
   var t=mVal('on-t').trim();
+  var cn=mVal('on-cn').trim();
   var c=mNum('on-c');
-  if(!t||!c){toast('Заполните обязательные поля','error');return;}
+  if(!t||!cn||!c){toast('Заполните обязательные поля (название, № договора, клиент)','error');return;}
+  // guard against duplicate contract numbers
+  var dup=DB.orders.filter(function(o){return (o.contract_number||'').toLowerCase()===cn.toLowerCase();});
+  if(dup.length){toast('Заказ с № договора '+cn+' уже существует (#'+dup[0].id+')','error');return;}
   var positions=_orderPositions.slice();
   _orderPositions=[];
   var deadline=(mEl('on-dl')||{value:''}).value||null;
-  DB.orders.push({id:nid(DB.orders),title:t,cid:c,uzs:mNum('on-u'),usd:mNum('on-d'),status:'active',created:today(),closed:null,note:mVal('on-n'),mid:mNum('on-m')||null,ca:false,cc:false,did:null,positions:positions,photos:[],deadline:deadline,comments:[]});
+  DB.orders.push({id:nid(DB.orders),title:t,contract_number:cn,cid:c,uzs:mNum('on-u'),usd:mNum('on-d'),status:'active',created:today(),closed:null,note:mVal('on-n'),mid:mNum('on-m')||null,ca:false,cc:false,did:null,positions:positions,photos:[],deadline:deadline,comments:[]});
   saveDB();toast('Заказ создан','success');closeModal();rp();
 }
 
@@ -1469,6 +1474,7 @@ function editOrderBasics(oid){
   var cp=cpGet(o.cid);
   openModalRaw('✎ Редактировать заказ #'+oid,
     '<div class="fg"><label>Название *</label><input id="eob-t" value="'+escapeHtml(o.title||'')+'"/></div>'
+    +'<div class="fg"><label>№ договора *</label><input id="eob-cn" value="'+escapeHtml(o.contract_number||'')+'"/></div>'
     +'<div class="fg"><label>Клиент *</label><select id="eob-c"><option value="">— выберите —</option>'+optList(DB.cps.filter(function(c){return c.type==='client';}),function(c){return c.id;},function(c){return c.n;})+'</select></div>'
     +'<div class="fg"><label>Дедлайн сдачи</label><input type="date" id="eob-dl" value="'+(o.deadline||'')+'" style="width:100%"/></div>',
     'saveOrderBasics('+oid+')','Отмена','Сохранить');
@@ -1478,9 +1484,13 @@ function editOrderBasics(oid){
 function saveOrderBasics(oid){
   var o=ordGet(oid); if(!o) return;
   var t=mVal('eob-t').trim();
+  var cn=mVal('eob-cn').trim();
   var c=mNum('eob-c');
-  if(!t||!c){toast('Заполните обязательные поля','error');return;}
+  if(!t||!cn||!c){toast('Заполните обязательные поля (название, № договора, клиент)','error');return;}
+  var dup=DB.orders.filter(function(x){return x.id!==oid && (x.contract_number||'').toLowerCase()===cn.toLowerCase();});
+  if(dup.length){toast('№ договора '+cn+' уже занят заказом #'+dup[0].id,'error');return;}
   o.title=t;
+  o.contract_number=cn;
   o.cid=c;
   o.deadline=(mEl('eob-dl')||{value:''}).value||null;
   saveDB();toast('Заказ обновлён','success');closeModal();rp();
@@ -1639,7 +1649,7 @@ function pgOrderDetail(id){
     +cmtRows+cmtForm+'</div>';
 
   return '<button class="bk" onclick="DETAIL=null;rp()">← Все заказы</button>'
-    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap"><h2 style="font-size:.96rem;font-weight:700">#'+o.id+' '+o.title+'</h2>'+bdg(o.status==='active'?'bg-g':o.status==='closed'?'bg-b':'bg-gr',SL[o.status])+'</div>'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap"><h2 style="font-size:.96rem;font-weight:700">#'+o.id+' '+o.title+'</h2>'+bdg(o.status==='active'?'bg-g':o.status==='closed'?'bg-b':'bg-gr',SL[o.status])+(o.contract_number?bdg('bg-b','📄 №'+o.contract_number):'')+'</div>'
     +dlBlock+kpiBlock+cmtBlock
     +posBlock+photoBlock
     +'<div class="kg">'

@@ -88,10 +88,62 @@ function parseAAB(smsText) {
   // two identical-looking payments made minutes apart don't collapse.
   const hash = crypto.createHash('sha1').update(s + '|' + (balance || 0)).digest('hex').slice(0, 16);
 
+  // Contract ref hint: banks embed things like "DOGOVOR N 24/08" or
+  // "Договор №24/08" in the purpose field. We just extract the token — the
+  // caller does the actual matching against DB.orders.contract_number.
+  let contractRef = null;
+  if (purpose) {
+    const cm = purpose.match(/(?:DOGOVOR|договор)\s*[N№#]?\s*([A-Za-z0-9\/\-]+)/i);
+    if (cm) contractRef = cm[1];
+  }
+
   return {
     type, amount, balance, counterparty, purpose, opCode, account,
+    contractRef,
     hash, raw: smsText.slice(0, 800),
   };
+}
+
+// Match an SMS-extracted contract reference to an order by contract_number.
+// Case-insensitive, exact and substring fallback.
+function matchOrderByContract(contractRef, orders) {
+  if (!contractRef) return null;
+  const q = String(contractRef).toLowerCase().trim();
+  const active = (orders || []).filter((o) => o.status !== 'closed' && o.status !== 'cancelled');
+  const exact = active.find((o) => String(o.contract_number || '').toLowerCase() === q);
+  if (exact) return exact;
+  // partial: "24/08" hits "2024-24/08" too
+  const partial = active.filter((o) => {
+    const cn = String(o.contract_number || '').toLowerCase();
+    return cn && (cn.indexOf(q) >= 0 || q.indexOf(cn) >= 0);
+  });
+  if (partial.length === 1) return partial[0];
+  return null;  // multiple or none → caller prompts
+}
+
+// Order-picker keyboard for bank-SMS flow (income Postupil).
+// callback_data: bs:ord:<txId>:<oid|none>
+function buildBankOrderPromptCard(parsed, orders, isIncome) {
+  const dir = isIncome ? '⬇️ Приход' : '⬆️ Расход';
+  const cpLine = parsed.counterparty ? '\nКонтрагент: ' + parsed.counterparty : '';
+  const purLine = parsed.purpose ? '\nНазначение: ' + parsed.purpose : '';
+  const balLine = parsed.balance != null ? '\nОстаток: ' + fmtMoney(parsed.balance) : '';
+  return dir + ' *' + fmtMoney(parsed.amount) + '*' + cpLine + purLine + balLine +
+    '\n\n❓ *К какому заказу привязать?*';
+}
+
+function buildBankOrderKeyboard(txId, activeOrders, cps) {
+  const rows = [];
+  for (const o of (activeOrders || []).slice(0, 10)) {
+    const cp = (cps || []).find((c) => c.id === o.cid);
+    const cnPart = o.contract_number ? '№' + o.contract_number + ' · ' : '';
+    const label = ('#' + o.id + ' ' + cnPart + (o.title || '')).slice(0, 40) + (cp ? ' · ' + (cp.n || '').slice(0, 18) : '');
+    rows.push([{ text: label, callback_data: 'bs:ord:' + txId + ':' + o.id }]);
+  }
+  rows.push([
+    { text: '⏭ Без заказа', callback_data: 'bs:ord:' + txId + ':none' },
+  ]);
+  return rows;
 }
 
 // ----------------------------------------------------- category buttons --
@@ -228,6 +280,9 @@ module.exports = {
   isVerificationCode,
   buildKeyboard,
   buildCashoutKeyboard,
+  buildBankOrderPromptCard,
+  buildBankOrderKeyboard,
+  matchOrderByContract,
   catNameById,
   buildPendingCard,
   buildCategorizedCard,

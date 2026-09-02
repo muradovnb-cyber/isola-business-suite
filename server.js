@@ -564,6 +564,28 @@ const smsLimiter = rateLimit({
 
 function ipoolAsUZS(amount) { return { amt: amount, cur: 'UZS', rate: 1, uzs: amount }; }
 
+// Running-total helper. For 'bank' we prefer the latest bank SMS's
+// balance_after (that's what the bank reports — source of truth), and only
+// fall back to computed totals when no SMS-derived balance exists.
+function computeAccBalance(db, acc) {
+  const txs = (db.txs || []).filter((t) => t.acc === acc && t.status === 'CATEGORIZED');
+  if (acc === 'bank') {
+    // Latest SMS with a known balance wins.
+    const sorted = txs
+      .filter((t) => t.sms_meta && typeof t.sms_meta.balance_after === 'number')
+      .sort((a, b) => (b.categorized_at || '').localeCompare(a.categorized_at || ''));
+    if (sorted.length) return { balance: sorted[0].sms_meta.balance_after, source: 'sms' };
+  }
+  // Fallback: compute from tx history.
+  let bal = 0;
+  for (const t of txs) {
+    const v = Math.abs(t.uzs || 0);
+    if (t.type === 'income') bal += v;
+    else bal -= v;
+  }
+  return { balance: bal, source: 'computed' };
+}
+
 app.post('/api/bank/sms', smsLimiter, async (req, res) => {
   try {
     if (!BANK_SMS_SECRET) return res.status(500).json({ ok: false, error: 'BANK_SMS_SECRET not set', code: 'MISCONFIGURED' });
@@ -623,10 +645,36 @@ app.post('/api/bank/sms', smsLimiter, async (req, res) => {
 
     // Send Telegram card with inline keyboard. Best-effort — a Telegram
     // outage should not prevent the SMS from being recorded.
+    // - INCOME (Postupil): always ask which order it belongs to → tap = order
+    //   picker; the tap auto-fills cpid from the order.cid.
+    // - EXPENSE: same 10 categories + Обнал as before. If SMS purpose
+    //   contains "DOGOVOR N ..." and unambiguously matches one active
+    //   order's contract_number, auto-attach oid.
     const tx = result.tx;
     try {
-      const card = bankSms.buildPendingCard(parsed, tx.id);
-      const kb   = bankSms.buildKeyboard(tx.id, parsed.type === 'income');
+      const dbNow = readDB();
+      let card, kb;
+      if (parsed.type === 'income') {
+        const activeOrders = (dbNow.orders || []).filter((o) => o.status !== 'closed' && o.status !== 'cancelled');
+        card = bankSms.buildBankOrderPromptCard(parsed, activeOrders, true);
+        kb   = bankSms.buildBankOrderKeyboard(tx.id, activeOrders, dbNow.cps || []);
+      } else {
+        // Best-effort auto-attach for expense with contract ref.
+        const contractHit = bankSms.matchOrderByContract(parsed.contractRef, dbNow.orders || []);
+        if (contractHit) {
+          await withLock(async () => {
+            const db2 = readDB();
+            const t2 = (db2.txs || []).find((x) => x.id === tx.id);
+            if (t2) {
+              t2.oid = contractHit.id;
+              t2.cpid = contractHit.cid || null;
+              await writeAtomic(db2);
+            }
+          });
+        }
+        card = bankSms.buildPendingCard(parsed, tx.id);
+        kb   = bankSms.buildKeyboard(tx.id, false);
+      }
       const sent = await tg.sendWithButtons(null, card, kb);
       if (sent && sent.ok) {
         await withLock(async () => {
@@ -676,6 +724,39 @@ app.post('/api/telegram/webhook', async (req, res) => {
       if (gcid !== CASH_GROUP_CHAT_ID) {
         console.log('[cash] ignoring group message from non-authorised chat_id=' + gcid);
         return res.status(200).json({ ok: true, ignored: true, reason: 'wrong_group' });
+      }
+
+      // Balance-set command (owner: "касса баланс 45 000 000"). Creates an
+      // adjustment tx so subsequent cash txs roll forward from that point.
+      const balCmd = cash.parseBalanceCommand(msg.text);
+      if (balCmd) {
+        const outcome = await withLock(async () => {
+          const db = readDB();
+          const cur = computeAccBalance(db, 'cash').balance;
+          const delta = balCmd.newBalance - cur;
+          const nextId = 1 + ((db.txs || []).reduce((m, t) => Math.max(m, +t.id || 0), 0));
+          db.txs = db.txs || [];
+          db.txs.push({
+            id: nextId, date: cash.today(),
+            type: delta >= 0 ? 'income' : 'expense',
+            acc: 'cash', iid: null, inc_cat: 'other_in',
+            cpid: null, oid: null, emp_uid: null,
+            amt: Math.abs(delta), cur: 'UZS', rate: 1, uzs: Math.abs(delta),
+            note: 'Установка остатка кассы: ' + balCmd.newBalance.toLocaleString('ru-RU').replace(/,/g, ' ') + ' UZS',
+            by: 0, debt: false,
+            status: 'CATEGORIZED',
+            source: 'tg-cash-adjust',
+            categorized_at: new Date().toISOString(),
+            categorized_by: (msg.from && msg.from.username) || 'telegram',
+          });
+          await writeAtomic(db);
+          return { newBalance: balCmd.newBalance, delta };
+        });
+        await tg.sendWithButtons(gcid,
+          '✅ Остаток кассы установлен: *' + cash.fmtMoney(outcome.newBalance, 'UZS') + '*' +
+          '\nСоздана корректирующая запись (' + (outcome.delta >= 0 ? '+' : '') + cash.fmtMoney(outcome.delta, 'UZS') + ').',
+          [], { parseMode: 'Markdown' });
+        return res.status(200).json({ ok: true, balance_set: outcome.newBalance });
       }
 
       // Read users so we can match employee names in the free-form text.
@@ -939,18 +1020,64 @@ app.post('/api/telegram/webhook', async (req, res) => {
       const catName = outcome.under_report ? '📒 Под отчёт (petty)' : cash.catNameById(outcome.tx.type === 'income', catCode);
       await tg.answerCallbackQuery(cq.id, outcome.already ? 'Уже отмечено' : ('→ ' + catName));
       if (chatId && msgId) {
+        const dbLookup = readDB();
         const parsedShape = { type: outcome.tx.type, description: outcome.tx.note };
         const empName = outcome.tx.cash_meta && outcome.tx.cash_meta.suggested_employee
           ? outcome.tx.cash_meta.suggested_employee.name : null;
         let orderLabel = null;
         if (outcome.tx.oid) {
-          const dbLookup = readDB();
           const o = (dbLookup.orders || []).find((x) => x.id === outcome.tx.oid);
           if (o) orderLabel = '#' + o.id + ' ' + (o.title || '');
         }
-        const done = cash.buildCategorizedCard(parsedShape, outcome.tx.uzs, catName, who, empName, orderLabel);
+        let done = cash.buildCategorizedCard(parsedShape, outcome.tx.uzs, catName, who, empName, orderLabel);
+        const bal = computeAccBalance(dbLookup, 'cash');
+        done += '\n━━━━━━━━━━\n💰 Касса: *' + cash.fmtMoney(bal.balance, 'UZS') + '*';
         await tg.editMessageText(chatId, msgId, done, [], { parseMode: 'Markdown' });
       }
+      return res.status(200).json({ ok: true });
+    }
+
+    // -------- Bank income order picker: bs:ord:<txId>:<oid|none> --------
+    // Fired for Postupil (incoming) SMS: user taps which order this payment
+    // belongs to; cpid is auto-filled from order.cid, then we ask category
+    // (advance/prepay/…).
+    const bsOrdM = data.match(/^bs:ord:(\d+):(none|\d+)$/);
+    if (bsOrdM) {
+      const txId = parseInt(bsOrdM[1], 10);
+      const oidStr = bsOrdM[2];
+      const outcome = await withLock(async () => {
+        const db = readDB();
+        const tx = (db.txs || []).find((t) => t.id === txId);
+        if (!tx || tx.source !== 'sms-aab' || tx.status !== 'PENDING') return { ok: false };
+        if (oidStr !== 'none') {
+          const oid = parseInt(oidStr, 10);
+          const o = (db.orders || []).find((x) => x.id === oid);
+          if (!o) return { ok: false, reason: 'order not found' };
+          tx.oid = o.id;
+          tx.cpid = o.cid || null;
+        }
+        await writeAtomic(db);
+        return { ok: true, tx, db };
+      });
+      if (!outcome.ok) {
+        await tg.answerCallbackQuery(cq.id, 'Транзакция уже обработана');
+        return res.status(200).json({ ok: true });
+      }
+      const tx = outcome.tx;
+      const orderResolved = tx.oid ? (outcome.db.orders || []).find((o) => o.id === tx.oid) : null;
+      const cpResolved = tx.cpid ? (outcome.db.cps || []).find((c) => c.id === tx.cpid) : null;
+      // Now show the income category picker (advance/prepay/final/refund/other).
+      const parsedShape = {
+        type: tx.type, amount: tx.amt,
+        counterparty: cpResolved ? cpResolved.n : (tx.sms_meta && tx.sms_meta.counterparty),
+        purpose: tx.sms_meta && tx.sms_meta.purpose,
+        balance: tx.sms_meta && tx.sms_meta.balance_after,
+      };
+      const card = bankSms.buildPendingCard(parsedShape, tx.id) +
+        (orderResolved ? '\n📦 Заказ: *#' + orderResolved.id + ' ' + (orderResolved.title || '') + '*' : '\n📦 _Без заказа_');
+      const kb = bankSms.buildKeyboard(tx.id, true /* isIncome */);
+      if (chatId && msgId) await tg.editMessageText(chatId, msgId, card, kb, { parseMode: 'Markdown' });
+      await tg.answerCallbackQuery(cq.id, orderResolved ? '→ #' + orderResolved.id : 'Без заказа');
       return res.status(200).json({ ok: true });
     }
 
@@ -1136,14 +1263,19 @@ app.post('/api/telegram/webhook', async (req, res) => {
 
     // Edit the original card in place, removing buttons and adding checkmark.
     if (chatId && msgId) {
+      const dbLookup = readDB();
       const parsedShape = {
         type: outcome.tx.type,
         amount: outcome.tx.amt,
         counterparty: outcome.tx.sms_meta && outcome.tx.sms_meta.counterparty,
         purpose: outcome.tx.sms_meta && outcome.tx.sms_meta.purpose,
       };
-      const newText = bankSms.buildCategorizedCard(parsedShape, catName, outcome.tx.categorized_by);
-      await tg.editMessageText(chatId, msgId, newText, [], {});
+      const bal = computeAccBalance(dbLookup, 'bank');
+      const orderResolved = outcome.tx.oid ? (dbLookup.orders || []).find((o) => o.id === outcome.tx.oid) : null;
+      let newText = bankSms.buildCategorizedCard(parsedShape, catName, outcome.tx.categorized_by);
+      if (orderResolved) newText += '\n📦 Заказ: #' + orderResolved.id + ' ' + (orderResolved.title || '');
+      newText += '\n━━━━━━━━━━\n🏦 Банк: *' + bankSms.fmtMoney(bal.balance) + '*';
+      await tg.editMessageText(chatId, msgId, newText, [], { parseMode: 'Markdown' });
     }
     res.status(200).json({ ok: true });
   } catch (e) {
