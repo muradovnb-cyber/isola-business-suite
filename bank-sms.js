@@ -125,6 +125,10 @@ const CASHOUT_PERCENTS = [
   { bp: 20, label: '2 %' },
   { bp: 25, label: '2.5 %' },
   { bp: 30, label: '3 %' },
+  { bp: 40, label: '4 %' },
+  { bp: 45, label: '4.5 %' },
+  { bp: 50, label: '5 %' },
+  { bp: 60, label: '6 %' },
 ];
 
 // INCOME_CATS mirrors the one in index.html.
