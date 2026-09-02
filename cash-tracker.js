@@ -73,12 +73,18 @@ function isForwarded(msg) {
 // Returns { raw: '400', value: 400, source: 'plain' | 'space-grouped' } or null.
 function extractAmount(text) {
   const s = ' ' + text + ' ';
-  // Space-grouped first: "1 200 000" or "1200 000" (owner uses both). We
-  // accept 1-4 digits before the first space, then repeating 3-digit groups.
-  // Kept without \b (kills Unicode neighbours in JS without u flag).
+  // Space-grouped: "1 200 000" or "1200 000" (owner uses both).
   const spg = s.match(/(?:[^\d.,])(\d{1,4}(?:[ ]\d{3})+)(?:[.,]\d{1,2})?(?:[^\d.,])/);
   if (spg) {
     return { raw: spg[1], value: parseInt(spg[1].replace(/ /g, ''), 10), source: 'space-grouped' };
+  }
+  // Dot-grouped: "500.000" or "1.500.000" — common Uzbek/CIS thousands
+  // notation. Requires AT LEAST one dot+3 digits group (otherwise "500.5"
+  // would collide with real decimals). To exclude a lone decimal like
+  // "500.5" we look for at least one "\.\d{3}" pattern.
+  const dot = s.match(/(?:[^\d.,])(\d{1,4}(?:\.\d{3})+)(?:[^\d.,])/);
+  if (dot) {
+    return { raw: dot[1], value: parseInt(dot[1].replace(/\./g, ''), 10), source: 'dot-grouped' };
   }
   // Plain digits: "400", "1200", "500000". Look for a run of digits with
   // non-digit neighbours (or start/end). No \b — Cyrillic-safe.
@@ -116,6 +122,7 @@ function detectCurrency(text) {
 function isAmbiguousUZS(amountInfo) {
   if (!amountInfo) return false;
   if (amountInfo.source === 'space-grouped') return false;
+  if (amountInfo.source === 'dot-grouped')   return false;   // "500.000" is literal 500 000
   return amountInfo.value <= 9999;
 }
 
