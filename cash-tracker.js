@@ -136,6 +136,43 @@ function normalizeCyr(s) {
   return String(s || '').toLowerCase().replace(/ё/g, 'е');
 }
 
+// Detect that owner mentioned "заказ ..." in the message + extract the query
+// following it. Returns null if no such mention, or { query, needsResolution: true }.
+// The actual resolution (against DB.orders) is done by matchOrder below so
+// callers can pass whichever order list they want.
+function detectOrderIntent(text) {
+  const s = normalizeCyr(text);
+  // "заказ" / "заказе" / "заказа" / "закзу" (typo-tolerant) + optional number or word
+  const m = s.match(/(?:^|[^а-яa-z])заказ[а-я]*\s*([^\s.,]{1,40}(?:\s+[^\s.,]{1,40}){0,2})?/i);
+  if (!m) return null;
+  const query = (m[1] || '').trim();
+  return { query, needsResolution: true };
+}
+
+// Match query → concrete order (or 'multiple' / 'not_found').
+//   - if query is a bare number, match by id
+//   - otherwise substring match on title AND on client name
+// Only active/open orders are considered by default.
+function matchOrder(query, orders, cps) {
+  const active = (orders || []).filter((o) => o.status !== 'closed' && o.status !== 'cancelled');
+  if (!query) return { status: 'not_found', query, candidates: active.slice(0, 8) };
+  const q = normalizeCyr(query);
+  const asNum = /^\d+$/.test(q) ? parseInt(q, 10) : null;
+  const hits = [];
+  for (const o of active) {
+    if (asNum != null && o.id === asNum) hits.push(o);
+    else {
+      const t = normalizeCyr(o.title || '');
+      const cp = (cps || []).find((c) => c.id === o.cid);
+      const cn = normalizeCyr((cp && cp.n) || '');
+      if (t.indexOf(q) >= 0 || (cn && cn.indexOf(q) >= 0)) hits.push(o);
+    }
+  }
+  if (hits.length === 1) return { status: 'found', query, order: hits[0] };
+  if (hits.length > 1)   return { status: 'multiple', query, candidates: hits.slice(0, 8) };
+  return { status: 'not_found', query, candidates: active.slice(0, 8) };
+}
+
 function matchEmployee(text, users) {
   if (!Array.isArray(users) || !users.length) return null;
   const t = normalizeCyr(text);
@@ -198,6 +235,7 @@ function parseCashMessage(msg, users) {
     isUnderReport: isUnder,
     suggestedItem: suggested,              // { iid, n } | null
     suggestedEmployee: matchEmployee(text, users), // { id, name, matched } | null
+    orderIntent: detectOrderIntent(text),  // { query, needsResolution } | null
     type,                                  // 'expense' | 'income'
   };
 }
@@ -267,17 +305,52 @@ const CASH_INCOME_CATS = [
   { id: 'other_in', n: 'Прочее' },
 ];
 
-function buildCashCard(parsed, txId, uzsAmount, extra) {
+// Order-picker card: shown after currency is resolved AND the message
+// mentioned "заказ" — either because we couldn't unambiguously find one, or
+// there are multiple matches. Callback: cash:ord:<txId>:<oid|none>
+function buildOrderPromptCard(parsed, uzsAmount, orderMatch) {
+  const dir = parsed.type === 'income' ? '⬇️ Приход' : '⬆️ Расход';
+  const q = orderMatch && orderMatch.query;
+  const headline = orderMatch && orderMatch.status === 'multiple'
+    ? '❓ *Нашёл несколько заказов* по «' + q + '» — выбери какой:'
+    : (q
+        ? '❓ *Заказ «' + q + '» не найден.* Выбери из активных или пропусти:'
+        : '❓ *К какому заказу отнести?*');
+  return [
+    dir + ' *' + fmtMoney(uzsAmount, 'UZS') + '*',
+    parsed.description ? '_' + parsed.description + '_' : null,
+    '',
+    headline,
+  ].filter(Boolean).join('\n');
+}
+
+function buildOrderPromptKeyboard(txId, candidates, cps) {
+  const rows = [];
+  for (const o of (candidates || []).slice(0, 8)) {
+    const cp = (cps || []).find((c) => c.id === o.cid);
+    const label = ('#' + o.id + ' ' + (o.title || '')).slice(0, 40)
+                  + (cp ? ' · ' + (cp.n || '').slice(0, 20) : '');
+    rows.push([{ text: label, callback_data: 'cash:ord:' + txId + ':' + o.id }]);
+  }
+  rows.push([
+    { text: '⏭ Без заказа', callback_data: 'cash:ord:' + txId + ':none' },
+    { text: '❌ Отменить',   callback_data: 'cash:cancel:' + txId },
+  ]);
+  return rows;
+}
+
+function buildCashCard(parsed, txId, uzsAmount, extra, order) {
   const dir = parsed.type === 'income' ? '⬇️ Приход' : '⬆️ Расход';
   const suggested = parsed.suggestedItem ? '\nПредположительно: *' + parsed.suggestedItem.n + '*' : '';
   const emp = parsed.suggestedEmployee ? '\n👤 Сотрудник: *' + parsed.suggestedEmployee.name + '*' : '';
+  const ordLine = order ? '\n📦 Заказ: *#' + order.id + ' ' + (order.title || '') + '*' : '';
   const currLabel = parsed.currency === 'USD'
     ? ` (${parsed.amount} USD)`
     : (extra && extra.wasThousands ? ' (введено «' + parsed.amount + '», ×1000)' : '');
   return [
     dir + ' *' + fmtMoney(uzsAmount, 'UZS') + '*' + currLabel,
     parsed.description ? '_' + parsed.description + '_' : null,
-    emp + suggested,
+    emp + ordLine + suggested,
     '',
     'Выбери статью:',
   ].filter(Boolean).join('\n');
@@ -309,12 +382,13 @@ function catNameById(isIncome, catId) {
   return hit ? hit.n : String(catId);
 }
 
-function buildCategorizedCard(parsed, uzsAmount, catName, by, empName) {
+function buildCategorizedCard(parsed, uzsAmount, catName, by, empName, orderLabel) {
   const dir = parsed.type === 'income' ? '⬇️ Приход' : '⬆️ Расход';
   return [
     '✅ ' + dir + ' *' + fmtMoney(uzsAmount, 'UZS') + '*',
     parsed.description ? '_' + parsed.description + '_' : null,
     empName ? '👤 ' + empName : null,
+    orderLabel ? '📦 ' + orderLabel : null,
     'Статья: *' + catName + '*',
     by ? '_by ' + by + '_' : null,
   ].filter(Boolean).join('\n');
@@ -327,10 +401,14 @@ module.exports = {
   detectCurrency,
   suggestItem,
   matchEmployee,
+  detectOrderIntent,
+  matchOrder,
   fmtMoney,
   today,
   buildCurrencyPromptCard,
   buildCurrencyPromptKeyboard,
+  buildOrderPromptCard,
+  buildOrderPromptKeyboard,
   buildCashCard,
   buildCashKeyboard,
   buildCategorizedCard,
