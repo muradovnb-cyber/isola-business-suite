@@ -656,6 +656,123 @@ app.post('/api/telegram/webhook', async (req, res) => {
     if (!cq) return res.status(200).json({ ok: true });
 
     const data = String(cq.data || '');
+    const who = cq.from ? (cq.from.username || String(cq.from.id)) : 'telegram';
+    const chatId = cq.message && cq.message.chat && cq.message.chat.id;
+    const msgId  = cq.message && cq.message.message_id;
+
+    // -------- Cancel cashout: bs:cancel-cashout:<txId> — restore main keyboard --------
+    const cancelM = data.match(/^bs:cancel-cashout:(\d+)$/);
+    if (cancelM) {
+      const txId = parseInt(cancelM[1], 10);
+      const db = readDB();
+      const tx = (db.txs || []).find((t) => t.id === txId);
+      if (!tx || tx.source !== 'sms-aab' || tx.status !== 'PENDING') {
+        await tg.answerCallbackQuery(cq.id, 'Транзакция уже обработана');
+        return res.status(200).json({ ok: true });
+      }
+      const parsedShape = {
+        type: tx.type,
+        amount: tx.amt,
+        counterparty: tx.sms_meta && tx.sms_meta.counterparty,
+        purpose: tx.sms_meta && tx.sms_meta.purpose,
+        balance: tx.sms_meta && tx.sms_meta.balance_after,
+      };
+      const card = bankSms.buildPendingCard(parsedShape, tx.id);
+      const kb   = bankSms.buildKeyboard(tx.id, tx.type === 'income');
+      if (chatId && msgId) await tg.editMessageText(chatId, msgId, card, kb, {});
+      await tg.answerCallbackQuery(cq.id, 'Отмена');
+      return res.status(200).json({ ok: true });
+    }
+
+    // -------- Commission picker: bs:comm:<txId>:<bp> (bp = tenths of %) --------
+    const commM = data.match(/^bs:comm:(\d+):(\d{1,3})$/);
+    if (commM) {
+      const txId = parseInt(commM[1], 10);
+      const bp   = parseInt(commM[2], 10);
+      if (!bankSms.CASHOUT_PERCENTS.some((p) => p.bp === bp)) {
+        await tg.answerCallbackQuery(cq.id, 'Неверный %');
+        return res.status(200).json({ ok: true });
+      }
+
+      const outcome = await withLock(async () => {
+        const db = readDB();
+        const tx = (db.txs || []).find((t) => t.id === txId);
+        if (!tx) return { ok: false, reason: 'not found' };
+        if (tx.source !== 'sms-aab') return { ok: false, reason: 'wrong source' };
+        if (tx.status === 'CATEGORIZED') return { ok: true, already: true, tx };
+        if (tx.status !== 'PENDING') return { ok: false, reason: 'wrong status' };
+        if (tx.type !== 'expense') return { ok: false, reason: 'not expense' };
+
+        const origAmt = tx.amt;
+        const comm = Math.round(origAmt * bp / 1000); // bp is tenths-of-%
+        // Never over-consume: if the arithmetic produced a comm >= origAmt
+        // (shouldn't for realistic % but guard) — reject.
+        if (comm <= 0 || comm >= origAmt) return { ok: false, reason: 'bad amount' };
+
+        // Update ORIGINAL: it becomes the "cash-out itself" (money the owner
+        // actually walked away with). item 14 = "Потери обнал" — kept as
+        // one bucket per user preference.
+        tx.iid = 14;
+        const netCash = origAmt - comm;
+        tx.amt = netCash; tx.uzs = netCash;
+        tx.note = 'Обнал ' + bankSms.fmtMoney(origAmt) + ' — получено ' + bankSms.fmtMoney(netCash);
+        tx.status = 'CATEGORIZED';
+        tx.categorized_at = new Date().toISOString();
+        tx.categorized_by = who;
+        tx.cashout = { bp, orig_amount: origAmt, commission: comm };
+
+        // Create a SECOND tx for the commission itself.
+        const nextId = 1 + (db.txs.reduce((m, t) => Math.max(m, +t.id || 0), 0));
+        const commTx = {
+          id: nextId, date: bankSms.today(),
+          type: 'expense', acc: 'bank',
+          iid: 14, inc_cat: null,
+          cpid: null, oid: null,
+          amt: comm, cur: 'UZS', rate: 1, uzs: comm,
+          note: 'Комиссия обнала ' + (bp / 10) + '% (tx#' + tx.id + ')',
+          by: 0, debt: false,
+          status: 'CATEGORIZED',
+          source: 'sms-aab-commission',
+          parent_tx_id: tx.id,
+          categorized_at: new Date().toISOString(),
+          categorized_by: who,
+        };
+        db.txs.push(commTx);
+
+        await writeAtomic(db);
+        return { ok: true, tx, commTx, bp };
+      });
+
+      if (!outcome.ok) {
+        await tg.answerCallbackQuery(cq.id, outcome.reason || 'Ошибка');
+        return res.status(200).json({ ok: true });
+      }
+      if (outcome.already) {
+        await tg.answerCallbackQuery(cq.id, 'Уже отмечено');
+        return res.status(200).json({ ok: true });
+      }
+
+      const pctText = (outcome.bp / 10) + '%';
+      await tg.answerCallbackQuery(cq.id, '✓ Обнал + комиссия ' + pctText);
+      if (chatId && msgId) {
+        const orig = outcome.tx.cashout.orig_amount;
+        const cash = outcome.tx.amt;
+        const comm = outcome.tx.cashout.commission;
+        const lines = [
+          '✅ ⬆️ *Обнал ' + bankSms.fmtMoney(orig) + '*',
+          outcome.tx.sms_meta && outcome.tx.sms_meta.counterparty ? 'Контрагент: ' + outcome.tx.sms_meta.counterparty : null,
+          '',
+          '💵 Получено налом: *' + bankSms.fmtMoney(cash) + '*',
+          '💸 Комиссия ' + pctText + ': *' + bankSms.fmtMoney(comm) + '*',
+          'Статья обеих: *Потери обнал*',
+          '_Категоризировано: ' + who + '_',
+        ].filter(Boolean);
+        await tg.editMessageText(chatId, msgId, lines.join('\n'), [], {});
+      }
+      return res.status(200).json({ ok: true });
+    }
+
+    // -------- Normal categorize (or cashout entry): bs:cat:<txId>:<code> --------
     const m = data.match(/^bs:cat:(\d+):(.+)$/);
     if (!m) {
       await tg.answerCallbackQuery(cq.id, 'Неизвестное действие');
@@ -663,6 +780,30 @@ app.post('/api/telegram/webhook', async (req, res) => {
     }
     const txId = parseInt(m[1], 10);
     const catCode = m[2];
+
+    // Special case: "cashout" is not a real item — it swaps the keyboard.
+    if (catCode === 'cashout') {
+      const db = readDB();
+      const tx = (db.txs || []).find((t) => t.id === txId);
+      if (!tx || tx.source !== 'sms-aab' || tx.type !== 'expense') {
+        await tg.answerCallbackQuery(cq.id, 'Обнал доступен только для расходов SMS');
+        return res.status(200).json({ ok: true });
+      }
+      if (tx.status !== 'PENDING') {
+        await tg.answerCallbackQuery(cq.id, 'Транзакция уже обработана');
+        return res.status(200).json({ ok: true });
+      }
+      const cashKb = bankSms.buildCashoutKeyboard(tx.id);
+      const askLines = [
+        '💵 *Обнал ' + bankSms.fmtMoney(tx.amt) + '*',
+        tx.sms_meta && tx.sms_meta.counterparty ? 'Контрагент: ' + tx.sms_meta.counterparty : null,
+        '',
+        '_Какой % комиссии банка?_',
+      ].filter(Boolean);
+      if (chatId && msgId) await tg.editMessageText(chatId, msgId, askLines.join('\n'), cashKb, {});
+      await tg.answerCallbackQuery(cq.id, 'Выбери %');
+      return res.status(200).json({ ok: true });
+    }
 
     const outcome = await withLock(async () => {
       const db = readDB();
@@ -677,7 +818,8 @@ app.post('/api/telegram/webhook', async (req, res) => {
 
       const isIncome = tx.type === 'income';
       // Validate catCode against the appropriate list — reject cross-type.
-      const validList = isIncome ? bankSms.INCOME_CATS : bankSms.EXPENSE_CATS;
+      // 'cashout' is handled above; skipped here.
+      const validList = isIncome ? bankSms.INCOME_CATS : bankSms.EXPENSE_CATS.filter((c) => c.id !== 'cashout');
       const wantId = isIncome ? String(catCode) : parseInt(catCode, 10);
       if (!validList.some((c) => c.id === wantId)) return { ok: false, reason: 'unknown category' };
 
@@ -685,7 +827,7 @@ app.post('/api/telegram/webhook', async (req, res) => {
       else tx.iid = parseInt(catCode, 10);
       tx.status = 'CATEGORIZED';
       tx.categorized_at = new Date().toISOString();
-      tx.categorized_by = cq.from ? (cq.from.username || String(cq.from.id)) : 'telegram';
+      tx.categorized_by = who;
       await writeAtomic(db);
       return { ok: true, tx, isIncome };
     });
@@ -699,7 +841,7 @@ app.post('/api/telegram/webhook', async (req, res) => {
     await tg.answerCallbackQuery(cq.id, outcome.already ? 'Уже отмечено' : `→ ${catName}`);
 
     // Edit the original card in place, removing buttons and adding checkmark.
-    if (cq.message && cq.message.chat && cq.message.message_id) {
+    if (chatId && msgId) {
       const parsedShape = {
         type: outcome.tx.type,
         amount: outcome.tx.amt,
@@ -707,7 +849,7 @@ app.post('/api/telegram/webhook', async (req, res) => {
         purpose: outcome.tx.sms_meta && outcome.tx.sms_meta.purpose,
       };
       const newText = bankSms.buildCategorizedCard(parsedShape, catName, outcome.tx.categorized_by);
-      await tg.editMessageText(cq.message.chat.id, cq.message.message_id, newText, [], {});
+      await tg.editMessageText(chatId, msgId, newText, [], {});
     }
     res.status(200).json({ ok: true });
   } catch (e) {

@@ -99,6 +99,9 @@ function parseAAB(smsText) {
 // The 10 default expense-category groups (parent-level items from ITEMS in
 // index.html). Duplicated here so the backend doesn't need to parse the SPA.
 // Keep IDs in sync with .github/… — actually with index.html ITEMS array.
+//
+// `cashout` is a VIRTUAL category: tapping it does not finalize the tx, it
+// swaps the keyboard for a commission-% picker (see buildCashoutKeyboard).
 const EXPENSE_CATS = [
   { id: 13, n: '% банка' },
   { id: 16, n: 'Материалы' },
@@ -110,6 +113,18 @@ const EXPENSE_CATS = [
   { id: 12, n: 'Бензин' },
   { id: 32, n: 'Прочие расходы заказ' },
   { id: 15, n: 'Прочие общие' },
+  { id: 'cashout', n: '💵 Обнал' },
+];
+
+// Commission %-picker offered after user taps "Обнал". Numbers are stored as
+// tenths of a percent (basis-points/10) so 15 == 1.5%. That gives a nice
+// integer round-trip through Telegram's 64-byte callback_data limit.
+const CASHOUT_PERCENTS = [
+  { bp: 10, label: '1 %' },
+  { bp: 15, label: '1.5 %' },
+  { bp: 20, label: '2 %' },
+  { bp: 25, label: '2.5 %' },
+  { bp: 30, label: '3 %' },
 ];
 
 // INCOME_CATS mirrors the one in index.html.
@@ -144,10 +159,26 @@ function buildKeyboard(txId, isIncome) {
 }
 
 function catNameById(isIncome, catId) {
+  if (!isIncome && catId === 'cashout') return '💵 Обнал';
   const src = isIncome ? INCOME_CATS : EXPENSE_CATS;
-  const cid = isIncome ? String(catId) : parseInt(catId, 10);
+  // 'cashout' is a string — don't parseInt or we get NaN.
+  const cid = isIncome ? String(catId) : (typeof catId === 'string' && /^\d+$/.test(catId) ? parseInt(catId, 10) : catId);
   const hit = src.find((c) => c.id === cid);
   return hit ? hit.n : String(catId);
+}
+
+// Commission-picker keyboard shown after user taps "💵 Обнал".
+// callback_data: "bs:comm:<txId>:<bp>" where bp is tenths-of-percent (15=1.5%)
+function buildCashoutKeyboard(txId) {
+  const rows = [];
+  for (let i = 0; i < CASHOUT_PERCENTS.length; i += 3) {
+    rows.push(CASHOUT_PERCENTS.slice(i, i + 3).map((p) => ({
+      text: p.label,
+      callback_data: `bs:comm:${txId}:${p.bp}`,
+    })));
+  }
+  rows.push([{ text: '← Отмена', callback_data: `bs:cancel-cashout:${txId}` }]);
+  return rows;
 }
 
 // --------------------------------------------------------- formatting ---
@@ -192,10 +223,13 @@ module.exports = {
   parseAAB,
   isVerificationCode,
   buildKeyboard,
+  buildCashoutKeyboard,
   catNameById,
   buildPendingCard,
   buildCategorizedCard,
+  fmtMoney,
   today,
   EXPENSE_CATS,
   INCOME_CATS,
+  CASHOUT_PERCENTS,
 };
