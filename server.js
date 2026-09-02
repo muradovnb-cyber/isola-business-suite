@@ -655,23 +655,18 @@ app.post('/api/bank/sms', smsLimiter, async (req, res) => {
       const dbNow = readDB();
       let card, kb;
       if (parsed.type === 'income') {
+        // Postupil = payment FROM a client. SMS purpose usually contains
+        // OUR договор with that client → matches order.contract_number.
+        // Always ask which order (single tap → cpid auto-filled).
         const activeOrders = (dbNow.orders || []).filter((o) => o.status !== 'closed' && o.status !== 'cancelled');
         card = bankSms.buildBankOrderPromptCard(parsed, activeOrders, true);
         kb   = bankSms.buildBankOrderKeyboard(tx.id, activeOrders, dbNow.cps || []);
       } else {
-        // Best-effort auto-attach for expense with contract ref.
-        const contractHit = bankSms.matchOrderByContract(parsed.contractRef, dbNow.orders || []);
-        if (contractHit) {
-          await withLock(async () => {
-            const db2 = readDB();
-            const t2 = (db2.txs || []).find((x) => x.id === tx.id);
-            if (t2) {
-              t2.oid = contractHit.id;
-              t2.cpid = contractHit.cid || null;
-              await writeAtomic(db2);
-            }
-          });
-        }
+        // Rasxod = payment TO a supplier. Any "DOGOVOR N ..." in the purpose
+        // is OUR contract WITH THE SUPPLIER — not one of our own orders,
+        // so we DON'T try to auto-attach an oid here. The purpose text is
+        // preserved verbatim in sms_meta.purpose for the audit trail; the
+        // owner picks the right expense category with the buttons.
         card = bankSms.buildPendingCard(parsed, tx.id);
         kb   = bankSms.buildKeyboard(tx.id, false);
       }
