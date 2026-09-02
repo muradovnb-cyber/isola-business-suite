@@ -722,7 +722,8 @@ app.post('/api/telegram/webhook', async (req, res) => {
 
       // Decide next UI step:
       //   1. Currency unspecified AND amount looks ambiguous → ask currency
-      //   2. Currency known (USD or unambiguous UZS) → show category picker
+      //   2. Currency known + order mentioned + not resolvable → ask which order
+      //   3. Currency known + no order intent (or auto-resolved) → show category picker
       let sent;
       if (!parsed.currency && parsed.ambiguousUZS) {
         const card = cash.buildCurrencyPromptCard(parsed, result.id);
@@ -732,20 +733,36 @@ app.post('/api/telegram/webhook', async (req, res) => {
         const uzsAmount = parsed.currency === 'USD'
           ? Math.round(parsed.amount * USD_RATE_DEFAULT)
           : parsed.amount;
-        // Persist rate so the tx UZS field is correct.
+        // Try to auto-resolve the order first (if any).
+        let orderResolved = null;
+        let orderMatch = null;
+        if (parsed.orderIntent) {
+          orderMatch = cash.matchOrder(parsed.orderIntent.query, dbForParse.orders || [], dbForParse.cps || []);
+          if (orderMatch.status === 'found') orderResolved = orderMatch.order;
+        }
+        // Persist rate + order if we already know them.
         await withLock(async () => {
           const db2 = readDB();
           const t2 = (db2.txs || []).find((x) => x.id === result.id);
           if (t2) {
             t2.uzs = uzsAmount;
             if (parsed.currency === 'USD') t2.rate = USD_RATE_DEFAULT;
+            if (orderResolved) t2.oid = orderResolved.id;
             await writeAtomic(db2);
           }
         });
-        const card = cash.buildCashCard(parsed, result.id, uzsAmount, { wasThousands: false });
-        const kb   = cash.buildCashKeyboard(result.id, parsed.type === 'income',
-                                            parsed.suggestedItem ? parsed.suggestedItem.iid : null);
-        sent = await tg.sendWithButtons(gcid, card, kb, { parseMode: 'Markdown' });
+
+        if (parsed.orderIntent && !orderResolved) {
+          // Show order picker; category selection happens after user picks.
+          const card = cash.buildOrderPromptCard(parsed, uzsAmount, orderMatch);
+          const kb   = cash.buildOrderPromptKeyboard(result.id, orderMatch.candidates || [], dbForParse.cps || []);
+          sent = await tg.sendWithButtons(gcid, card, kb, { parseMode: 'Markdown' });
+        } else {
+          const card = cash.buildCashCard(parsed, result.id, uzsAmount, { wasThousands: false }, orderResolved);
+          const kb   = cash.buildCashKeyboard(result.id, parsed.type === 'income',
+                                              parsed.suggestedItem ? parsed.suggestedItem.iid : null);
+          sent = await tg.sendWithButtons(gcid, card, kb, { parseMode: 'Markdown' });
+        }
       }
 
       // Remember the message id so callback flow can editMessageText.
@@ -810,6 +827,39 @@ app.post('/api/telegram/webhook', async (req, res) => {
                                           parsedShape.suggestedItem ? parsedShape.suggestedItem.iid : null);
       if (chatId && msgId) await tg.editMessageText(chatId, msgId, card, kb, { parseMode: 'Markdown' });
       await tg.answerCallbackQuery(cq.id, choice === 'UZS_K' ? '×1000' : choice);
+      return res.status(200).json({ ok: true });
+    }
+
+    // cash:ord:<txId>:<oid|none> — user picked an order (or skipped)
+    const ordM = data.match(/^cash:ord:(\d+):(none|\d+)$/);
+    if (ordM) {
+      const txId = parseInt(ordM[1], 10);
+      const oidStr = ordM[2];
+      const outcome = await withLock(async () => {
+        const db = readDB();
+        const tx = (db.txs || []).find((t) => t.id === txId);
+        if (!tx || tx.source !== 'tg-cash' || tx.status !== 'PENDING') return { ok: false };
+        if (oidStr !== 'none') tx.oid = parseInt(oidStr, 10);
+        await writeAtomic(db);
+        return { ok: true, tx, db };
+      });
+      if (!outcome.ok) {
+        await tg.answerCallbackQuery(cq.id, 'Транзакция уже обработана');
+        return res.status(200).json({ ok: true });
+      }
+      const tx = outcome.tx;
+      const orderResolved = tx.oid ? (outcome.db.orders || []).find((o) => o.id === tx.oid) : null;
+      const parsedShape = {
+        type: tx.type, amount: tx.amt, currency: tx.cur,
+        description: tx.note,
+        suggestedItem: tx.cash_meta && tx.cash_meta.suggested_item,
+        suggestedEmployee: tx.cash_meta && tx.cash_meta.suggested_employee,
+      };
+      const card = cash.buildCashCard(parsedShape, tx.id, tx.uzs, {}, orderResolved);
+      const kb   = cash.buildCashKeyboard(tx.id, tx.type === 'income',
+                                          parsedShape.suggestedItem ? parsedShape.suggestedItem.iid : null);
+      if (chatId && msgId) await tg.editMessageText(chatId, msgId, card, kb, { parseMode: 'Markdown' });
+      await tg.answerCallbackQuery(cq.id, orderResolved ? '→ #' + orderResolved.id : 'Без заказа');
       return res.status(200).json({ ok: true });
     }
 
@@ -892,7 +942,13 @@ app.post('/api/telegram/webhook', async (req, res) => {
         const parsedShape = { type: outcome.tx.type, description: outcome.tx.note };
         const empName = outcome.tx.cash_meta && outcome.tx.cash_meta.suggested_employee
           ? outcome.tx.cash_meta.suggested_employee.name : null;
-        const done = cash.buildCategorizedCard(parsedShape, outcome.tx.uzs, catName, who, empName);
+        let orderLabel = null;
+        if (outcome.tx.oid) {
+          const dbLookup = readDB();
+          const o = (dbLookup.orders || []).find((x) => x.id === outcome.tx.oid);
+          if (o) orderLabel = '#' + o.id + ' ' + (o.title || '');
+        }
+        const done = cash.buildCategorizedCard(parsedShape, outcome.tx.uzs, catName, who, empName, orderLabel);
         await tg.editMessageText(chatId, msgId, done, [], { parseMode: 'Markdown' });
       }
       return res.status(200).json({ ok: true });
