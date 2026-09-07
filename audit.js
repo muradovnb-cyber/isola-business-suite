@@ -44,9 +44,9 @@ function buildAudit(db, mode) {
   for (const [t, n] of Object.entries(titleCount)) if (n > 1) info.push(`Дубли заказов «${t.slice(0, 40)}» — ${n} шт`);
 
   for (const t of txs) {
-    if ((t.sum_uzs || 0) === 0 && (t.sum_usd || 0) === 0) warn.push(`Транзакция #${t.id} от ${name(t.by)} (${t.date || '?'}) — нулевая сумма`);
+    if ((t.uzs || 0) === 0 && ((t.cur === 'USD' ? t.amt : 0) || 0) === 0) warn.push(`Транзакция #${t.id} от ${name(t.by)} (${t.date || '?'}) — нулевая сумма`);
     if (!(t.note || '').trim() && !t.iid) warn.push(`Транзакция #${t.id} от ${name(t.by)} (${t.date || '?'}) — нет ни статьи, ни комментария`);
-    if (t.kind === 'expense' && (t.sum_uzs || 0) >= 5000000 && !(t.note || '').trim()) crit.push(`Крупный расход #${t.id} ${fmt(t.sum_uzs)} UZS от ${name(t.by)} БЕЗ комментария`);
+    if (t.type === 'expense' && (t.uzs || 0) >= 5000000 && !(t.note || '').trim()) crit.push(`Крупный расход #${t.id} ${fmt(t.uzs)} UZS от ${name(t.by)} БЕЗ комментария`);
     if (t.by && !userIds.has(t.by)) crit.push(`Транзакция #${t.id} — by=${t.by} ссылается на несуществующего user`);
     if (t.oid && !orderIds.has(t.oid)) warn.push(`Транзакция #${t.id} — oid=${t.oid} ссылается на несуществующий заказ`);
   }
@@ -76,9 +76,9 @@ function buildAudit(db, mode) {
   for (const p of petty) {
     if (p.status === 'open') {
       const d = daysBetween(p.date);
-      if (d !== null && d > 7) warn.push(`Подотчёт #${p.id} от ${name(p.by)} ${fmt(p.sum_uzs)} UZS — открыт ${d} дн.`);
+      if (d !== null && d > 7) warn.push(`Подотчёт #${p.id} от ${name(p.by)} ${fmt(p.uzs)} UZS — открыт ${d} дн.`);
     }
-    if ((p.sum_uzs || 0) > 1000000 && !(p.note || '').trim()) info.push(`Подотчёт #${p.id} от ${name(p.by)} ${fmt(p.sum_uzs)} UZS — без комментария`);
+    if ((p.uzs || 0) > 1000000 && !(p.note || '').trim()) info.push(`Подотчёт #${p.id} от ${name(p.by)} ${fmt(p.uzs)} UZS — без комментария`);
   }
 
   const cpsByName = {};
@@ -91,8 +91,8 @@ function buildAudit(db, mode) {
   if (mode === 'eod') {
     const todays = arr => arr.filter(x => (x.date || x.created || '').startsWith(T));
     const tOrders = todays(orders), tTxs = todays(txs), tSreqs = todays(sreqs), tPetty = todays(petty);
-    const sumIncome = tTxs.filter(t => t.kind === 'income').reduce((a, t) => a + (t.sum_uzs || 0), 0);
-    const sumExp = tTxs.filter(t => t.kind === 'expense').reduce((a, t) => a + (t.sum_uzs || 0), 0);
+    const sumIncome = tTxs.filter(t => t.type === 'income').reduce((a, t) => a + (t.uzs || 0), 0);
+    const sumExp = tTxs.filter(t => t.type === 'expense').reduce((a, t) => a + (t.uzs || 0), 0);
     const orderSum = tOrders.reduce((a, o) => a + (o.uzs || 0), 0);
     report += `## 📊 Цифры за день\n- Заказов: ${tOrders.length} (${fmt(orderSum)} UZS)\n- Транзакций: ${tTxs.length} (доход +${fmt(sumIncome)}, расход −${fmt(sumExp)})\n`;
     const srPending = tSreqs.filter(s => s.status === 'pending').length;
