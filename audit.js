@@ -81,9 +81,22 @@ function buildAudit(db, mode) {
     if ((p.uzs || 0) > 1000000 && !(p.note || '').trim()) info.push(`Подотчёт #${p.id} от ${name(p.by)} ${fmt(p.uzs)} UZS — без комментария`);
   }
 
-  const cpsByName = {};
-  for (const c of cps) { const k = ((c.n || '') + '').trim().toLowerCase(); if (!k) continue; (cpsByName[k] = cpsByName[k] || []).push(c.id); }
-  for (const [k, ids] of Object.entries(cpsByName)) if (ids.length > 1) info.push(`Дубль контрагента «${k}» — id ${ids.join(', ')}`);
+  // Group by (name + type) — same company can legitimately exist as
+  // supplier AND client AND service (three different business relationships).
+  // Only flag as duplicate when name AND type match.
+  const cpsByKey = {};
+  for (const c of cps) {
+    const n = String(c.n || '').trim().toLowerCase();
+    if (!n) continue;
+    const key = n + '|' + (c.type || '?');
+    (cpsByKey[key] = cpsByKey[key] || []).push(c.id);
+  }
+  for (const [key, ids] of Object.entries(cpsByKey)) {
+    if (ids.length <= 1) continue;
+    const [n, t] = key.split('|');
+    const typeLbl = { supplier: 'поставщик', client: 'клиент', service: 'услуги' }[t] || t;
+    info.push(`Дубль контрагента «${n}» (${typeLbl}) — id ${ids.join(', ')}`);
+  }
 
   const hdr = mode === 'eod' ? `# 🌙 ISOLA Итоги дня — ${T} 20:00` : `# 📊 ISOLA Аудит данных — ${T} 13:00`;
   let report = hdr + '\n\n';
